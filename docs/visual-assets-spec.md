@@ -1,5 +1,19 @@
 # 狗熊睡眠视觉资产方案
 
+## 2026-05-14 纠偏规则
+
+参考图只能作为视觉方向，不再作为素材来源。旧版 `ui_*` 图片属于过渡实现资产，后续需要按独立绘图模型资产清单逐张替换为 `gxs_*` 正式资产。
+
+必须遵守：
+
+- 页面背景、角色、按钮、图标、状态插画分别单独设计。
+- 图片里不嵌入最终 UI 文案，文字由 Android 原生组件渲染。
+- 不从整张设计图、截图、宣传图里裁切按钮或角色作为最终交付。
+- 每个资产都保留文件名、用途、尺寸、提示词和模拟器验收截图。
+- 新资产清单以 [`imagegen-independent-asset-manifest.md`](imagegen-independent-asset-manifest.md) 为准。
+
+完整 UI/UX 方向以 [`independent-ui-ux-redesign-plan.md`](independent-ui-ux-redesign-plan.md) 为准。
+
 ## 品牌方向
 
 关键词：温馨、可靠、可爱、明朗、亲切、适合家庭和中老年用户。
