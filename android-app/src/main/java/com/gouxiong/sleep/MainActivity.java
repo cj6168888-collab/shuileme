@@ -1339,7 +1339,7 @@ public class MainActivity extends Activity {
         stage.addView(statusView, matchWrap());
         addSpace(stage, 14);
 
-        ImageView avatar = designImage(roleAvatarAssetName(role), 238, ImageView.ScaleType.CENTER_CROP);
+        ImageView avatar = designImage(roleLiveAssetName(role), 238, ImageView.ScaleType.FIT_CENTER);
         avatar.setContentDescription(name + "，" + liveMoodText(mood));
         avatar.setOnClickListener(v -> interruptForUserSpeech());
         startAssistantMotion(avatar);
@@ -3246,6 +3246,11 @@ public class MainActivity extends Activity {
         if (CompanionAssistant.ROLE_BROTHER.equals(role)) return "ui_avatar_brother";
         if (CompanionAssistant.ROLE_YOUNG_MAN.equals(role)) return "ui_avatar_young_man";
         return "ui_avatar_gentle_woman";
+    }
+
+    private String roleLiveAssetName(String role) {
+        if (CompanionAssistant.ROLE_GENTLE_WOMAN.equals(role)) return "gxs_role_gentle_woman_live_stage";
+        return roleAvatarAssetName(role);
     }
 
     private void addStatusPill(String text, int color) {
