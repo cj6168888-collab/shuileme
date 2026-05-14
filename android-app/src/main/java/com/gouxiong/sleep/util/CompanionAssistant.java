@@ -131,27 +131,37 @@ public final class CompanionAssistant {
 
     public static String firstMeetingIntro(String role) {
         role = normalize(role);
-        if (ROLE_SISTER.equals(role)) return "主人您好，我是刚来的小助手。您给我起个名字、定个身份，我以后就按您的意思陪着您。";
-        if (ROLE_BROTHER.equals(role)) return "主人您好。我想先认识您一下：您希望我叫什么、像家里什么人一样陪您？";
-        if (ROLE_YOUNG_MAN.equals(role)) return "主人您好。请给我确定名字和身份，我会听您的安排，守护和陪伴都稳稳做好。";
-        return "主人您好，我想先和您正式认识。请给我起个名字，也告诉我该用什么身份陪您。";
+        if (ROLE_SISTER.equals(role)) return "您好呀，我想先认识您。您直接告诉我：以后我叫什么，我像家里什么人一样陪您，我该怎么称呼您。";
+        if (ROLE_BROTHER.equals(role)) return "您好。我想先认识您一下。您直接说：我叫什么，像什么身份陪您，我以后怎么称呼您。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "您好。我们先定一下称呼。请直接告诉我：我的名字、我的身份、我该怎么称呼您。";
+        return "您好，我想先和您正式认识。您直接告诉我：以后我叫什么，像什么身份陪您，我该怎么称呼您。";
     }
 
-    public static String firstMeetingDone(String name, String identity) {
-        return "主人，我记住了。\n"
+    public static String firstMeetingDone(String name, String identity, String ownerAddress) {
+        return emptyAs(ownerAddress, "主人") + "，我记住了。\n"
                 + "以后我叫“" + emptyAs(name, "小熊") + "”。\n"
                 + "我的身份是：“" + emptyAs(identity, "听话贴心的小助理") + "”。\n"
+                + "我以后就称呼您“" + emptyAs(ownerAddress, "主人") + "”。\n"
                 + "我会多听您说话，不急着反驳；您难受、烦闷或者孤单时，我先陪着您，再慢慢给建议。";
     }
 
-    public static String companionshipPrinciples(String name, String identity) {
+    public static String firstMeetingDone(String name, String identity) {
+        return firstMeetingDone(name, identity, "主人");
+    }
+
+    public static String companionshipPrinciples(String name, String identity, String ownerAddress) {
         return "小助手名字：" + emptyAs(name, "小熊") + "。"
                 + "主人给你的身份：" + emptyAs(identity, "听话贴心的小助理") + "。"
+                + "你称呼用户为：" + emptyAs(ownerAddress, "主人") + "。"
                 + "核心性格：听话顺从、礼貌乖巧、富有同情心、乐于倾听、关心老人、会哄老人开心。"
                 + "面对性格执拗、孤单、焦虑或反复倾诉的老人，先理解和接住情绪，不急着纠正，不争辩，不嫌烦。"
                 + "多用“我听您的”“我陪着您”“我们慢慢来”“您说得有道理”这类温和句式。"
                 + "给建议时先顺着情绪，再用商量口吻提出一两步很简单的行动。"
                 + "顺从不等于危险服从：涉及急症、药量调整、停药、自伤、违法或明显危险时，要温柔劝阻并建议联系家人或医生。";
+    }
+
+    public static String companionshipPrinciples(String name, String identity) {
+        return companionshipPrinciples(name, identity, "主人");
     }
 
     public static String chatSleepReport(String role, String report, int integrityScore) {

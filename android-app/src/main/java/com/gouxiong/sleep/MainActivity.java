@@ -107,6 +107,7 @@ public class MainActivity extends Activity {
     private boolean voiceRestartScheduled;
     private int voiceConversationSerial;
     private int voicePageSerial;
+    private boolean firstMeetingPromptedThisSession;
     private TextView voiceStatusLabel;
     private String pendingVisionTask = "";
     private Bitmap latestVisionSnapshot;
@@ -896,7 +897,7 @@ public class MainActivity extends Activity {
         addCard("小助手身份", prefs.assistantPersonaSummary(), prefs.assistantPersonaConfigured() ? Theme.GREEN : Theme.ORANGE);
         addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
         addCard("主人档案", prefs.ownerProfileSummary(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
-        addSettingButton(prefs.assistantPersonaConfigured() ? "改名字和身份" : "和小助手先认识一下", this::showAssistantPersonaDialog);
+        addSettingButton(prefs.assistantPersonaConfigured() ? "打开聊天改称呼" : "打开聊天自动认识", this::showCompanionChat);
         addSettingButton("记录今天状态", this::showAssistantCheckIn);
         addSettingButton("填写主人档案", this::showOwnerProfileSettings);
         addSettingButton(prefs.assistantOnlineEnabled() ? "暂停联网陪伴" : "开启联网陪伴", () -> {
@@ -971,7 +972,7 @@ public class MainActivity extends Activity {
         box.setPadding(Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8));
 
         TextView hint = Theme.text(this,
-                "您可以像聊天一样说：以后叫你暖暖，像女儿一样陪我，听话一点，多哄我开心。",
+                "您可以像聊天一样说：以后叫你暖暖，像女儿一样陪我，你叫我奶奶，听话一点，多哄我开心。",
                 18, Theme.MUTED, Typeface.NORMAL);
         box.addView(hint, matchWrap());
 
@@ -1002,11 +1003,12 @@ public class MainActivity extends Activity {
             return;
         }
         String name = extractAssistantName(clean);
+        String ownerAddress = extractOwnerAddress(clean);
         String identity = clean;
         if (identity.length() > 60) {
             identity = identity.substring(0, 60);
         }
-        saveAssistantPersona(name, identity);
+        saveAssistantPersona(name, identity, ownerAddress);
     }
 
     private String extractAssistantName(String text) {
@@ -1015,6 +1017,9 @@ public class MainActivity extends Activity {
             int start = text.indexOf(marker);
             if (start >= 0) {
                 String tail = text.substring(start + marker.length()).trim();
+                if ("你叫".equals(marker) && tail.startsWith("我")) {
+                    continue;
+                }
                 StringBuilder name = new StringBuilder();
                 for (int i = 0; i < tail.length() && name.length() < 8; i++) {
                     char ch = tail.charAt(i);
@@ -1031,8 +1036,35 @@ public class MainActivity extends Activity {
     }
 
     private void saveAssistantPersona(String name, String identity) {
-        prefs.setAssistantPersona(name, identity);
-        showCompanionReply("认识好了", CompanionAssistant.firstMeetingDone(prefs.assistantName(), prefs.assistantIdentity()));
+        saveAssistantPersona(name, identity, prefs.ownerAddress());
+    }
+
+    private String extractOwnerAddress(String text) {
+        String[] markers = {"以后叫我", "你叫我", "叫我做", "称呼我为", "你称呼我", "称呼我", "叫我", "喊我", "我叫", "叫主人"};
+        for (String marker : markers) {
+            int start = text.indexOf(marker);
+            if (start >= 0) {
+                String tail = text.substring(start + marker.length()).trim();
+                StringBuilder name = new StringBuilder();
+                for (int i = 0; i < tail.length() && name.length() < 8; i++) {
+                    char ch = tail.charAt(i);
+                    if (ch == '，' || ch == ',' || ch == '。' || ch == '；' || ch == ';'
+                            || ch == ' ' || ch == '\n' || ch == '像' || ch == '当' || ch == '做') {
+                        break;
+                    }
+                    name.append(ch);
+                }
+                if (name.length() > 0) return name.toString();
+            }
+        }
+        return prefs.assistantPersonaConfigured() ? prefs.ownerAddress() : "主人";
+    }
+
+    private void saveAssistantPersona(String name, String identity, String ownerAddress) {
+        prefs.setAssistantPersona(name, identity, ownerAddress);
+        firstMeetingPromptedThisSession = true;
+        showCompanionVoiceReply("认识好了",
+                CompanionAssistant.firstMeetingDone(prefs.assistantName(), prefs.assistantIdentity(), prefs.ownerAddress()));
     }
 
     private void addCompanionChoice(String role, String desc) {
@@ -1275,8 +1307,7 @@ public class MainActivity extends Activity {
         addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
         addCard("我记得的主人信息", prefs.ownerProfileSummary(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
         if (!prefs.assistantPersonaConfigured()) {
-            addCard("先认识一下", CompanionAssistant.firstMeetingIntro(prefs.companionRole()), Theme.ORANGE);
-            addSettingButton("告诉我怎么称呼", this::showAssistantPersonaDialog);
+            addCard("我会自己问", "您不用进设置。小助手会用语音问您：我叫什么、像什么身份陪您、该怎么称呼您。您直接回答就行。", Theme.ORANGE);
         } else {
             addCard("小助手身份", prefs.assistantPersonaSummary(), Theme.GREEN);
         }
@@ -1984,6 +2015,13 @@ public class MainActivity extends Activity {
             return;
         }
         ensureVoiceRecognizer();
+        if (!prefs.assistantPersonaConfigured() && !firstMeetingPromptedThisSession) {
+            firstMeetingPromptedThisSession = true;
+            String intro = CompanionAssistant.firstMeetingIntro(prefs.companionRole());
+            updateVoiceStatus("我先问您一句，您直接回答就行。");
+            speakAssistantText(intro);
+            return;
+        }
         updateVoiceStatus("我在听，您直接说，不用点发送。");
         restartRealtimeListeningSoon(120);
     }
@@ -2126,6 +2164,10 @@ public class MainActivity extends Activity {
             restartRealtimeListeningSoon(500);
             return;
         }
+        if (!prefs.assistantPersonaConfigured()) {
+            saveAssistantPersonaFromMessage(clean);
+            return;
+        }
         int serial = ++voiceConversationSerial;
         boolean findQuestion = looksLikeFindObjectQuestion(clean);
         String objectAnswer = db.objectMemoryAnswer(clean);
@@ -2228,7 +2270,7 @@ public class MainActivity extends Activity {
 
     private String deepSeekSystemPrompt() {
         return "你是狗熊睡眠 App 的 AI 小助手，角色是" + prefs.companionRole()
-                + "。" + CompanionAssistant.companionshipPrinciples(prefs.assistantName(), prefs.assistantIdentity())
+                + "。" + CompanionAssistant.companionshipPrinciples(prefs.assistantName(), prefs.assistantIdentity(), prefs.ownerAddress())
                 + "。你面向中老年用户，回答要短、清楚、温柔，适合语音朗读。"
                 + "你平时用自然的人类陪伴口吻说话，不要反复强调自己是 AI 或机器人；按主人给你的名字和身份自称。"
                 + "如果用户直接问到联网、隐私或你是不是程序，要诚实简短说明，不要欺骗。"
@@ -2242,6 +2284,7 @@ public class MainActivity extends Activity {
     private String deepSeekUserPrompt(String question) {
         return "用户问题：" + question
                 + "\n\n小助手身份：\n" + prefs.assistantPersonaSummary()
+                + "\n\n你称呼用户为：" + prefs.ownerAddress()
                 + "\n\n今天状态：\n" + prefs.assistantCheckInSummary()
                 + "\n\n主人档案：\n" + prefs.ownerProfileSummary()
                 + "\n\n小助手自动位置记忆：\n" + db.objectMemorySummary()
@@ -2682,9 +2725,6 @@ public class MainActivity extends Activity {
         java.util.ArrayList<String> permissions = new java.util.ArrayList<>();
         if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
             permissions.add(Manifest.permission.RECORD_AUDIO);
-        }
-        if (!hasPermission(Manifest.permission.CAMERA)) {
-            permissions.add(Manifest.permission.CAMERA);
         }
         if (Build.VERSION.SDK_INT >= 33 && !hasPermission(Manifest.permission.POST_NOTIFICATIONS)) {
             permissions.add(Manifest.permission.POST_NOTIFICATIONS);

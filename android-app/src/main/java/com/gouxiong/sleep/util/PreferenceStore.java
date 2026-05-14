@@ -322,13 +322,24 @@ public class PreferenceStore {
         return identity.length() > 0 ? identity : "听话贴心的小助理";
     }
 
+    public String ownerAddress() {
+        String address = prefs.getString("owner_address", "");
+        return address.length() > 0 ? address : "主人";
+    }
+
     public void setAssistantPersona(String name, String identity) {
+        setAssistantPersona(name, identity, ownerAddress());
+    }
+
+    public void setAssistantPersona(String name, String identity, String ownerAddress) {
         String cleanName = clean(name);
         String cleanIdentity = clean(identity);
+        String cleanAddress = clean(ownerAddress);
         prefs.edit()
                 .putBoolean("assistant_persona_configured", true)
                 .putString("assistant_name", cleanName.length() > 0 ? cleanName : "小熊")
                 .putString("assistant_identity", cleanIdentity.length() > 0 ? cleanIdentity : "听话贴心的小助理")
+                .putString("owner_address", cleanAddress.length() > 0 ? cleanAddress : "主人")
                 .apply();
     }
 
@@ -336,7 +347,7 @@ public class PreferenceStore {
         if (!assistantPersonaConfigured()) {
             return "还没有正式认识。第一次聊天时，主人可以给小助手起名字、定身份。";
         }
-        return "名字：" + assistantName() + "\n身份：" + assistantIdentity();
+        return "名字：" + assistantName() + "\n身份：" + assistantIdentity() + "\n称呼您：" + ownerAddress();
     }
 
     public boolean assistantOnlineEnabled() {
