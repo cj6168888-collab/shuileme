@@ -12,17 +12,29 @@ if ($LASTEXITCODE -ne 0) { throw "Build failed" }
 $apk = Join-Path $root "build\outputs\apk\gouxiong-sleep-debug.apk"
 if (-not (Test-Path $apk)) { throw "APK missing: $apk" }
 
+$buildToolsRoot = Join-Path $sdk "build-tools"
+$bt = Get-ChildItem -Path $buildToolsRoot -Directory -ErrorAction SilentlyContinue |
+  Where-Object { (Test-Path (Join-Path $_.FullName "aapt2.exe")) -or (Test-Path (Join-Path $_.FullName "aapt2")) } |
+  Sort-Object Name -Descending |
+  Select-Object -First 1 |
+  ForEach-Object { $_.FullName }
+if (-not $bt) { throw "No Android build-tools found under $buildToolsRoot." }
+$apksigner = Join-Path $bt "apksigner.bat"
+$aapt2 = Join-Path $bt "aapt2.exe"
+if (-not (Test-Path $apksigner)) { $apksigner = Join-Path $bt "apksigner" }
+if (-not (Test-Path $aapt2)) { $aapt2 = Join-Path $bt "aapt2" }
+
 Write-Host "== Verify signature =="
-& (Join-Path $sdk "build-tools\36.1.0\apksigner.bat") verify --verbose $apk
+& $apksigner verify --verbose $apk
 if ($LASTEXITCODE -ne 0) { throw "Signature verify failed" }
 
 Write-Host "== Package name =="
-$packageName = & (Join-Path $sdk "build-tools\36.1.0\aapt2.exe") dump packagename $apk
+$packageName = & $aapt2 dump packagename $apk
 if ($packageName.Trim() -ne "com.gouxiong.sleep") { throw "Unexpected package: $packageName" }
 Write-Host $packageName
 
 Write-Host "== Permissions =="
-$permissions = & (Join-Path $sdk "build-tools\36.1.0\aapt2.exe") dump permissions $apk
+$permissions = & $aapt2 dump permissions $apk
 $required = @(
   "android.permission.RECORD_AUDIO",
   "android.permission.POST_NOTIFICATIONS",

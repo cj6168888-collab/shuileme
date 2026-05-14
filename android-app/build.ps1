@@ -5,17 +5,29 @@ $sdk = $env:ANDROID_HOME
 if (-not $sdk) { $sdk = $env:ANDROID_SDK_ROOT }
 if (-not $sdk) { throw "ANDROID_HOME or ANDROID_SDK_ROOT is not set." }
 
-$platform = Join-Path $sdk "platforms\android-35\android.jar"
-if (-not (Test-Path $platform)) {
-  $platform = Join-Path $sdk "platforms\android-36\android.jar"
-}
-if (-not (Test-Path $platform)) { throw "No android.jar found for android-35 or android-36." }
+$platformsRoot = Join-Path $sdk "platforms"
+$platform = Get-ChildItem -Path $platformsRoot -Directory -ErrorAction SilentlyContinue |
+  Where-Object { Test-Path (Join-Path $_.FullName "android.jar") } |
+  Sort-Object Name -Descending |
+  Select-Object -First 1 |
+  ForEach-Object { Join-Path $_.FullName "android.jar" }
+if (-not $platform -or -not (Test-Path $platform)) { throw "No android.jar found under $platformsRoot." }
 
-$bt = Join-Path $sdk "build-tools\36.1.0"
+$buildToolsRoot = Join-Path $sdk "build-tools"
+$bt = Get-ChildItem -Path $buildToolsRoot -Directory -ErrorAction SilentlyContinue |
+  Where-Object { (Test-Path (Join-Path $_.FullName "aapt2.exe")) -or (Test-Path (Join-Path $_.FullName "aapt2")) } |
+  Sort-Object Name -Descending |
+  Select-Object -First 1 |
+  ForEach-Object { $_.FullName }
+if (-not $bt) { throw "No Android build-tools found under $buildToolsRoot." }
 $aapt2 = Join-Path $bt "aapt2.exe"
 $d8 = Join-Path $bt "d8.bat"
 $zipalign = Join-Path $bt "zipalign.exe"
 $apksigner = Join-Path $bt "apksigner.bat"
+if (-not (Test-Path $aapt2)) { $aapt2 = Join-Path $bt "aapt2" }
+if (-not (Test-Path $d8)) { $d8 = Join-Path $bt "d8" }
+if (-not (Test-Path $zipalign)) { $zipalign = Join-Path $bt "zipalign" }
+if (-not (Test-Path $apksigner)) { $apksigner = Join-Path $bt "apksigner" }
 foreach ($tool in @($aapt2, $d8, $zipalign, $apksigner)) {
   if (-not (Test-Path $tool)) { throw "Missing Android build tool: $tool" }
 }
