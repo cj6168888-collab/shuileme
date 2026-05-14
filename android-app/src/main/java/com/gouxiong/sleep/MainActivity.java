@@ -339,7 +339,8 @@ public class MainActivity extends Activity {
 
         LinearLayout words = new LinearLayout(this);
         words.setOrientation(LinearLayout.VERTICAL);
-        words.addView(Theme.text(this, title + " · " + role, 21, CompanionAssistant.roleColor(role), Typeface.BOLD), matchWrap());
+        String heading = title.equals(role) ? role : title + " · " + role;
+        words.addView(Theme.text(this, heading, 21, CompanionAssistant.roleColor(role), Typeface.BOLD), matchWrap());
         addSpace(words, 4);
         words.addView(Theme.text(this, body, 18, Theme.MUTED, Typeface.NORMAL), matchWrap());
         row.addView(words, new LinearLayout.LayoutParams(0, -2, 1));
@@ -378,7 +379,6 @@ public class MainActivity extends Activity {
     private void maybeShowProactiveCare() {
         if (!prefs.assistantProactiveCareEnabled()
                 || prefs.isMonitoring()
-                || !prefs.ownerProfileStarted()
                 || prefs.assistantCarePromptedToday()) {
             return;
         }
@@ -805,6 +805,8 @@ public class MainActivity extends Activity {
         }
         addCard("晨练小贴士", CompanionAssistant.exerciseLine(prefs.companionRole()), Theme.GREEN);
         addCard("天气小贴士", "当前版本默认离线。出门前记得查看天气和温差。", Theme.BLUE);
+        addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
+        addSettingButton("记录今天状态", this::showAssistantCheckIn);
         addCard("今天关怀", proactiveCareText(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
         addCard("小助手边界", CompanionAssistant.chatPrivacy(prefs.companionRole(), prefs.assistantOnlineEnabled()), Theme.ORANGE);
         addSettingButton("和我聊聊", this::showCompanionChat);
@@ -828,7 +830,9 @@ public class MainActivity extends Activity {
                         ? "已开启。DeepSeek Key " + (prefs.deepSeekKeyConfigured() ? "已配置" : "未配置") + "。只发送你输入的问题和必要摘要。"
                         : "已关闭。当前全部使用本机离线文案，不接服务器。",
                 prefs.assistantOnlineEnabled() ? Theme.GREEN : Theme.ORANGE);
+        addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
         addCard("主人档案", prefs.ownerProfileSummary(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
+        addSettingButton("记录今天状态", this::showAssistantCheckIn);
         addSettingButton("填写主人档案", this::showOwnerProfileSettings);
         addSettingButton(prefs.assistantOnlineEnabled() ? "关闭联网聊天增强" : "开启联网聊天增强", () -> {
             prefs.setAssistantOnlineEnabled(!prefs.assistantOnlineEnabled());
@@ -837,6 +841,63 @@ public class MainActivity extends Activity {
         addSettingButton("设置 DeepSeek Key", this::showDeepSeekSettings);
         addSettingButton("进入离线聊天", this::showCompanionChat);
         addSettingButton("返回设置", this::showSettings);
+    }
+
+    private void showAssistantCheckIn() {
+        content.removeAllViews();
+        content.addView(Theme.text(this, "今天状态", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        addAssistantHero("我想了解你", CompanionAssistant.checkInIntro(prefs.companionRole()), false);
+        addCard("当前记录", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
+        addSettingButton("还不错，精神可以", () -> saveAssistantCheckIn("还不错", "精神可以", ""));
+        addSettingButton("有点累，想安静点", () -> saveAssistantCheckIn("有点累", "偏低", "今天提醒轻一点"));
+        addSettingButton("心情不好，想聊聊", () -> saveAssistantCheckIn("心情不好", "一般", "想多聊几句"));
+        addSettingButton("身体不舒服，先记一下", () -> saveAssistantCheckIn("担心身体", "偏低", "身体不舒服，必要时联系家人或医生"));
+        addSettingButton("手动填写一句", this::showAssistantCheckInDialog);
+        addSettingButton("返回聊天", this::showCompanionChat);
+        addSettingButton("返回首页", () -> showShell("guard"));
+    }
+
+    private void saveAssistantCheckIn(String mood, String energy, String note) {
+        prefs.setAssistantCheckIn(mood, energy, note);
+        showCompanionReply("我记下了",
+                CompanionAssistant.checkInReply(prefs.companionRole(), mood, energy, note));
+    }
+
+    private void showAssistantCheckInDialog() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8));
+
+        EditText mood = new EditText(this);
+        mood.setHint("心情，例如：还不错、有点烦、担心身体");
+        mood.setText(prefs.assistantCheckInToday() ? prefs.assistantCheckInMood() : "");
+        mood.setTextSize(20);
+        box.addView(mood, matchWrap());
+
+        EditText energy = new EditText(this);
+        energy.setHint("精力，例如：精神可以、有点累、很困");
+        energy.setText(prefs.assistantCheckInToday() ? prefs.assistantCheckInEnergy() : "");
+        energy.setTextSize(20);
+        box.addView(energy, matchWrap());
+
+        EditText note = new EditText(this);
+        note.setHint("补充一句，例如：今天头晕、想安静、想多聊聊");
+        note.setText(prefs.assistantCheckInToday() ? prefs.assistantCheckInNote() : "");
+        note.setTextSize(20);
+        note.setMinLines(2);
+        box.addView(note, matchWrap());
+
+        new AlertDialog.Builder(this)
+                .setTitle("记录今天状态")
+                .setMessage("只保存在本机，用来让小助手今天更会关心你。")
+                .setView(box)
+                .setPositiveButton("保存", (d, w) -> saveAssistantCheckIn(
+                        mood.getText().toString(),
+                        energy.getText().toString(),
+                        note.getText().toString()))
+                .setNegativeButton("取消", null)
+                .show();
     }
 
     private void addCompanionChoice(String role, String desc) {
@@ -888,11 +949,13 @@ public class MainActivity extends Activity {
         addSpace(content, 8);
         addAssistantHero("我想更懂你", "这些信息只保存在本机，用来让小助手更会关心你。可以少填，也可以随时改。", false);
         addCard("当前档案", prefs.ownerProfileSummary(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
+        addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
         addCard("主动关怀",
                 prefs.assistantProactiveCareEnabled()
                         ? "已开启。App 打开时，小助手每天最多主动问候一次；夜间守护时不会打扰。"
                         : "已关闭。小助手只在你点开时回应。",
                 prefs.assistantProactiveCareEnabled() ? Theme.GREEN : Theme.ORANGE);
+        addSettingButton("记录今天状态", this::showAssistantCheckIn);
         addSettingButton("编辑主人档案", this::showOwnerProfileDialog);
         addSettingButton(prefs.assistantProactiveCareEnabled() ? "关闭主动关怀" : "开启主动关怀", () -> {
             prefs.setAssistantProactiveCareEnabled(!prefs.assistantProactiveCareEnabled());
@@ -966,6 +1029,7 @@ public class MainActivity extends Activity {
         content.addView(Theme.text(this, "和我聊聊", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
         addAssistantHero("离线陪伴", CompanionAssistant.chatIntro(prefs.companionRole()), false);
+        addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
         addCard("我记得的主人信息", prefs.ownerProfileSummary(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
         addCard("当前模式", CompanionAssistant.chatPrivacy(prefs.companionRole(), prefs.assistantOnlineEnabled())
                 + "\n夜间实时守护仍然不依赖大模型。", Theme.BLUE);
@@ -974,7 +1038,9 @@ public class MainActivity extends Activity {
         } else if (prefs.assistantOnlineEnabled()) {
             addSettingButton("设置 DeepSeek Key", this::showDeepSeekSettings);
         }
+        addSettingButton("记录今天状态", this::showAssistantCheckIn);
         addAssistantReplyButton("今天关怀建议", proactiveCareText());
+        addAssistantReplyButton("按今天状态关心我", CompanionAssistant.checkInCareLine(prefs.companionRole(), prefs.assistantCheckInSummary()));
         addAssistantReplyButton("解释昨晚报告",
                 CompanionAssistant.chatSleepReport(prefs.companionRole(), db.localReportText(), guardIntegrityScore()));
         addAssistantReplyButton("陪我睡前放松", CompanionAssistant.chatRelax(prefs.companionRole()));
@@ -991,6 +1057,11 @@ public class MainActivity extends Activity {
     private String proactiveCareText() {
         StringBuilder b = new StringBuilder();
         b.append(CompanionAssistant.sampleLine(prefs.companionRole())).append("\n\n");
+        if (prefs.assistantCheckInToday()) {
+            b.append("今天状态我记着：\n").append(prefs.assistantCheckInSummary()).append("\n\n");
+        } else {
+            b.append(CompanionAssistant.checkInIntro(prefs.companionRole())).append("\n\n");
+        }
         if (prefs.ownerProfileStarted()) {
             if (prefs.healthProfile().length() > 0) {
                 b.append("身体情况我记着：").append(prefs.healthProfile()).append("。今天如果不舒服，先休息，必要时联系家人或医生。\n");
@@ -1114,6 +1185,7 @@ public class MainActivity extends Activity {
 
     private String deepSeekUserPrompt(String question) {
         return "用户问题：" + question
+                + "\n\n今天状态：\n" + prefs.assistantCheckInSummary()
                 + "\n\n主人档案：\n" + prefs.ownerProfileSummary()
                 + "\n\n睡眠摘要：\n" + db.localReportText()
                 + "\n\n守护完整性：" + guardIntegrityScore() + "分"

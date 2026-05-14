@@ -147,6 +147,38 @@ public final class CompanionAssistant {
         return "先慢慢吸气，再慢慢呼气。肩膀放松，手脚放松，身体不舒服就先休息。";
     }
 
+    public static String checkInIntro(String role) {
+        role = normalize(role);
+        if (ROLE_SISTER.equals(role)) return "我想记一下你今天感觉怎么样，点一下就好，不用写很多字。";
+        if (ROLE_BROTHER.equals(role)) return "我帮你做个今天状态小记录：心情、精力、身体感觉。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "今天状态会影响提醒方式。先做一个简单记录，全部保存在本机。";
+        return "我想了解你今天的状态，方便用更合适的方式关心你。";
+    }
+
+    public static String checkInReply(String role, String mood, String energy, String note) {
+        role = normalize(role);
+        String summary = "我记下了：心情 " + emptyAs(mood, "未填写") + "，精力 " + emptyAs(energy, "未填写");
+        if (note != null && note.trim().length() > 0) {
+            summary += "，补充 " + note.trim();
+        }
+        String next;
+        if (ROLE_SISTER.equals(role)) next = "今天我会说得轻一点，陪你慢慢来。";
+        else if (ROLE_BROTHER.equals(role)) next = "我会按这个状态提醒你喝水、休息和确认用药。";
+        else if (ROLE_YOUNG_MAN.equals(role)) next = "如果身体明显不舒服，先联系家人或医生，不要硬撑。";
+        else next = "今天我会按这个状态给你更温和的建议。";
+        return summary + "。\n" + next + "\n这些只是生活关怀记录，不是医学判断。";
+    }
+
+    public static String checkInCareLine(String role, String checkInSummary) {
+        role = normalize(role);
+        if (checkInSummary == null || checkInSummary.length() == 0 || checkInSummary.startsWith("今天还没有")) {
+            return checkInIntro(role);
+        }
+        if (ROLE_BROTHER.equals(role)) return "今天状态我记着：\n" + checkInSummary + "\n我会按这个状态给提醒。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "今日状态：\n" + checkInSummary + "\n如果有不适，安全优先。";
+        return "今天的感觉我记着：\n" + checkInSummary + "\n我们慢慢来。";
+    }
+
     public static String chatDoctor(String role) {
         return "如果多晚重复出现高风险记录、憋醒样声音、喘息呛咳，或白天明显困倦，可以带着 App 的记录咨询医生。不要只靠 App 下结论。";
     }
@@ -155,5 +187,9 @@ public final class CompanionAssistant {
         return onlineEnabled
                 ? "联网增强已开启。后续应只发送结构化摘要，整夜录音、亲人录音和联系人电话默认不上传。"
                 : "当前默认离线。角色选择、睡眠记录、联系人和录音都保存在本机，不接服务器。";
+    }
+
+    private static String emptyAs(String value, String fallback) {
+        return value == null || value.trim().length() == 0 ? fallback : value.trim();
     }
 }

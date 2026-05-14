@@ -446,6 +446,45 @@ public class PreferenceStore {
         prefs.edit().putString("assistant_care_prompt_date", dayKey(System.currentTimeMillis())).apply();
     }
 
+    public boolean assistantCheckInToday() {
+        return dayKey(System.currentTimeMillis()).equals(prefs.getString("assistant_checkin_date", ""));
+    }
+
+    public String assistantCheckInMood() {
+        return prefs.getString("assistant_checkin_mood", "");
+    }
+
+    public String assistantCheckInEnergy() {
+        return prefs.getString("assistant_checkin_energy", "");
+    }
+
+    public String assistantCheckInNote() {
+        return prefs.getString("assistant_checkin_note", "");
+    }
+
+    public void setAssistantCheckIn(String mood, String energy, String note) {
+        prefs.edit()
+                .putString("assistant_checkin_date", dayKey(System.currentTimeMillis()))
+                .putString("assistant_checkin_mood", clean(mood))
+                .putString("assistant_checkin_energy", clean(energy))
+                .putString("assistant_checkin_note", clean(note))
+                .apply();
+    }
+
+    public String assistantCheckInSummary() {
+        if (!assistantCheckInToday()) {
+            return "今天还没有记录状态。点“记录今天状态”，小助手会更懂今天该怎么关心你。";
+        }
+        StringBuilder b = new StringBuilder();
+        appendProfileLine(b, "心情", assistantCheckInMood());
+        appendProfileLine(b, "精力", assistantCheckInEnergy());
+        appendProfileLine(b, "补充", assistantCheckInNote());
+        if (b.length() == 0) {
+            return "今天已记录状态，但没有填写细节。";
+        }
+        return b.toString();
+    }
+
     public boolean medicationEnabled() {
         return prefs.getBoolean("medication_enabled", false);
     }
