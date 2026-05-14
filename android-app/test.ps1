@@ -110,6 +110,18 @@ $liveProtocol = Get-Content -Encoding UTF8 (Join-Path $root "src\main\java\com\g
 foreach ($needle in @("OPUS_SAMPLE_RATE = 16000", "OPUS_FRAME_DURATION_MS = 60", "helloMessage", "startCallMessage", "listenMessage", "abortMessage", "wake_word_detected", "voiceMuteMessage")) {
   if ($liveProtocol -notmatch [regex]::Escape($needle)) { throw "Live protocol static check failed: $needle" }
 }
+$nativeWebSocket = Get-Content -Encoding UTF8 (Join-Path $root "src\main\java\com\gouxiong\sleep\live\NativeWebSocketClient.java") -Raw
+foreach ($needle in @("Sec-WebSocket-Key", "Sec-WebSocket-Accept", "OPCODE_PING", "OPCODE_PONG", "sendBinary", "sendFrame", "mask", "wss", "SSLSocketFactory")) {
+  if ($nativeWebSocket -notmatch [regex]::Escape($needle)) { throw "Native WebSocket static check failed: $needle" }
+}
+$liveSession = Get-Content -Encoding UTF8 (Join-Path $root "src\main\java\com\gouxiong\sleep\live\LiveCompanionSession.java") -Raw
+foreach ($needle in @("device-id", "client-id", "protocol-version", "Authorization", "helloMessage", "startCallMessage", "listenMessage", "abortMessage", "sendOpusFrame", "onTts", "onStt", "onEmotion", "onAudio")) {
+  if ($liveSession -notmatch [regex]::Escape($needle)) { throw "Live session static check failed: $needle" }
+}
+$liveRecorder = Get-Content -Encoding UTF8 (Join-Path $root "src\main\java\com\gouxiong\sleep\live\LivePcmRecorder.java") -Raw
+foreach ($needle in @("SAMPLE_RATE", "FRAME_DURATION_MS", "FRAME_SAMPLES", "VOICE_COMMUNICATION", "AcousticEchoCanceler", "NoiseSuppressor", "AutomaticGainControl", "onPcmFrame", "shortsToLittleEndianPcm", "rms")) {
+  if ($liveRecorder -notmatch [regex]::Escape($needle)) { throw "Live PCM recorder static check failed: $needle" }
+}
 
 Write-Host "== Local secret leak check =="
 $localConfig = Join-Path $root "local.deepseek.properties"

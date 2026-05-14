@@ -159,10 +159,18 @@
 
 ### 阶段 B：原生 WebSocket + Opus
 
-需要补：
+已开始：
 
 - 原生 Java WebSocket 客户端。
-- PCM16 录音帧采集。
+
+已落地到当前 APK 工程：
+
+- `NativeWebSocketClient`：原生 `ws/wss` 客户端，不依赖 Flutter 或第三方 WebSocket 库；支持自定义 headers、HTTP Upgrade、`Sec-WebSocket-Accept` 校验、文本帧、二进制帧、ping/pong、close 和分片消息。
+- `LiveCompanionSession`：小智式实时会话包装；连接时发送 `hello`，保留 `device-id`、`client-id`、`protocol-version`、`Authorization` headers，并暴露 `startCall`、`listen`、`abort`、`voiceMute`、`sendOpusFrame`、`tts/stt/emotion/audio` 回调。
+- `LivePcmRecorder`：16kHz、单声道、60ms PCM16 帧采集；优先使用 `VOICE_COMMUNICATION` 音源，并打开系统回音消除、降噪和自动增益，为后续 Opus 编码做准备。
+
+仍需要补：
+
 - Opus 编码/解码库选择。
 - PCM 播放器，支持低延迟播放。
 - 音频焦点、回音消除、噪声抑制。
