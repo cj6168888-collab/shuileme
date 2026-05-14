@@ -21,6 +21,25 @@ public final class DeepSeekClient {
         if (apiKey == null || !apiKey.startsWith("sk-")) {
             throw new IllegalArgumentException("DeepSeek API Key 未配置");
         }
+        return chatWithUserContent(apiKey, model, systemPrompt, userPrompt);
+    }
+
+    public static String chatWithImage(String apiKey, String model, String systemPrompt, String userPrompt, String jpegBase64) throws Exception {
+        if (apiKey == null || !apiKey.startsWith("sk-")) {
+            throw new IllegalArgumentException("DeepSeek API Key 未配置");
+        }
+        if (jpegBase64 == null || jpegBase64.length() == 0) {
+            throw new IllegalArgumentException("图片为空");
+        }
+        JSONArray content = new JSONArray();
+        content.put(new JSONObject().put("type", "text").put("text", userPrompt));
+        content.put(new JSONObject()
+                .put("type", "image_url")
+                .put("image_url", new JSONObject().put("url", "data:image/jpeg;base64," + jpegBase64)));
+        return chatWithUserContent(apiKey, model, systemPrompt, content);
+    }
+
+    private static String chatWithUserContent(String apiKey, String model, String systemPrompt, Object userContent) throws Exception {
         HttpURLConnection connection = (HttpURLConnection) new URL(ENDPOINT).openConnection();
         connection.setRequestMethod("POST");
         connection.setConnectTimeout(15000);
@@ -33,7 +52,7 @@ public final class DeepSeekClient {
         body.put("model", model == null || model.length() == 0 ? "deepseek-v4-flash" : model);
         JSONArray messages = new JSONArray();
         messages.put(new JSONObject().put("role", "system").put("content", systemPrompt));
-        messages.put(new JSONObject().put("role", "user").put("content", userPrompt));
+        messages.put(new JSONObject().put("role", "user").put("content", userContent));
         body.put("messages", messages);
         body.put("stream", false);
         body.put("max_tokens", 650);

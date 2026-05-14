@@ -554,8 +554,86 @@ public class PreferenceStore {
                 && a.get(java.util.Calendar.DAY_OF_YEAR) == b.get(java.util.Calendar.DAY_OF_YEAR);
     }
 
+    public String importantObjectMemory() {
+        return prefs.getString("assistant_important_object_memory", "");
+    }
+
+    public void setVisualMemory(String item, String place, String note) {
+        String cleanItem = clean(item);
+        String cleanPlace = clean(place);
+        String cleanNote = clean(note);
+        if (cleanItem.length() == 0 && cleanPlace.length() == 0 && cleanNote.length() == 0) {
+            return;
+        }
+        String line = dateTime(System.currentTimeMillis()) + "："
+                + (cleanItem.length() == 0 ? "重要东西" : cleanItem)
+                + " 放在 "
+                + (cleanPlace.length() == 0 ? "主人描述的位置" : cleanPlace);
+        if (cleanNote.length() > 0) {
+            line += "；备注：" + cleanNote;
+        }
+        String existing = importantObjectMemory();
+        String combined = line + (existing.length() > 0 ? "\n" + existing : "");
+        prefs.edit().putString("assistant_important_object_memory", limitLines(combined, 8)).apply();
+    }
+
+    public void clearVisualMemory() {
+        prefs.edit().remove("assistant_important_object_memory").apply();
+    }
+
+    public String visualMemorySummary() {
+        String memory = importantObjectMemory();
+        if (memory.length() == 0) {
+            return "还没有记东西位置。可以让小助手帮你记：钥匙、眼镜、药盒、存折、手机充电器等放在哪里。";
+        }
+        return memory;
+    }
+
+    public long medicationSeenAt() {
+        return prefs.getLong("assistant_medication_seen_at", 0L);
+    }
+
+    public String medicationSeenNote() {
+        return prefs.getString("assistant_medication_seen_note", "");
+    }
+
+    public void markMedicationSeen(String note) {
+        prefs.edit()
+                .putLong("assistant_medication_seen_at", System.currentTimeMillis())
+                .putString("assistant_medication_seen_note", clean(note))
+                .apply();
+    }
+
+    public String medicationVisionSummary() {
+        long seenAt = medicationSeenAt();
+        if (seenAt <= 0) {
+            return "还没有拍照记录吃药。小助手可以看药盒、药杯或主人确认动作，但不会判断药量、换药或停药。";
+        }
+        String note = medicationSeenNote();
+        return dateTime(seenAt) + " 记录过一次吃药相关场景"
+                + (note.length() > 0 ? "：" + note : "。")
+                + "\n今天吃过后仍建议点“确认已吃药”，这样我就不会反复提醒。";
+    }
+
     private String clean(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private String limitLines(String value, int maxLines) {
+        String[] lines = value.split("\\n");
+        StringBuilder b = new StringBuilder();
+        int limit = Math.min(maxLines, lines.length);
+        for (int i = 0; i < limit; i++) {
+            if (lines[i].trim().length() == 0) continue;
+            if (b.length() > 0) b.append("\n");
+            b.append(lines[i].trim());
+        }
+        return b.toString();
+    }
+
+    private String dateTime(long millis) {
+        return new java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.CHINA)
+                .format(new java.util.Date(millis));
     }
 
     private String encryptSecret(String plainText) throws Exception {

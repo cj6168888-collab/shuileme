@@ -214,6 +214,51 @@ public final class CompanionAssistant {
                 : "联网陪伴已暂停。你仍可查看基础记录和安全守护，但聊天建议会变简单。";
     }
 
+    public static String visionIntro(String role) {
+        role = normalize(role);
+        if (ROLE_SISTER.equals(role)) return "你点一下，我就陪你看：看气色、看药盒、记东西放哪儿，也能帮你读一段字。";
+        if (ROLE_BROTHER.equals(role)) return "我可以打开摄像头帮你看一眼，也可以把重要东西放在哪里记下来。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "需要看外面、看药盒、找东西或读说明书时，点这里就行。";
+        return "我可以陪你看一眼：看气色、看药盒、记位置、找东西、读大字。";
+    }
+
+    public static String visionPrivacy(boolean onlineEnabled) {
+        return onlineEnabled
+                ? "拍照后，只有你点“请小助手看看这张”才会联网发送这张图；平时不会偷偷拍照。"
+                : "联网陪伴未开启时，拍照只用于当前页面提示和本机文字记录。";
+    }
+
+    public static String visionLocalReply(String task) {
+        if ("face".equals(task)) {
+            return "我先陪你看一眼。这里不做诊断；如果你觉得脸色和平时明显不一样，或有胸闷、头晕、喘不上气，先坐稳休息，并联系家人或医生。";
+        }
+        if ("medication".equals(task)) {
+            return "我可以帮你记这次吃药相关场景。药量、能不能停药、能不能换药，要按医生或家人交代来；如果确认已经吃过，点下面的确认。";
+        }
+        if ("read".equals(task)) {
+            return "我会尽量帮你读清楚。字太小、反光或拍糊时，可以离近一点、光线亮一点，再拍一次。";
+        }
+        if ("find".equals(task)) {
+            return "先看看我记下的位置，再用摄像头看周围。找不到也别急，我们一点一点来。";
+        }
+        if ("outside".equals(task)) {
+            return "我陪你看看外面。门窗、电器和地面湿滑要多留意；如果要出门，先慢慢起身，拿好钥匙和手机。";
+        }
+        return "我陪你看一眼。看见不舒服或不安全的地方，我们先做简单提醒，不替医生下结论。";
+    }
+
+    public static String visualMemorySaved(String item, String place) {
+        return "我记住了：" + emptyAs(item, "重要东西") + " 放在 " + emptyAs(place, "你刚说的位置") + "。以后你找不到时，叫我一声，我提醒你。";
+    }
+
+    public static String findObjectLine(String objectName, String memorySummary) {
+        String object = emptyAs(objectName, "那个东西");
+        if (memorySummary == null || memorySummary.length() == 0 || memorySummary.startsWith("还没有")) {
+            return "我还没记过“" + object + "”放在哪里。你可以先想想最近用过的地方：床头、桌上、抽屉、包里、药盒旁。找到后告诉我，我帮你记住。";
+        }
+        return "你要找“" + object + "”。我现在记得这些位置：\n" + memorySummary + "\n我们先按这个顺序找，不着急。";
+    }
+
     public static String profileWizardIntro(String role, String label) {
         role = normalize(role);
         String topic = label == null || label.length() == 0 ? "档案" : label;

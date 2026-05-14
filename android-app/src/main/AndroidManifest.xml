@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.gouxiong.sleep">
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
@@ -48,5 +49,11 @@
         <receiver
             android:name=".MedicationReminderReceiver"
             android:exported="false" />
+
+        <provider
+            android:name=".VisionImageProvider"
+            android:authorities="com.gouxiong.sleep.vision"
+            android:exported="false"
+            android:grantUriPermissions="true" />
     </application>
 </manifest>

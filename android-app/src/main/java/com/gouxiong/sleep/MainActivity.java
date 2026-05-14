@@ -7,6 +7,8 @@ import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.media.MediaPlayer;
@@ -20,7 +22,9 @@ import android.os.PowerManager;
 import android.speech.tts.TextToSpeech;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.provider.MediaStore;
 import android.provider.Settings;
+import android.util.Base64;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -43,13 +47,17 @@ import com.gouxiong.sleep.util.PreferenceStore;
 import com.gouxiong.sleep.util.Theme;
 import com.gouxiong.sleep.util.WavFileWriter;
 
+import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
     private static final int REQUEST_PICK_AUDIO = 2101;
+    private static final int REQUEST_CAPTURE_SCENE = 2201;
+    private static final int REQUEST_CAMERA_VISION = 87;
     private static final int OWNER_PROFILE_STEP_COUNT = 6;
 
     private PreferenceStore prefs;
@@ -63,6 +71,9 @@ public class MainActivity extends Activity {
     private Ringtone previewRingtone;
     private TextToSpeech assistantTts;
     private boolean assistantTtsReady;
+    private String pendingVisionTask = "";
+    private Bitmap latestVisionSnapshot;
+    private Uri pendingVisionImageUri;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -1220,6 +1231,7 @@ public class MainActivity extends Activity {
         }
         addCard("陪伴方式", CompanionAssistant.chatPrivacy(prefs.companionRole(), prefs.assistantOnlineEnabled())
                 + "\n夜间紧急唤醒保留本地兜底，避免网络波动影响安全。", prefs.assistantOnlineEnabled() ? Theme.GREEN : Theme.ORANGE);
+        addSettingButton("让小助手看一眼", this::showCompanionVision);
         if (prefs.assistantOnlineEnabled() && prefs.deepSeekKeyConfigured()) {
             addSettingButton("想跟我说什么都可以", this::showDeepSeekQuestionDialog);
             addAiQuestionButton("帮我看看昨晚", "请结合我的主人档案、今天状态、昨晚睡眠摘要和守护完整性，给我一份今天能听懂的睡眠复盘和生活建议。");
@@ -1248,6 +1260,214 @@ public class MainActivity extends Activity {
         addSettingButton("填写主人档案", this::showOwnerProfileSettings);
         addSettingButton("选择小助手", this::showCompanionSettings);
         addSettingButton("返回首页", () -> showShell("guard"));
+    }
+
+    private void showCompanionVision() {
+        content.removeAllViews();
+        content.addView(Theme.text(this, "小助手看看", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        addAssistantHero("我陪你看", CompanionAssistant.visionIntro(prefs.companionRole()), false);
+        addCard("怎么用", "点下面的大按钮，我会打开摄像头。可以看脸色、药盒、外面环境、说明书，也可以帮你记东西放在哪里。\n"
+                + CompanionAssistant.visionPrivacy(prefs.assistantOnlineEnabled()), Theme.GREEN);
+        addCard("我记得的位置", prefs.visualMemorySummary(), prefs.importantObjectMemory().length() > 0 ? Theme.GREEN : Theme.ORANGE);
+        addCard("吃药看见记录", prefs.medicationVisionSummary(), prefs.medicationSeenAt() > 0 ? Theme.GREEN : Theme.ORANGE);
+        addSettingButton("看我气色", () -> requestCameraForVision("face"));
+        addSettingButton("看看药吃了吗", () -> requestCameraForVision("medication"));
+        addSettingButton("帮我找东西", this::showFindObjectDialog);
+        addSettingButton("记住东西放哪里", this::showObjectMemoryDialog);
+        addSettingButton("帮我读书/说明书", () -> requestCameraForVision("read"));
+        addSettingButton("看看外面", () -> requestCameraForVision("outside"));
+        if (prefs.importantObjectMemory().length() > 0) {
+            addSettingButton("清除位置记忆", () -> {
+                prefs.clearVisualMemory();
+                Toast.makeText(this, "已清除位置记忆", Toast.LENGTH_SHORT).show();
+                showCompanionVision();
+            });
+        }
+        addSettingButton("返回聊天", this::showCompanionChat);
+        addSettingButton("返回首页", () -> showShell("guard"));
+    }
+
+    private void requestCameraForVision(String task) {
+        pendingVisionTask = task == null ? "" : task;
+        if (!hasPermission(Manifest.permission.CAMERA)) {
+            requestPermissions(new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_VISION);
+            Toast.makeText(this, "请允许摄像头，小助手才能看一眼", Toast.LENGTH_LONG).show();
+            return;
+        }
+        launchVisionCamera();
+    }
+
+    private void launchVisionCamera() {
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        pendingVisionImageUri = VisionImageProvider.newImageUri(this);
+        intent.putExtra(MediaStore.EXTRA_OUTPUT, pendingVisionImageUri);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        try {
+            startActivityForResult(intent, REQUEST_CAPTURE_SCENE);
+        } catch (Exception ex) {
+            Toast.makeText(this, "没有可用相机应用", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void handleVisionSnapshot(Bitmap bitmap) {
+        latestVisionSnapshot = bitmap;
+        String task = pendingVisionTask == null ? "" : pendingVisionTask;
+        content.removeAllViews();
+        content.addView(Theme.text(this, visionTaskTitle(task), 30, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        addAssistantHero("我看到了", CompanionAssistant.visionLocalReply(task), false);
+
+        if (bitmap != null) {
+            ImageView preview = new ImageView(this);
+            preview.setImageBitmap(bitmap);
+            preview.setAdjustViewBounds(true);
+            preview.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, Theme.dp(this, 220));
+            lp.setMargins(0, 0, 0, Theme.dp(this, 14));
+            content.addView(preview, lp);
+        }
+
+        addCard("边界提醒", "我可以帮你观察、提醒和记录，但不做诊断，不判断药量，也不替代医生和家人。明显不舒服时先联系家人或医生。", Theme.ORANGE);
+        if ("medication".equals(task)) {
+            addSettingButton("确认今天已吃药", () -> {
+                prefs.confirmMedicationNow();
+                prefs.markMedicationSeen("主人拍照后主动确认今天已吃药");
+                Toast.makeText(this, "已记录今天已吃药", Toast.LENGTH_SHORT).show();
+                showCompanionVision();
+            });
+            addSettingButton("稍后再提醒我", () -> {
+                scheduleMedicationReminder(prefs.medicationRepeatMinutes());
+                prefs.markMedicationSeen("拍照记录了吃药相关场景，主人选择稍后确认");
+                Toast.makeText(this, prefs.medicationRepeatMinutes() + " 分钟后再次提醒", Toast.LENGTH_SHORT).show();
+                showCompanionVision();
+            });
+        }
+        if ("find".equals(task) || "outside".equals(task) || "medication".equals(task)) {
+            addSettingButton("记住东西放哪里", this::showObjectMemoryDialog);
+        }
+        if (prefs.assistantOnlineEnabled() && prefs.deepSeekKeyConfigured()) {
+            addSettingButton("请小助手看看这张", () -> askDeepSeekVision(task, latestVisionSnapshot));
+        } else {
+            addSettingButton("开启联网后再细看", () -> {
+                prefs.setAssistantOnlineEnabled(true);
+                showDeepSeekSettings();
+            });
+        }
+        addSettingButton("重新拍一张", () -> requestCameraForVision(task));
+        addSettingButton("返回小助手看看", this::showCompanionVision);
+    }
+
+    private String visionTaskTitle(String task) {
+        if ("face".equals(task)) return "看看气色";
+        if ("medication".equals(task)) return "看看吃药";
+        if ("read".equals(task)) return "帮我读字";
+        if ("find".equals(task)) return "帮我找东西";
+        if ("outside".equals(task)) return "看看外面";
+        return "小助手看看";
+    }
+
+    private void showObjectMemoryDialog() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8));
+
+        EditText item = new EditText(this);
+        item.setHint("东西名称，例如：钥匙、眼镜、药盒");
+        item.setTextSize(20);
+        box.addView(item, matchWrap());
+
+        EditText place = new EditText(this);
+        place.setHint("放在哪里，例如：床头柜第二层抽屉");
+        place.setTextSize(20);
+        place.setSingleLine(false);
+        place.setMinLines(2);
+        box.addView(place, matchWrap());
+
+        EditText note = new EditText(this);
+        note.setHint("补充备注，可不填");
+        note.setTextSize(18);
+        note.setSingleLine(false);
+        note.setMinLines(2);
+        box.addView(note, matchWrap());
+
+        new AlertDialog.Builder(this)
+                .setTitle("帮我记住")
+                .setMessage("只保存成文字位置记忆，方便以后找东西。")
+                .setView(box)
+                .setPositiveButton("记住", (d, w) -> {
+                    prefs.setVisualMemory(item.getText().toString(), place.getText().toString(), note.getText().toString());
+                    showCompanionReply("我记住了", CompanionAssistant.visualMemorySaved(item.getText().toString(), place.getText().toString()));
+                })
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
+    private void showFindObjectDialog() {
+        EditText object = new EditText(this);
+        object.setHint("想找什么？例如：眼镜、钥匙、药盒");
+        object.setTextSize(20);
+        object.setSingleLine(true);
+        new AlertDialog.Builder(this)
+                .setTitle("帮我找东西")
+                .setMessage("我会先查自己记下的位置，也可以再打开摄像头看周围。")
+                .setView(object)
+                .setPositiveButton("查记忆", (d, w) -> showFindObjectResult(object.getText().toString()))
+                .setNegativeButton("取消", null)
+                .setNeutralButton("打开摄像头", (d, w) -> requestCameraForVision("find"))
+                .show();
+    }
+
+    private void showFindObjectResult(String objectName) {
+        content.removeAllViews();
+        content.addView(Theme.text(this, "帮我找东西", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        addAssistantHero("我帮你想想", CompanionAssistant.findObjectLine(objectName, prefs.visualMemorySummary()), false);
+        addSettingButton("打开摄像头找一找", () -> requestCameraForVision("find"));
+        addSettingButton("记住东西放哪里", this::showObjectMemoryDialog);
+        addSettingButton("返回小助手看看", this::showCompanionVision);
+    }
+
+    private void askDeepSeekVision(String task, Bitmap bitmap) {
+        if (bitmap == null) {
+            Toast.makeText(this, "没有可分析的照片", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        showCompanionReply("小助手在看", "我正在认真看这张照片。照片只用于这次主动请求；请不要拍身份证、银行卡等敏感信息。");
+        new Thread(() -> {
+            try {
+                String answer = DeepSeekClient.chatWithImage(
+                        prefs.deepSeekApiKey(),
+                        prefs.deepSeekModel(),
+                        deepSeekSystemPrompt(),
+                        deepSeekVisionPrompt(task),
+                        bitmapToJpegBase64(bitmap));
+                runOnUiThread(() -> showCompanionReply("小助手看完了", answer + "\n\n说明：这是生活提醒，不是医学诊断。"));
+            } catch (Exception ex) {
+                runOnUiThread(() -> showCompanionReply("这次没看清",
+                        "联网看图没成功：" + ex.getMessage()
+                                + "\n\n我已经保留本地兜底：可以帮你记东西位置、确认吃药提醒，也能重新拍一张。"));
+            }
+        }, "GouXiongDeepSeekVision").start();
+    }
+
+    private String deepSeekVisionPrompt(String task) {
+        return "视觉任务：" + visionTaskTitle(task)
+                + "\n请用适合中老年人听的短句回答。"
+                + "\n如果是脸色，只能说“看起来可能有些疲惫/精神不错/光线不够看不清”等生活观察，不能诊断疾病。"
+                + "\n如果是药盒或吃药，只能提醒按医嘱/家人交代，不能判断药量、换药或停药。"
+                + "\n如果是读书或说明书，请尽量把能看清的文字读出来，并用简单话解释。"
+                + "\n如果是找东西或看外面，请指出明显位置、安全风险或下一步寻找建议。"
+                + "\n\n小助手身份：\n" + prefs.assistantPersonaSummary()
+                + "\n\n主人档案：\n" + prefs.ownerProfileSummary()
+                + "\n\n今天状态：\n" + prefs.assistantCheckInSummary()
+                + "\n\n位置记忆：\n" + prefs.visualMemorySummary();
+    }
+
+    private String bitmapToJpegBase64(Bitmap bitmap) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 72, out);
+        return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP);
     }
 
     private String proactiveCareText() {
@@ -1378,6 +1598,7 @@ public class MainActivity extends Activity {
                 + "你平时用自然的人类陪伴口吻说话，不要反复强调自己是 AI 或机器人；按主人给你的名字和身份自称。"
                 + "如果用户直接问到联网、隐私或你是不是程序，要诚实简短说明，不要欺骗。"
                 + "你不是医生，不做诊断，不下医学结论。"
+                + "看图时只能做生活观察、朗读、找物和安全提醒，不判断疾病、药量、换药或停药。"
                 + "你可以结合主人档案、今天状态、睡眠摘要和守护完整性，给睡眠复盘、生活建议、情绪陪伴和医生沟通准备。"
                 + "睡眠记录只能称为疑似记录或提醒事件。"
                 + "异常多晚重复、憋醒样声音、喘息呛咳或明显不适时，建议用户带记录咨询医生。";
@@ -1388,6 +1609,8 @@ public class MainActivity extends Activity {
                 + "\n\n小助手身份：\n" + prefs.assistantPersonaSummary()
                 + "\n\n今天状态：\n" + prefs.assistantCheckInSummary()
                 + "\n\n主人档案：\n" + prefs.ownerProfileSummary()
+                + "\n\n小助手位置记忆：\n" + prefs.visualMemorySummary()
+                + "\n\n吃药看见记录：\n" + prefs.medicationVisionSummary()
                 + "\n\n睡眠摘要：\n" + db.localReportText()
                 + "\n\n守护完整性：" + guardIntegrityScore() + "分"
                 + "\n\n请只给非诊断生活建议，避免吓人，尽量三段以内。";
@@ -1828,6 +2051,15 @@ public class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_CAMERA_VISION) {
+            if (hasPermission(Manifest.permission.CAMERA)) {
+                launchVisionCamera();
+            } else {
+                Toast.makeText(this, "未授权摄像头，小助手暂时不能看一眼", Toast.LENGTH_LONG).show();
+                showCompanionVision();
+            }
+            return;
+        }
         if (pendingStartAfterPermission) {
             pendingStartAfterPermission = false;
             if (hasPermission(Manifest.permission.RECORD_AUDIO)) {
@@ -1891,6 +2123,57 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "已设为本地歌曲唤醒", Toast.LENGTH_SHORT).show();
             showSoundSettings();
         }
+        if (requestCode == REQUEST_CAPTURE_SCENE && resultCode == RESULT_OK && data != null && data.getExtras() != null) {
+            Bitmap bitmap = decodeVisionBitmap(pendingVisionImageUri);
+            if (bitmap == null) {
+                Object raw = data.getExtras().get("data");
+                if (raw instanceof Bitmap) {
+                    bitmap = (Bitmap) raw;
+                }
+            }
+            if (bitmap != null) handleVisionSnapshot(bitmap);
+            else {
+                Toast.makeText(this, "没有拿到照片，请重拍一次", Toast.LENGTH_LONG).show();
+                showCompanionVision();
+            }
+        } else if (requestCode == REQUEST_CAPTURE_SCENE && resultCode == RESULT_OK) {
+            Bitmap bitmap = decodeVisionBitmap(pendingVisionImageUri);
+            if (bitmap != null) handleVisionSnapshot(bitmap);
+            else {
+                Toast.makeText(this, "没有拿到照片，请重拍一次", Toast.LENGTH_LONG).show();
+                showCompanionVision();
+            }
+        }
+    }
+
+    private Bitmap decodeVisionBitmap(Uri uri) {
+        if (uri == null) return null;
+        try {
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            InputStream first = getContentResolver().openInputStream(uri);
+            if (first != null) {
+                BitmapFactory.decodeStream(first, null, bounds);
+                first.close();
+            }
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight, 1600);
+            InputStream second = getContentResolver().openInputStream(uri);
+            if (second == null) return null;
+            Bitmap bitmap = BitmapFactory.decodeStream(second, null, options);
+            second.close();
+            return bitmap;
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private int sampleSize(int width, int height, int target) {
+        int sample = 1;
+        while (width / sample > target || height / sample > target) {
+            sample *= 2;
+        }
+        return sample;
     }
 
     private void speakAssistantText(String text) {
