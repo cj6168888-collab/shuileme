@@ -29,3 +29,24 @@
 - 描述：`Offline-first Android sleep guardian with elder-friendly companion care. 佛山吉麟数字生命研究院荣誉出品。`
 - 可见性：Public
 - 默认分支：`main`
+- 创建远端仓库时不要勾选 README、License、.gitignore，本地仓库已经包含这些文件。
+
+## GitHub 推送命令
+
+创建空仓库后执行：
+
+```powershell
+cd D:\www\狗熊睡眠
+git remote add origin https://github.com/<你的账号或组织>/gouxiong-sleep.git
+git push -u origin main
+```
+
+如果远端已存在：
+
+```powershell
+cd D:\www\狗熊睡眠
+git remote set-url origin https://github.com/<你的账号或组织>/gouxiong-sleep.git
+git push -u origin main
+```
+
+推送后在 GitHub Actions 中确认 `Android APK Check` 通过。
