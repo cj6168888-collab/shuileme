@@ -66,7 +66,7 @@ foreach ($needle in @("showPreSleepCheck", "heartbeatText", "testGentleReminder"
   if ($main -notmatch [regex]::Escape($needle)) { throw "Static check failed: $needle" }
 }
 $alarm = Get-Content -Encoding UTF8 (Join-Path $root "src\main\java\com\gouxiong\sleep\AlarmActivity.java") -Raw
-foreach ($needle in @("CompanionAssistant", "wakeLine", "confirmLine", "assistantRole")) {
+foreach ($needle in @("CompanionAssistant", "wakeLine", "confirmLine", "assistantRole", "drillMode", "drill_mode")) {
   if ($alarm -notmatch [regex]::Escape($needle)) { throw "Alarm static check failed: $needle" }
 }
 $companion = Get-Content -Encoding UTF8 (Join-Path $root "src\main\java\com\gouxiong\sleep\util\CompanionAssistant.java") -Raw
@@ -78,7 +78,7 @@ foreach ($needle in @("https://api.deepseek.com/chat/completions", "Authorizatio
   if ($deepSeek -notmatch [regex]::Escape($needle)) { throw "DeepSeek static check failed: $needle" }
 }
 $prefs = Get-Content -Encoding UTF8 (Join-Path $root "src\main\java\com\gouxiong\sleep\util\PreferenceStore.java") -Raw
-foreach ($needle in @("MAX_EMERGENCY_CONTACTS", "emergencyPhone(int index)", "emergencyPhones", "setEmergencyContacts", "emergencySummary", "emergencyActionSummary", "AndroidKeyStore", "deepseek_api_key_encrypted_v1", "encryptSecret", "decryptSecret", "GCMParameterSpec", "remove(LEGACY_DEEPSEEK_API_KEY)")) {
+foreach ($needle in @("MAX_EMERGENCY_CONTACTS", "emergencyPhone(int index)", "emergencyPhones", "setEmergencyContacts", "emergencySummary", "emergencyActionSummary", "cleanEmergencyPhone", "emergencyPhoneValidationError", "AndroidKeyStore", "deepseek_api_key_encrypted_v1", "encryptSecret", "decryptSecret", "GCMParameterSpec", "remove(LEGACY_DEEPSEEK_API_KEY)")) {
   if ($prefs -notmatch [regex]::Escape($needle)) { throw "Preference static check failed: $needle" }
 }
 $notifier = Get-Content -Encoding UTF8 (Join-Path $root "src\main\java\com\gouxiong\sleep\util\EmergencyNotifier.java") -Raw

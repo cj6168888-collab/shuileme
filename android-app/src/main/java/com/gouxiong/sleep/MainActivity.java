@@ -318,7 +318,7 @@ public class MainActivity extends Activity {
         addSpace(content, 10);
         Button testAlarm = Theme.button(this, "测试强唤醒", Theme.ORANGE);
         testAlarm.setTextSize(20);
-        testAlarm.setOnClickListener(v -> startActivity(new Intent(this, AlarmActivity.class).putExtra("reason", "手动测试")));
+        testAlarm.setOnClickListener(v -> startActivity(alarmDrillIntent("手动测试")));
         content.addView(testAlarm, matchWrap());
     }
 
@@ -585,24 +585,32 @@ public class MainActivity extends Activity {
         sms.setChecked(prefs.emergencySms());
         box.addView(sms, matchWrap());
 
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("紧急联系人")
                 .setMessage("只在高风险强唤醒无确认时使用。号码只保存在本机。")
                 .setView(box)
-                .setPositiveButton("保存", (d, which) -> {
-                    String[] values = new String[PreferenceStore.MAX_EMERGENCY_CONTACTS];
-                    for (int i = 0; i < phones.length; i++) {
-                        values[i] = phones[i].getText().toString();
-                    }
-                    prefs.setEmergencyContacts(values, call.isChecked(), sms.isChecked());
-                    if (prefs.emergencyEnabled()) {
-                        requestEmergencyPermissions(call.isChecked(), sms.isChecked());
-                    }
-                    Toast.makeText(this, "已保存紧急联系人", Toast.LENGTH_SHORT).show();
-                    showSettings();
-                })
+                .setPositiveButton("保存", null)
                 .setNegativeButton("取消", null)
-                .show();
+                .create();
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String[] values = new String[PreferenceStore.MAX_EMERGENCY_CONTACTS];
+            for (int i = 0; i < phones.length; i++) {
+                values[i] = phones[i].getText().toString();
+            }
+            String error = PreferenceStore.emergencyPhoneValidationError(values);
+            if (error != null) {
+                Toast.makeText(this, error, Toast.LENGTH_LONG).show();
+                return;
+            }
+            prefs.setEmergencyContacts(values, call.isChecked(), sms.isChecked());
+            if (prefs.emergencyEnabled()) {
+                requestEmergencyPermissions(call.isChecked(), sms.isChecked());
+            }
+            Toast.makeText(this, "已保存紧急联系人", Toast.LENGTH_SHORT).show();
+            dialog.dismiss();
+            showSettings();
+        }));
+        dialog.show();
     }
 
     private void showEvidenceSettings() {
@@ -760,7 +768,7 @@ public class MainActivity extends Activity {
         addSettingButton("申请必要权限", this::requestEssentialPermissions);
         addSettingButton("关闭电池优化", this::requestIgnoreBatteryOptimization);
         addSettingButton("测试轻提醒震动", this::testGentleReminder);
-        addSettingButton("测试强唤醒", () -> startActivity(new Intent(this, AlarmActivity.class).putExtra("reason", "睡前自检")));
+        addSettingButton("测试强唤醒", () -> startActivity(alarmDrillIntent("睡前自检")));
         addSettingButton("打开系统蓝牙设置", () -> startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS)));
         addSettingButton("返回首页", () -> showShell("guard"));
     }
@@ -1209,6 +1217,12 @@ public class MainActivity extends Activity {
         Toast.makeText(this, "已测试轻提醒，并写入本地记录", Toast.LENGTH_SHORT).show();
     }
 
+    private Intent alarmDrillIntent(String reason) {
+        return new Intent(this, AlarmActivity.class)
+                .putExtra("reason", reason)
+                .putExtra("drill_mode", true);
+    }
+
     private void showDetectionTest() {
         content.removeAllViews();
         content.addView(Theme.text(this, "检测测试", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
@@ -1221,7 +1235,7 @@ public class MainActivity extends Activity {
         });
         addSettingButton("模拟尖叫/强动作：强唤醒", () -> {
             simulateEvent("模拟尖叫/强动作", "high", "alarm", "测试音频集：高风险样本模拟，触发强唤醒");
-            startActivity(new Intent(this, AlarmActivity.class).putExtra("reason", "检测测试：模拟尖叫/强动作"));
+            startActivity(alarmDrillIntent("检测测试：模拟尖叫/强动作"));
         });
         addSettingButton("填入模拟手表摘要", () -> {
             prefs.setExternalDevice("模拟手表", "最低血氧 92%，平均心率 68，夜间呼吸率 14；供测试展示，不代表真实设备数据");

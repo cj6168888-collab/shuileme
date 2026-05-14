@@ -158,7 +158,7 @@ public class PreferenceStore {
         for (int i = 0; i < MAX_EMERGENCY_CONTACTS; i++) {
             String phone = "";
             if (phones != null && i < phones.length) {
-                phone = clean(phones[i]);
+                phone = cleanEmergencyPhone(phones[i]);
             }
             if (phone.length() > 0) {
                 saved++;
@@ -170,6 +170,35 @@ public class PreferenceStore {
                 .putBoolean("emergency_enabled", saved > 0)
                 .putString("emergency_phone", first)
                 .apply();
+    }
+
+    public static String cleanEmergencyPhone(String value) {
+        if (value == null) return "";
+        String trimmed = value.trim();
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < trimmed.length(); i++) {
+            char c = trimmed.charAt(i);
+            if (c >= '0' && c <= '9') {
+                b.append(c);
+            } else if (c == '+' && b.length() == 0) {
+                b.append(c);
+            }
+        }
+        return b.toString();
+    }
+
+    public static String emergencyPhoneValidationError(String[] phones) {
+        if (phones == null) return null;
+        for (int i = 0; i < phones.length && i < MAX_EMERGENCY_CONTACTS; i++) {
+            String raw = phones[i] == null ? "" : phones[i].trim();
+            if (raw.length() == 0) continue;
+            String phone = cleanEmergencyPhone(raw);
+            int digits = phone.startsWith("+") ? phone.length() - 1 : phone.length();
+            if (digits < 6 || digits > 20) {
+                return "第 " + (i + 1) + " 位联系人号码长度不正确，请检查后再保存";
+            }
+        }
+        return null;
     }
 
     public String emergencyActionSummary() {

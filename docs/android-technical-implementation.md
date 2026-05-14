@@ -22,6 +22,7 @@
 - `com.gouxiong.sleep.util.PreferenceStore`：本地设置。
 - `com.gouxiong.sleep.util.Theme`：颜色、字号、组件样式。
 - `com.gouxiong.sleep.util.EmergencyNotifier`：电话/短信升级。
+- `AlarmActivity`：真实高风险事件会升级紧急联系人；手动测试使用演练模式，不真实拨号或发短信。
 
 ## MVP 实现边界
 

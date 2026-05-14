@@ -48,6 +48,7 @@ public class AlarmActivity extends Activity {
     private int secondsLeft = 75;
     private boolean confirmed;
     private boolean emergencySent;
+    private boolean drillMode;
     private String reason;
     private String assistantRole;
 
@@ -56,17 +57,25 @@ public class AlarmActivity extends Activity {
         public void run() {
             if (confirmed) return;
             secondsLeft--;
-            if (secondsLeft <= 15 && !emergencySent) {
+            if (drillMode && secondsLeft <= 15 && !emergencySent) {
+                countdown.setText("演练模式：" + secondsLeft + " 秒后只显示演练结果，不会通知联系人");
+            } else if (secondsLeft <= 15 && !emergencySent) {
                 countdown.setText("还没有确认，" + secondsLeft + " 秒后通知紧急联系人");
             } else {
                 countdown.setText(CompanionAssistant.confirmLine(assistantRole) + "\n" + secondsLeft + " 秒后升级提醒");
             }
             if (secondsLeft <= 0 && !emergencySent) {
                 emergencySent = true;
-                countdown.setText("已尝试通知紧急联系人，仍在本机强唤醒");
-                EmergencyNotifier.trigger(AlarmActivity.this, reason);
+                if (drillMode) {
+                    countdown.setText("演练完成：没有通知紧急联系人。请按“我没事”结束。");
+                } else {
+                    countdown.setText("已尝试通知紧急联系人，仍在本机强唤醒");
+                    EmergencyNotifier.trigger(AlarmActivity.this, reason);
+                }
             }
-            handler.postDelayed(this, 1000);
+            if (!drillMode || !emergencySent) {
+                handler.postDelayed(this, 1000);
+            }
         }
     };
 
@@ -75,6 +84,7 @@ public class AlarmActivity extends Activity {
         super.onCreate(savedInstanceState);
         reason = getIntent().getStringExtra("reason");
         if (reason == null) reason = "高风险睡眠异常";
+        drillMode = getIntent().getBooleanExtra("drill_mode", false);
         assistantRole = new PreferenceStore(this).companionRole();
         handler = new Handler(Looper.getMainLooper());
 
@@ -120,6 +130,13 @@ public class AlarmActivity extends Activity {
         basis.setGravity(Gravity.CENTER);
         box.addView(basis, new LinearLayout.LayoutParams(-1, -2));
         addSpace(box, 24);
+
+        if (drillMode) {
+            TextView drill = Theme.text(this, "演练模式：只测试铃声、震动、亮屏和确认按钮，不会打电话或发短信。", 18, Color.rgb(255, 224, 176), Typeface.BOLD);
+            drill.setGravity(Gravity.CENTER);
+            box.addView(drill, new LinearLayout.LayoutParams(-1, -2));
+            addSpace(box, 16);
+        }
 
         countdown = Theme.text(this, CompanionAssistant.confirmLine(assistantRole), 22, Color.WHITE, Typeface.NORMAL);
         countdown.setGravity(Gravity.CENTER);
