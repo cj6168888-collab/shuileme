@@ -1,0 +1,659 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1990" height="2380" viewBox="0 0 1990 2380">
+<rect x="0" y="0" width="1990" height="2380" rx="0" fill="#FFF8EA" stroke="none" stroke-width="1" />
+<rect x="0" y="0" width="1990" height="268" rx="0" fill="#EAF2FF" stroke="none" stroke-width="1" />
+<text x="64" y="80" fill="#16325C" font-size="44" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="64" dy="0">狗熊睡眠 APK UI 设计交付稿</tspan>
+</text>
+<text x="66" y="138" fill="#4E5969" font-size="22" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="66" dy="0">离线本地睡眠守护，不做诊断；重点是异常发生时分级唤醒、确认安全和家人通知。</tspan>
+</text>
+<rect x="66" y="178" width="112" height="38" rx="19" fill="#ECF8EF" stroke="#4CAF67" stroke-width="1" />
+<text x="122" y="203" fill="#4CAF67" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="122" dy="0">本机处理</tspan>
+</text>
+<rect x="196" y="178" width="132" height="38" rx="19" fill="#EAF2FF" stroke="#2F6FEA" stroke-width="1" />
+<text x="262" y="203" fill="#2F6FEA" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="262" dy="0">大字大按钮</tspan>
+</text>
+<rect x="346" y="178" width="142" height="38" rx="19" fill="#FFF2DD" stroke="#FF9D22" stroke-width="1" />
+<text x="417" y="203" fill="#FF9D22" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="417" dy="0">非诊断建议</tspan>
+</text>
+<rect x="506" y="178" width="142" height="38" rx="19" fill="#FFE7E3" stroke="#F24A3D" stroke-width="1" />
+<text x="577" y="203" fill="#F24A3D" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="577" dy="0">强唤醒确认</tspan>
+</text>
+<text x="64" y="326" fill="#16325C" font-size="28" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="64" dy="0">品牌色</tspan>
+</text>
+<rect x="64" y="368" width="118" height="76" rx="18" fill="#FFF8EA" stroke="#FFFFFF" stroke-width="1" />
+<text x="64" y="472" fill="#16325C" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="start" letter-spacing="0">
+<tspan x="64" dy="0">暖白背景</tspan>
+</text>
+<text x="64" y="497" fill="#667085" font-size="13" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="64" dy="0">#FFF8EA</tspan>
+</text>
+<rect x="234" y="368" width="118" height="76" rx="18" fill="#2F6FEA" stroke="#FFFFFF" stroke-width="1" />
+<text x="234" y="472" fill="#16325C" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="start" letter-spacing="0">
+<tspan x="234" dy="0">主按钮蓝</tspan>
+</text>
+<text x="234" y="497" fill="#667085" font-size="13" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="234" dy="0">#2F6FEA</tspan>
+</text>
+<rect x="404" y="368" width="118" height="76" rx="18" fill="#4CAF67" stroke="#FFFFFF" stroke-width="1" />
+<text x="404" y="472" fill="#16325C" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="start" letter-spacing="0">
+<tspan x="404" dy="0">安全绿</tspan>
+</text>
+<text x="404" y="497" fill="#667085" font-size="13" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="404" dy="0">#4CAF67</tspan>
+</text>
+<rect x="574" y="368" width="118" height="76" rx="18" fill="#FF9D22" stroke="#FFFFFF" stroke-width="1" />
+<text x="574" y="472" fill="#16325C" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="start" letter-spacing="0">
+<tspan x="574" dy="0">晨光橙</tspan>
+</text>
+<text x="574" y="497" fill="#667085" font-size="13" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="574" dy="0">#FF9D22</tspan>
+</text>
+<rect x="744" y="368" width="118" height="76" rx="18" fill="#F24A3D" stroke="#FFFFFF" stroke-width="1" />
+<text x="744" y="472" fill="#16325C" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="start" letter-spacing="0">
+<tspan x="744" dy="0">强唤醒红</tspan>
+</text>
+<text x="744" y="497" fill="#667085" font-size="13" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="744" dy="0">#F24A3D</tspan>
+</text>
+<rect x="914" y="368" width="118" height="76" rx="18" fill="#16325C" stroke="#FFFFFF" stroke-width="1" />
+<text x="914" y="472" fill="#16325C" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="start" letter-spacing="0">
+<tspan x="914" dy="0">深蓝标题</tspan>
+</text>
+<text x="914" y="497" fill="#667085" font-size="13" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="914" dy="0">#16325C</tspan>
+</text>
+<rect x="1084" y="368" width="118" height="76" rx="18" fill="#4E5969" stroke="#FFFFFF" stroke-width="1" />
+<text x="1084" y="472" fill="#16325C" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="start" letter-spacing="0">
+<tspan x="1084" dy="0">正文灰</tspan>
+</text>
+<text x="1084" y="497" fill="#667085" font-size="13" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="1084" dy="0">#4E5969</tspan>
+</text>
+<rect x="1254" y="368" width="118" height="76" rx="18" fill="#112A48" stroke="#FFFFFF" stroke-width="1" />
+<text x="1254" y="472" fill="#16325C" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="start" letter-spacing="0">
+<tspan x="1254" dy="0">夜间蓝</tspan>
+</text>
+<text x="1254" y="497" fill="#667085" font-size="13" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="1254" dy="0">#112A48</tspan>
+</text>
+<text x="64" y="568" fill="#16325C" font-size="28" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="64" dy="0">核心界面</tspan>
+</text>
+<text x="210" y="569" fill="#4E5969" font-size="18" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="210" dy="0">第一屏只保留一个主行动；设置和报告下沉；图片不承载按钮和正式文案。</tspan>
+</text>
+<defs><clipPath id="clip0"><rect x="64" y="650" width="393" height="852" rx="42"/></clipPath></defs>
+<rect x="64" y="650" width="393" height="852" rx="42" fill="#FFF8EA" stroke="#D8CEC0" stroke-width="1" />
+<g clip-path="url(#clip0)">
+<text x="92" y="686" fill="#16325C" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="start" letter-spacing="0">
+<tspan x="92" dy="0">9:41</tspan>
+</text>
+<rect x="364" y="675" width="20" height="8" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="390" y="672" width="18" height="12" rx="3" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="418" y="672" width="24" height="12" rx="3" fill="none" stroke="#16325C" stroke-width="1" />
+<rect x="421" y="675" width="14" height="6" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="98" y="778" width="325" height="226" rx="28" fill="#EAF2FF" stroke="none" stroke-width="1" />
+<circle cx="367" cy="836" r="24" fill="#FFD56B" stroke="none" stroke-width="1"/>
+<rect x="134" y="932" width="253" height="44" rx="20" fill="#B9D8FF" stroke="none" stroke-width="1" />
+<ellipse cx="284.72" cy="949.28" rx="63.440000000000005" ry="44.72" fill="#C89561" stroke="none" stroke-width="1"/>
+<ellipse cx="249.36" cy="901.44" rx="44.72" ry="40.56" fill="#C89561" stroke="none" stroke-width="1"/>
+<circle cx="215.04" cy="873.36" r="14.56" fill="#8F5C34" stroke="none" stroke-width="1"/>
+<circle cx="281.6" cy="873.36" r="14.56" fill="#8F5C34" stroke="none" stroke-width="1"/>
+<ellipse cx="249.36" cy="905.6" rx="11.440000000000001" ry="7.28" fill="#5A3A26" stroke="none" stroke-width="1"/>
+<rect x="228.56" y="887.92" width="10.4" height="4.16" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="261.84000000000003" y="887.92" width="10.4" height="4.16" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="214" y="916" width="170" height="46" rx="18" fill="#8FC8FF" stroke="none" stroke-width="1" />
+<text x="260" y="1074" fill="#16325C" font-size="34" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="260" dy="0">狗熊睡眠</tspan>
+</text>
+<text x="260" y="1122" fill="#4E5969" font-size="19" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="middle" letter-spacing="0">
+<tspan x="260" dy="0">本机识别异常声音和动作，必要时唤醒你。</tspan>
+</text>
+<rect x="100" y="1170" width="321" height="76" rx="30" fill="#2F6FEA" stroke="none" stroke-width="1" />
+<text x="260.5" y="1215" fill="#FFFFFF" font-size="22" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="260.5" dy="0">直接开始</tspan>
+</text>
+<rect x="100" y="1262" width="321" height="66" rx="30" fill="#FFFFFF" stroke="none" stroke-width="1" />
+<text x="260.5" y="1302" fill="#2F6FEA" font-size="22" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="260.5" dy="0">简单设置</tspan>
+</text>
+<rect x="100" y="1262" width="321" height="66" rx="30" fill="none" stroke="#2F6FEA" stroke-width="1" />
+<rect x="118" y="1360" width="86" height="38" rx="19" fill="#ECF8EF" stroke="#4CAF67" stroke-width="1" />
+<text x="161" y="1385" fill="#4CAF67" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="161" dy="0">不注册</tspan>
+</text>
+<rect x="218" y="1360" width="86" height="38" rx="19" fill="#ECF8EF" stroke="#4CAF67" stroke-width="1" />
+<text x="261" y="1385" fill="#4CAF67" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="261" dy="0">不收费</tspan>
+</text>
+<rect x="318" y="1360" width="92" height="38" rx="19" fill="#FFF2DD" stroke="#FF9D22" stroke-width="1" />
+<text x="364" y="1385" fill="#FF9D22" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="364" dy="0">只在本机</tspan>
+</text>
+</g>
+<text x="64" y="632" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="64" dy="0">01 欢迎 / 直接开始</tspan>
+</text>
+<defs><clipPath id="clip1"><rect x="524" y="650" width="393" height="852" rx="42"/></clipPath></defs>
+<rect x="524" y="650" width="393" height="852" rx="42" fill="#FFF8EA" stroke="#D8CEC0" stroke-width="1" />
+<g clip-path="url(#clip1)">
+<text x="552" y="686" fill="#16325C" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="start" letter-spacing="0">
+<tspan x="552" dy="0">9:41</tspan>
+</text>
+<rect x="824" y="675" width="20" height="8" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="850" y="672" width="18" height="12" rx="3" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="878" y="672" width="24" height="12" rx="3" fill="none" stroke="#16325C" stroke-width="1" />
+<rect x="881" y="675" width="14" height="6" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<text x="548" y="738" fill="#16325C" font-size="30" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="548" dy="0">今晚准备好了吗？</tspan>
+</text>
+<text x="548" y="774" fill="#667085" font-size="17" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="548" dy="0">标准模式，打开就能用。</tspan>
+</text>
+<circle cx="872" cy="730" r="22" fill="#ECF8EF" stroke="none" stroke-width="1"/>
+<text x="872" y="737" fill="#4CAF67" font-size="17" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="872" dy="0">熊</tspan>
+</text>
+<rect x="548" y="782" width="118" height="38" rx="19" fill="#ECF8EF" stroke="#4CAF67" stroke-width="1" />
+<text x="607" y="807" fill="#4CAF67" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="607" dy="0">守护已就绪</tspan>
+</text>
+<rect x="548" y="840" width="345" height="210" rx="28" fill="#EAF2FF" stroke="none" stroke-width="1" />
+<circle cx="837" cy="898" r="24" fill="#FFD56B" stroke="none" stroke-width="1"/>
+<rect x="584" y="978" width="273" height="44" rx="20" fill="#B9D8FF" stroke="none" stroke-width="1" />
+<ellipse cx="734.72" cy="1011.28" rx="63.440000000000005" ry="44.72" fill="#C89561" stroke="none" stroke-width="1"/>
+<ellipse cx="699.36" cy="963.44" rx="44.72" ry="40.56" fill="#C89561" stroke="none" stroke-width="1"/>
+<circle cx="665.04" cy="935.36" r="14.56" fill="#8F5C34" stroke="none" stroke-width="1"/>
+<circle cx="731.6" cy="935.36" r="14.56" fill="#8F5C34" stroke="none" stroke-width="1"/>
+<ellipse cx="699.36" cy="967.6" rx="11.440000000000001" ry="7.28" fill="#5A3A26" stroke="none" stroke-width="1"/>
+<rect x="678.56" y="949.92" width="10.4" height="4.16" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="711.84" y="949.92" width="10.4" height="4.16" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="664" y="962" width="170" height="46" rx="18" fill="#8FC8FF" stroke="none" stroke-width="1" />
+<rect x="556" y="1078" width="329" height="78" rx="30" fill="#2F6FEA" stroke="none" stroke-width="1" />
+<text x="720.5" y="1124" fill="#FFFFFF" font-size="22" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="720.5" dy="0">开始守护</tspan>
+</text>
+<rect x="554" y="1180" width="96" height="38" rx="19" fill="#ECF8EF" stroke="#4CAF67" stroke-width="1" />
+<text x="602" y="1205" fill="#4CAF67" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="602" dy="0">麦克风</tspan>
+</text>
+<rect x="670" y="1180" width="108" height="38" rx="19" fill="#ECF8EF" stroke="#4CAF67" stroke-width="1" />
+<text x="724" y="1205" fill="#4CAF67" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="724" dy="0">音量正常</tspan>
+</text>
+<rect x="798" y="1180" width="96" height="38" rx="19" fill="#FFF2DD" stroke="#FF9D22" stroke-width="1" />
+<text x="846" y="1205" fill="#FF9D22" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="846" dy="0">联系人未设</tspan>
+</text>
+<rect x="548" y="1246" width="345" height="112" rx="22" fill="#FFFFFF" stroke="#E8E1D4" stroke-width="1" />
+<rect x="566" y="1266" width="6" height="72" rx="3" fill="#2F6FEA" stroke="none" stroke-width="1" />
+<text x="584" y="1289" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="584" dy="0">昨晚摘要</tspan>
+</text>
+<text x="584" y="1322" fill="#4E5969" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="584" dy="0">记录 5 次，自动取消 3 次，强唤醒 0 次。</tspan>
+</text>
+<rect x="548" y="1374" width="345" height="94" rx="22" fill="#FFFFFF" stroke="#E8E1D4" stroke-width="1" />
+<rect x="566" y="1394" width="6" height="54" rx="3" fill="#4CAF67" stroke="none" stroke-width="1" />
+<text x="584" y="1417" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="584" dy="0">小助手</tspan>
+</text>
+<text x="584" y="1450" fill="#4E5969" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="584" dy="0">睡前可以和我说一句，今天状态我会记住。</tspan>
+</text>
+<rect x="524" y="1420" width="393" height="82" rx="0" fill="#FFFFFF" stroke="#EFE6D8" stroke-width="1" />
+<circle cx="607" cy="1453" r="17" fill="#2F6FEA" stroke="none" stroke-width="1"/>
+<text x="607" y="1458" fill="#FFFFFF" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="607" dy="0">盾</tspan>
+</text>
+<text x="607" y="1489" fill="#2F6FEA" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="607" dy="0">守护</tspan>
+</text>
+<circle cx="731" cy="1453" r="17" fill="#F2F4F7" stroke="none" stroke-width="1"/>
+<text x="731" y="1458" fill="#667085" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="731" dy="0">日</tspan>
+</text>
+<text x="731" y="1489" fill="#667085" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="731" dy="0">早安</tspan>
+</text>
+<circle cx="855" cy="1453" r="17" fill="#F2F4F7" stroke="none" stroke-width="1"/>
+<text x="855" y="1458" fill="#667085" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="855" dy="0">我</tspan>
+</text>
+<text x="855" y="1489" fill="#667085" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="855" dy="0">我的</tspan>
+</text>
+</g>
+<text x="524" y="632" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="524" dy="0">02 守护首页</tspan>
+</text>
+<defs><clipPath id="clip2"><rect x="984" y="650" width="393" height="852" rx="42"/></clipPath></defs>
+<rect x="984" y="650" width="393" height="852" rx="42" fill="#FFF8EA" stroke="#D8CEC0" stroke-width="1" />
+<g clip-path="url(#clip2)">
+<text x="1012" y="686" fill="#16325C" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="start" letter-spacing="0">
+<tspan x="1012" dy="0">9:41</tspan>
+</text>
+<rect x="1284" y="675" width="20" height="8" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="1310" y="672" width="18" height="12" rx="3" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="1338" y="672" width="24" height="12" rx="3" fill="none" stroke="#16325C" stroke-width="1" />
+<rect x="1341" y="675" width="14" height="6" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<text x="1008" y="738" fill="#16325C" font-size="30" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="1008" dy="0">睡前自检</tspan>
+</text>
+<text x="1008" y="774" fill="#667085" font-size="17" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="1008" dy="0">20 秒确认今晚能安全守护。</tspan>
+</text>
+<circle cx="1332" cy="730" r="22" fill="#ECF8EF" stroke="none" stroke-width="1"/>
+<text x="1332" y="737" fill="#4CAF67" font-size="17" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="1332" dy="0">熊</tspan>
+</text>
+<rect x="1008" y="794" width="345" height="116" rx="22" fill="#EAF2FF" stroke="#E8E1D4" stroke-width="1" />
+<rect x="1026" y="814" width="6" height="76" rx="3" fill="#2F6FEA" stroke="none" stroke-width="1" />
+<text x="1044" y="837" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="1044" dy="0">今晚我会静静守着</tspan>
+</text>
+<text x="1044" y="870" fill="#4E5969" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="1044" dy="0">异常时才提醒；没有异常时保持安静。</tspan>
+</text>
+<rect x="1008" y="934" width="345" height="94" rx="22" fill="#FFFFFF" stroke="#E8E1D4" stroke-width="1" />
+<rect x="1026" y="954" width="6" height="54" rx="3" fill="#4CAF67" stroke="none" stroke-width="1" />
+<text x="1044" y="977" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="1044" dy="0">麦克风</tspan>
+</text>
+<text x="1044" y="1010" fill="#4E5969" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="1044" dy="0">已允许，用于本机异常声音识别。</tspan>
+</text>
+<rect x="1008" y="1046" width="345" height="94" rx="22" fill="#FFFFFF" stroke="#E8E1D4" stroke-width="1" />
+<rect x="1026" y="1066" width="6" height="54" rx="3" fill="#4CAF67" stroke="none" stroke-width="1" />
+<text x="1044" y="1089" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="1044" dy="0">音量 / 蓝牙</tspan>
+</text>
+<text x="1044" y="1122" fill="#4E5969" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="1044" dy="0">卧室音箱已连接，手机音量合适。</tspan>
+</text>
+<rect x="1008" y="1158" width="345" height="112" rx="22" fill="#FFFFFF" stroke="#E8E1D4" stroke-width="1" />
+<rect x="1026" y="1178" width="6" height="72" rx="3" fill="#FF9D22" stroke="none" stroke-width="1" />
+<text x="1044" y="1201" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="1044" dy="0">紧急联系人</tspan>
+</text>
+<text x="1044" y="1234" fill="#4E5969" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="1044" dy="0">未设置。高风险无确认时只能本机强唤醒。</tspan>
+</text>
+<rect x="1016" y="1314" width="329" height="76" rx="30" fill="#2F6FEA" stroke="none" stroke-width="1" />
+<text x="1180.5" y="1359" fill="#FFFFFF" font-size="22" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="1180.5" dy="0">开始守护</tspan>
+</text>
+<rect x="1016" y="1404" width="329" height="58" rx="29" fill="#FFFFFF" stroke="none" stroke-width="1" />
+<text x="1180.5" y="1440" fill="#2F6FEA" font-size="22" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="1180.5" dy="0">先去处理</tspan>
+</text>
+<rect x="1016" y="1404" width="329" height="58" rx="28" fill="none" stroke="#2F6FEA" stroke-width="1" />
+</g>
+<text x="984" y="632" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="984" dy="0">03 睡前自检</tspan>
+</text>
+<defs><clipPath id="clip3"><rect x="1444" y="650" width="393" height="852" rx="42"/></clipPath></defs>
+<rect x="1444" y="650" width="393" height="852" rx="42" fill="#071A2F" stroke="#D8CEC0" stroke-width="1" />
+<g clip-path="url(#clip3)">
+<rect x="1444" y="650" width="393" height="852" rx="0" fill="#071A2F" stroke="none" stroke-width="1" />
+<text x="1472" y="686" fill="#FFFFFF" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="start" letter-spacing="0">
+<tspan x="1472" dy="0">9:41</tspan>
+</text>
+<rect x="1744" y="675" width="20" height="8" rx="2" fill="#FFFFFF" stroke="none" stroke-width="1" />
+<rect x="1770" y="672" width="18" height="12" rx="3" fill="#FFFFFF" stroke="none" stroke-width="1" />
+<rect x="1798" y="672" width="24" height="12" rx="3" fill="none" stroke="#FFFFFF" stroke-width="1" />
+<rect x="1801" y="675" width="14" height="6" rx="2" fill="#FFFFFF" stroke="none" stroke-width="1" />
+<text x="1640" y="762" fill="#FFFFFF" font-size="34" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="1640" dy="0">正在守护</tspan>
+</text>
+<text x="1640" y="802" fill="#D9E6F5" font-size="18" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="middle" letter-spacing="0">
+<tspan x="1640" dy="0">安心睡吧，有风险时我再叫醒你。</tspan>
+</text>
+<rect x="1478" y="834" width="325" height="230" rx="28" fill="#112A48" stroke="none" stroke-width="1" />
+<circle cx="1747" cy="892" r="24" fill="#FFE7A8" stroke="none" stroke-width="1"/>
+<rect x="1514" y="992" width="253" height="44" rx="20" fill="#365B87" stroke="none" stroke-width="1" />
+<ellipse cx="1664.72" cy="1005.28" rx="63.440000000000005" ry="44.72" fill="#C89561" stroke="none" stroke-width="1"/>
+<ellipse cx="1629.36" cy="957.44" rx="44.72" ry="40.56" fill="#C89561" stroke="none" stroke-width="1"/>
+<circle cx="1595.04" cy="929.36" r="14.56" fill="#8F5C34" stroke="none" stroke-width="1"/>
+<circle cx="1661.6" cy="929.36" r="14.56" fill="#8F5C34" stroke="none" stroke-width="1"/>
+<ellipse cx="1629.36" cy="961.6" rx="11.440000000000001" ry="7.28" fill="#5A3A26" stroke="none" stroke-width="1"/>
+<rect x="1608.56" y="943.92" width="10.4" height="4.16" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="1641.84" y="943.92" width="10.4" height="4.16" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="1594" y="976" width="170" height="46" rx="18" fill="#426D9F" stroke="none" stroke-width="1" />
+<text x="1640" y="1166" fill="#FFFFFF" font-size="56" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="1640" dy="0">02:18</tspan>
+</text>
+<text x="1640" y="1198" fill="#B8C9DA" font-size="18" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="middle" letter-spacing="0">
+<tspan x="1640" dy="0">已运行</tspan>
+</text>
+<rect x="1478" y="1236" width="325" height="94" rx="22" fill="#173B63" stroke="#E8E1D4" stroke-width="1" />
+<rect x="1496" y="1256" width="6" height="54" rx="3" fill="#2F6FEA" stroke="none" stroke-width="1" />
+<text x="1514" y="1279" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="1514" dy="0">当前模式</tspan>
+</text>
+<text x="1514" y="1312" fill="#4E5969" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="1514" dy="0">标准模式 / 高风险强唤醒</tspan>
+</text>
+<rect x="1478" y="1346" width="325" height="86" rx="22" fill="#173B63" stroke="#E8E1D4" stroke-width="1" />
+<rect x="1496" y="1366" width="6" height="46" rx="3" fill="#4CAF67" stroke="none" stroke-width="1" />
+<text x="1514" y="1389" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="1514" dy="0">输出设备</tspan>
+</text>
+<text x="1514" y="1422" fill="#4E5969" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="1514" dy="0">手机扬声器，蓝牙音箱已准备</tspan>
+</text>
+<rect x="1486" y="1430" width="309" height="58" rx="29" fill="#F24A3D" stroke="none" stroke-width="1" />
+<text x="1640.5" y="1466" fill="#FFFFFF" font-size="22" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="1640.5" dy="0">停止守护</tspan>
+</text>
+</g>
+<text x="1444" y="632" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="1444" dy="0">04 守护中 / 夜间状态</tspan>
+</text>
+<defs><clipPath id="clip4"><rect x="64" y="1560" width="393" height="852" rx="42"/></clipPath></defs>
+<rect x="64" y="1560" width="393" height="852" rx="42" fill="#2C1512" stroke="#D8CEC0" stroke-width="1" />
+<g clip-path="url(#clip4)">
+<rect x="64" y="1560" width="393" height="852" rx="0" fill="#2C1512" stroke="none" stroke-width="1" />
+<circle cx="260" cy="1790" r="245" fill="#682016" stroke="none" stroke-width="1"/>
+<text x="92" y="1596" fill="#FFFFFF" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="start" letter-spacing="0">
+<tspan x="92" dy="0">9:41</tspan>
+</text>
+<rect x="364" y="1585" width="20" height="8" rx="2" fill="#FFFFFF" stroke="none" stroke-width="1" />
+<rect x="390" y="1582" width="18" height="12" rx="3" fill="#FFFFFF" stroke="none" stroke-width="1" />
+<rect x="418" y="1582" width="24" height="12" rx="3" fill="none" stroke="#FFFFFF" stroke-width="1" />
+<rect x="421" y="1585" width="14" height="6" rx="2" fill="#FFFFFF" stroke="none" stroke-width="1" />
+<circle cx="260" cy="1790" r="56" fill="#F24A3D" stroke="none" stroke-width="1"/>
+<circle cx="260" cy="1790" r="40" fill="#FFFFFF" stroke="none" stroke-width="1"/>
+<rect x="258" y="1786" width="34" height="6" rx="3" fill="#F24A3D" stroke="none" stroke-width="1" />
+<rect x="258" y="1764" width="6" height="30" rx="3" fill="#F24A3D" stroke="none" stroke-width="1" />
+<ellipse cx="209" cy="1731" rx="27" ry="19" fill="#FF9D22" stroke="none" stroke-width="1"/>
+<ellipse cx="311" cy="1731" rx="27" ry="19" fill="#FF9D22" stroke="none" stroke-width="1"/>
+<rect x="222" y="1842" width="28" height="12" rx="6" fill="#F24A3D" stroke="none" stroke-width="1" />
+<rect x="274" y="1842" width="28" height="12" rx="6" fill="#F24A3D" stroke="none" stroke-width="1" />
+<text x="260" y="1948" fill="#FFFFFF" font-size="44" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="260" dy="0">请醒一下</tspan>
+</text>
+<text x="260" y="1994" fill="#FFE8C2" font-size="22" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="260" dy="0">检测到高风险睡眠异常，请先确认安全。</tspan>
+</text>
+<rect x="106" y="2044" width="309" height="82" rx="24" fill="#3F221D" stroke="#8A4A3B" stroke-width="1" />
+<text x="260" y="2094" fill="#FFE8C2" font-size="22" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="260" dy="0">60 秒后通知紧急联系人</tspan>
+</text>
+<rect x="96" y="2166" width="329" height="96" rx="30" fill="#4CAF67" stroke="none" stroke-width="1" />
+<text x="260.5" y="2221" fill="#FFFFFF" font-size="22" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="260.5" dy="0">我没事</tspan>
+</text>
+<rect x="96" y="2284" width="154" height="58" rx="29" fill="#FFFFFF" stroke="none" stroke-width="1" />
+<text x="173" y="2320" fill="#F24A3D" font-size="22" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="173" dy="0">暂停 10 分钟</tspan>
+</text>
+<rect x="96" y="2284" width="154" height="58" rx="26" fill="none" stroke="#F24A3D" stroke-width="1" />
+<rect x="271" y="2284" width="154" height="58" rx="29" fill="#FFFFFF" stroke="none" stroke-width="1" />
+<text x="348" y="2320" fill="#F24A3D" font-size="22" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="348" dy="0">结束本晚</tspan>
+</text>
+<rect x="271" y="2284" width="154" height="58" rx="26" fill="none" stroke="#F24A3D" stroke-width="1" />
+</g>
+<text x="64" y="1542" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="64" dy="0">05 强唤醒确认</tspan>
+</text>
+<defs><clipPath id="clip5"><rect x="524" y="1560" width="393" height="852" rx="42"/></clipPath></defs>
+<rect x="524" y="1560" width="393" height="852" rx="42" fill="#FFF8EA" stroke="#D8CEC0" stroke-width="1" />
+<g clip-path="url(#clip5)">
+<text x="552" y="1596" fill="#16325C" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="start" letter-spacing="0">
+<tspan x="552" dy="0">9:41</tspan>
+</text>
+<rect x="824" y="1585" width="20" height="8" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="850" y="1582" width="18" height="12" rx="3" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="878" y="1582" width="24" height="12" rx="3" fill="none" stroke="#16325C" stroke-width="1" />
+<rect x="881" y="1585" width="14" height="6" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<text x="548" y="1648" fill="#16325C" font-size="30" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="548" dy="0">早安护理</tspan>
+</text>
+<text x="548" y="1684" fill="#667085" font-size="17" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="548" dy="0">先处理能马上执行的小事。</tspan>
+</text>
+<circle cx="872" cy="1640" r="22" fill="#ECF8EF" stroke="none" stroke-width="1"/>
+<text x="872" y="1647" fill="#4CAF67" font-size="17" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="872" dy="0">熊</tspan>
+</text>
+<rect x="548" y="1698" width="345" height="196" rx="28" fill="#FFF2DD" stroke="none" stroke-width="1" />
+<circle cx="835" cy="1760" r="29" fill="#FFD66E" stroke="none" stroke-width="1"/>
+<rect x="586" y="1734" width="80" height="94" rx="18" fill="#BCE8FF" stroke="none" stroke-width="1" />
+<ellipse cx="776.35" cy="1857.65" rx="57.949999999999996" ry="40.85" fill="#C89561" stroke="none" stroke-width="1"/>
+<ellipse cx="744.05" cy="1813.95" rx="40.85" ry="37.05" fill="#C89561" stroke="none" stroke-width="1"/>
+<circle cx="712.7" cy="1788.3" r="13.299999999999999" fill="#8F5C34" stroke="none" stroke-width="1"/>
+<circle cx="773.5" cy="1788.3" r="13.299999999999999" fill="#8F5C34" stroke="none" stroke-width="1"/>
+<ellipse cx="744.05" cy="1817.75" rx="10.45" ry="6.6499999999999995" fill="#5A3A26" stroke="none" stroke-width="1"/>
+<rect x="725.05" y="1801.6" width="9.5" height="3.8" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="755.45" y="1801.6" width="9.5" height="3.8" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="784" y="1790" width="54" height="18" rx="9" fill="#C89561" stroke="none" stroke-width="1" />
+<rect x="548" y="1918" width="345" height="98" rx="22" fill="#ECF8EF" stroke="#E8E1D4" stroke-width="1" />
+<rect x="566" y="1938" width="6" height="58" rx="3" fill="#4CAF67" stroke="none" stroke-width="1" />
+<text x="584" y="1961" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="584" dy="0">喝水</tspan>
+</text>
+<text x="584" y="1994" fill="#4E5969" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="584" dy="0">起床后先喝几口温水。</tspan>
+</text>
+<rect x="738" y="1946" width="130" height="48" rx="24" fill="#4CAF67" stroke="none" stroke-width="1" />
+<text x="803" y="1977" fill="#FFFFFF" font-size="22" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="803" dy="0">我喝水了</tspan>
+</text>
+<rect x="548" y="2034" width="345" height="98" rx="22" fill="#FFF2DD" stroke="#E8E1D4" stroke-width="1" />
+<rect x="566" y="2054" width="6" height="58" rx="3" fill="#FF9D22" stroke="none" stroke-width="1" />
+<text x="584" y="2077" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="584" dy="0">吃药</tspan>
+</text>
+<text x="584" y="2110" fill="#4E5969" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="584" dy="0">按医嘱或家人交代处理。</tspan>
+</text>
+<rect x="750" y="2062" width="118" height="48" rx="24" fill="#FF9D22" stroke="none" stroke-width="1" />
+<text x="809" y="2093" fill="#FFFFFF" font-size="22" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="809" dy="0">已吃药</tspan>
+</text>
+<rect x="548" y="2150" width="345" height="112" rx="22" fill="#FFFFFF" stroke="#E8E1D4" stroke-width="1" />
+<rect x="566" y="2170" width="6" height="72" rx="3" fill="#2F6FEA" stroke="none" stroke-width="1" />
+<text x="584" y="2193" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="584" dy="0">昨晚汇报</tspan>
+</text>
+<text x="584" y="2226" fill="#4E5969" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="584" dy="0">昨晚记录 4 次波动，3 次自动恢复。</tspan>
+</text>
+<rect x="560" y="2284" width="321" height="56" rx="28" fill="#2F6FEA" stroke="none" stroke-width="1" />
+<text x="720.5" y="2319" fill="#FFFFFF" font-size="22" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="720.5" dy="0">查看详情</tspan>
+</text>
+<rect x="524" y="2330" width="393" height="82" rx="0" fill="#FFFFFF" stroke="#EFE6D8" stroke-width="1" />
+<circle cx="607" cy="2363" r="17" fill="#F2F4F7" stroke="none" stroke-width="1"/>
+<text x="607" y="2368" fill="#667085" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="607" dy="0">盾</tspan>
+</text>
+<text x="607" y="2399" fill="#667085" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="607" dy="0">守护</tspan>
+</text>
+<circle cx="731" cy="2363" r="17" fill="#FF9D22" stroke="none" stroke-width="1"/>
+<text x="731" y="2368" fill="#FFFFFF" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="731" dy="0">日</tspan>
+</text>
+<text x="731" y="2399" fill="#FF9D22" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="731" dy="0">早安</tspan>
+</text>
+<circle cx="855" cy="2363" r="17" fill="#F2F4F7" stroke="none" stroke-width="1"/>
+<text x="855" y="2368" fill="#667085" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="855" dy="0">我</tspan>
+</text>
+<text x="855" y="2399" fill="#667085" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="855" dy="0">我的</tspan>
+</text>
+</g>
+<text x="524" y="1542" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="524" dy="0">06 早安护理</tspan>
+</text>
+<defs><clipPath id="clip6"><rect x="984" y="1560" width="393" height="852" rx="42"/></clipPath></defs>
+<rect x="984" y="1560" width="393" height="852" rx="42" fill="#FFF8EA" stroke="#D8CEC0" stroke-width="1" />
+<g clip-path="url(#clip6)">
+<text x="1012" y="1596" fill="#16325C" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="start" letter-spacing="0">
+<tspan x="1012" dy="0">9:41</tspan>
+</text>
+<rect x="1284" y="1585" width="20" height="8" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="1310" y="1582" width="18" height="12" rx="3" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="1338" y="1582" width="24" height="12" rx="3" fill="none" stroke="#16325C" stroke-width="1" />
+<rect x="1341" y="1585" width="14" height="6" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<text x="1012" y="1654" fill="#16325C" font-size="30" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="1012" dy="0">我在听您说</tspan>
+</text>
+<text x="1012" y="1686" fill="#667085" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="1012" dy="0">只在聊天页看一眼，不在后台偷拍。</tspan>
+</text>
+<rect x="1076" y="1710" width="210" height="242" rx="40" fill="#ECF8EF" stroke="none" stroke-width="1" />
+<ellipse cx="1178" cy="1794" rx="58" ry="44" fill="#26374A" stroke="none" stroke-width="1"/>
+<ellipse cx="1178" cy="1794" rx="42" ry="46" fill="#F2C9A7" stroke="none" stroke-width="1"/>
+<rect x="1106" y="1846" width="150" height="116" rx="40" fill="#7CC9A2" stroke="none" stroke-width="1" />
+<rect x="1150" y="1844" width="62" height="28" rx="14" fill="#FFF8EA" stroke="none" stroke-width="1" />
+<circle cx="1162" cy="1788" r="4" fill="#16325C" stroke="none" stroke-width="1"/>
+<circle cx="1196" cy="1788" r="4" fill="#16325C" stroke="none" stroke-width="1"/>
+<rect x="1168" y="1814" width="36" height="5" rx="3" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="1020" y="1998" width="321" height="112" rx="28" fill="#FFFFFF" stroke="#E8E1D4" stroke-width="1" />
+<text x="1180" y="2044" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="1180" dy="0">您慢慢说，我在。</tspan>
+<tspan x="1180" dy="27">复盘昨晚、找东西、记录今天状态，都可以直接说。</tspan>
+</text>
+<rect x="1070" y="2144" width="220" height="64" rx="32" fill="#EAF2FF" stroke="none" stroke-width="1" />
+<rect x="1096" y="2168" width="9" height="24" rx="5" fill="#2F6FEA" stroke="none" stroke-width="1" />
+<rect x="1120" y="2162" width="9" height="36" rx="5" fill="#2F6FEA" stroke="none" stroke-width="1" />
+<rect x="1144" y="2156" width="9" height="48" rx="5" fill="#2F6FEA" stroke="none" stroke-width="1" />
+<rect x="1168" y="2168" width="9" height="24" rx="5" fill="#2F6FEA" stroke="none" stroke-width="1" />
+<rect x="1192" y="2162" width="9" height="36" rx="5" fill="#2F6FEA" stroke="none" stroke-width="1" />
+<rect x="1216" y="2156" width="9" height="48" rx="5" fill="#2F6FEA" stroke="none" stroke-width="1" />
+<rect x="1240" y="2168" width="9" height="24" rx="5" fill="#2F6FEA" stroke="none" stroke-width="1" />
+<rect x="1020" y="2244" width="100" height="58" rx="29" fill="#2F6FEA" stroke="none" stroke-width="1" />
+<text x="1070" y="2280" fill="#FFFFFF" font-size="22" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="1070" dy="0">我来说</tspan>
+</text>
+<rect x="1130" y="2244" width="100" height="58" rx="29" fill="#FFFFFF" stroke="none" stroke-width="1" />
+<text x="1180" y="2280" fill="#2F6FEA" font-size="22" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="1180" dy="0">暂停</tspan>
+</text>
+<rect x="1130" y="2244" width="100" height="58" rx="26" fill="none" stroke="#2F6FEA" stroke-width="1" />
+<rect x="1240" y="2244" width="100" height="58" rx="29" fill="#4CAF67" stroke="none" stroke-width="1" />
+<text x="1290" y="2280" fill="#FFFFFF" font-size="22" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="1290" dy="0">看一眼</tspan>
+</text>
+<rect x="984" y="2330" width="393" height="82" rx="0" fill="#FFFFFF" stroke="#EFE6D8" stroke-width="1" />
+<circle cx="1067" cy="2363" r="17" fill="#F2F4F7" stroke="none" stroke-width="1"/>
+<text x="1067" y="2368" fill="#667085" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="1067" dy="0">盾</tspan>
+</text>
+<text x="1067" y="2399" fill="#667085" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="1067" dy="0">守护</tspan>
+</text>
+<circle cx="1191" cy="2363" r="17" fill="#F2F4F7" stroke="none" stroke-width="1"/>
+<text x="1191" y="2368" fill="#667085" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="1191" dy="0">日</tspan>
+</text>
+<text x="1191" y="2399" fill="#667085" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="1191" dy="0">早安</tspan>
+</text>
+<circle cx="1315" cy="2363" r="17" fill="#2F6FEA" stroke="none" stroke-width="1"/>
+<text x="1315" y="2368" fill="#FFFFFF" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="1315" dy="0">我</tspan>
+</text>
+<text x="1315" y="2399" fill="#2F6FEA" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="1315" dy="0">我的</tspan>
+</text>
+</g>
+<text x="984" y="1542" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="984" dy="0">07 小助手 Live</tspan>
+</text>
+<defs><clipPath id="clip7"><rect x="1444" y="1560" width="393" height="852" rx="42"/></clipPath></defs>
+<rect x="1444" y="1560" width="393" height="852" rx="42" fill="#FFF8EA" stroke="#D8CEC0" stroke-width="1" />
+<g clip-path="url(#clip7)">
+<text x="1472" y="1596" fill="#16325C" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="start" letter-spacing="0">
+<tspan x="1472" dy="0">9:41</tspan>
+</text>
+<rect x="1744" y="1585" width="20" height="8" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="1770" y="1582" width="18" height="12" rx="3" fill="#16325C" stroke="none" stroke-width="1" />
+<rect x="1798" y="1582" width="24" height="12" rx="3" fill="none" stroke="#16325C" stroke-width="1" />
+<rect x="1801" y="1585" width="14" height="6" rx="2" fill="#16325C" stroke="none" stroke-width="1" />
+<text x="1468" y="1648" fill="#16325C" font-size="30" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="1468" dy="0">我的</tspan>
+</text>
+<text x="1468" y="1684" fill="#667085" font-size="17" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="1468" dy="0">低频设置分组收纳。</tspan>
+</text>
+<circle cx="1792" cy="1640" r="22" fill="#ECF8EF" stroke="none" stroke-width="1"/>
+<text x="1792" y="1647" fill="#4CAF67" font-size="17" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="1792" dy="0">熊</tspan>
+</text>
+<rect x="1468" y="1704" width="345" height="100" rx="22" fill="#FFFFFF" stroke="#E8E1D4" stroke-width="1" />
+<rect x="1486" y="1724" width="6" height="60" rx="3" fill="#2F6FEA" stroke="none" stroke-width="1" />
+<text x="1504" y="1747" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="1504" dy="0">安全守护</tspan>
+</text>
+<text x="1504" y="1780" fill="#4E5969" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="1504" dy="0">睡前自检、检测测试、紧急联系人。</tspan>
+</text>
+<rect x="1468" y="1824" width="345" height="100" rx="22" fill="#FFFFFF" stroke="#E8E1D4" stroke-width="1" />
+<rect x="1486" y="1844" width="6" height="60" rx="3" fill="#FF9D22" stroke="none" stroke-width="1" />
+<text x="1504" y="1867" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="1504" dy="0">声音与家人</tspan>
+</text>
+<text x="1504" y="1900" fill="#4E5969" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="1504" dy="0">亲人录音、本地歌曲、系统闹钟回退。</tspan>
+</text>
+<rect x="1468" y="1944" width="345" height="100" rx="22" fill="#FFFFFF" stroke="#E8E1D4" stroke-width="1" />
+<rect x="1486" y="1964" width="6" height="60" rx="3" fill="#4CAF67" stroke="none" stroke-width="1" />
+<text x="1504" y="1987" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="1504" dy="0">小助手</tspan>
+</text>
+<text x="1504" y="2020" fill="#4E5969" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="1504" dy="0">角色、称呼、主人档案、今日状态。</tspan>
+</text>
+<rect x="1468" y="2064" width="345" height="116" rx="22" fill="#FFFFFF" stroke="#E8E1D4" stroke-width="1" />
+<rect x="1486" y="2084" width="6" height="76" rx="3" fill="#2F6FEA" stroke="none" stroke-width="1" />
+<text x="1504" y="2107" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="1504" dy="0">数据与导出</tspan>
+</text>
+<text x="1504" y="2140" fill="#4E5969" font-size="16" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="400" text-anchor="start" letter-spacing="0">
+<tspan x="1504" dy="0">本地记录、异常片段、导出给自己或医生沟通。</tspan>
+</text>
+<rect x="1468" y="2212" width="345" height="74" rx="22" fill="#ECF8EF" stroke="#4CAF67" stroke-width="1" />
+<text x="1640" y="2248" fill="#4CAF67" font-size="18" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="1640" dy="0">默认本地处理；不保存整夜录音；不做医学诊断。</tspan>
+</text>
+<rect x="1444" y="2330" width="393" height="82" rx="0" fill="#FFFFFF" stroke="#EFE6D8" stroke-width="1" />
+<circle cx="1527" cy="2363" r="17" fill="#F2F4F7" stroke="none" stroke-width="1"/>
+<text x="1527" y="2368" fill="#667085" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="1527" dy="0">盾</tspan>
+</text>
+<text x="1527" y="2399" fill="#667085" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="1527" dy="0">守护</tspan>
+</text>
+<circle cx="1651" cy="2363" r="17" fill="#F2F4F7" stroke="none" stroke-width="1"/>
+<text x="1651" y="2368" fill="#667085" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="1651" dy="0">日</tspan>
+</text>
+<text x="1651" y="2399" fill="#667085" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="1651" dy="0">早安</tspan>
+</text>
+<circle cx="1775" cy="2363" r="17" fill="#2F6FEA" stroke="none" stroke-width="1"/>
+<text x="1775" y="2368" fill="#FFFFFF" font-size="14" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">
+<tspan x="1775" dy="0">我</tspan>
+</text>
+<text x="1775" y="2399" fill="#2F6FEA" font-size="15" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="600" text-anchor="middle" letter-spacing="0">
+<tspan x="1775" dy="0">我的</tspan>
+</text>
+</g>
+<text x="1444" y="1542" fill="#16325C" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="start" letter-spacing="0">
+<tspan x="1444" dy="0">08 我的 / 设置</tspan>
+</text>
+</svg>
