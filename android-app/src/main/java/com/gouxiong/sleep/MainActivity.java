@@ -31,7 +31,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.PowerManager;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.provider.MediaStore;
@@ -78,6 +82,7 @@ public class MainActivity extends Activity {
     private static final int REQUEST_CAPTURE_SCENE = 2201;
     private static final int REQUEST_CAMERA_VISION = 87;
     private static final int REQUEST_CAMERA_AUTO_VISION = 88;
+    private static final int REQUEST_VOICE_CHAT = 89;
     private static final int OWNER_PROFILE_STEP_COUNT = 6;
     private static final long AUTO_VISION_MIN_INTERVAL_MS = 2L * 60L * 1000L;
     private static final int AUTO_VISION_MAX_SIDE = 960;
@@ -94,6 +99,15 @@ public class MainActivity extends Activity {
     private Ringtone previewRingtone;
     private TextToSpeech assistantTts;
     private boolean assistantTtsReady;
+    private boolean assistantTtsListenerSet;
+    private boolean assistantSpeaking;
+    private SpeechRecognizer voiceRecognizer;
+    private boolean realtimeVoiceEnabled;
+    private boolean voiceListening;
+    private boolean voiceRestartScheduled;
+    private int voiceConversationSerial;
+    private int voicePageSerial;
+    private TextView voiceStatusLabel;
     private String pendingVisionTask = "";
     private Bitmap latestVisionSnapshot;
     private Uri pendingVisionImageUri;
@@ -285,6 +299,7 @@ public class MainActivity extends Activity {
     }
 
     private void showShell(String tab) {
+        stopRealtimeVoiceChat(false);
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Theme.WARM_WHITE);
@@ -1250,10 +1265,13 @@ public class MainActivity extends Activity {
     }
 
     private void showCompanionChat() {
+        stopRealtimeVoiceChat(false);
+        int pageSerial = ++voicePageSerial;
         content.removeAllViews();
         content.addView(Theme.text(this, "小助手聊天", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
         addAssistantHero("陪您说说话", CompanionAssistant.chatIntro(prefs.companionRole()), false);
+        addRealtimeVoicePanel();
         addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
         addCard("我记得的主人信息", prefs.ownerProfileSummary(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
         if (!prefs.assistantPersonaConfigured()) {
@@ -1272,7 +1290,6 @@ public class MainActivity extends Activity {
         });
         addSettingButton("让小助手看一眼", this::showCompanionVision);
         if (prefs.assistantOnlineEnabled() && prefs.deepSeekKeyConfigured()) {
-            addSettingButton("想跟我说什么都可以", this::showDeepSeekQuestionDialog);
             addAiQuestionButton("帮我看看昨晚", "请结合我的主人档案、今天状态、昨晚睡眠摘要和守护完整性，给我一份今天能听懂的睡眠复盘和生活建议。");
             addAiQuestionButton("今天怎么安排", "请根据我的身体情况、用药习惯、今天状态和睡眠记录，生成今天的喝水、用药提醒、活动和休息建议。不要诊断。");
             addAiQuestionButton("陪我聊聊天", "我想轻松聊几句。请根据我的兴趣爱好和今天状态，用温柔、简短、适合中老年人的方式陪我说话。");
@@ -1299,7 +1316,40 @@ public class MainActivity extends Activity {
         addSettingButton("填写主人档案", this::showOwnerProfileSettings);
         addSettingButton("选择小助手", this::showCompanionSettings);
         addSettingButton("返回首页", () -> showShell("guard"));
+        content.postDelayed(() -> {
+            if (pageSerial == voicePageSerial) startRealtimeVoiceChat();
+        }, 350);
         content.postDelayed(this::maybeStartAutoVisionScan, 500);
+    }
+
+    private void addRealtimeVoicePanel() {
+        LinearLayout card = cardContainer();
+        card.setBackground(Theme.tintedCard(this, CompanionAssistant.roleColor(prefs.companionRole())));
+        card.addView(Theme.text(this, "打开就能聊", 24, CompanionAssistant.roleColor(prefs.companionRole()), Typeface.BOLD), matchWrap());
+        addSpace(card, 8);
+        voiceStatusLabel = Theme.text(this, "正在准备麦克风。您不用点发送，直接说话就行。", 19, Theme.MUTED, Typeface.NORMAL);
+        card.addView(voiceStatusLabel, matchWrap());
+        addSpace(card, 12);
+        Button interrupt = Theme.button(this, "打断小助手，我来说", Theme.RED);
+        interrupt.setTextSize(20);
+        interrupt.setOnClickListener(v -> {
+            voiceConversationSerial++;
+            stopAssistantSpeech();
+            updateVoiceStatus("我在听，您直接说。");
+            restartRealtimeListeningSoon(120);
+        });
+        card.addView(interrupt, matchWrap());
+        addSpace(card, 10);
+        Button restart = Theme.softButton(this, "重新开始听我说", Theme.GREEN);
+        restart.setTextSize(20);
+        restart.setOnClickListener(v -> {
+            realtimeVoiceEnabled = true;
+            stopAssistantSpeech();
+            restartRealtimeListeningSoon(120);
+        });
+        card.addView(restart, matchWrap());
+        content.addView(card, matchWrap());
+        addSpace(content, 14);
     }
 
     private String autoVisionStatusText() {
@@ -1546,7 +1596,6 @@ public class MainActivity extends Activity {
             return;
         }
         if (!hasPermission(Manifest.permission.CAMERA)) {
-            requestPermissions(new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_AUTO_VISION);
             return;
         }
         if (!prefs.assistantOnlineEnabled() || !prefs.deepSeekKeyConfigured()) {
@@ -1923,6 +1972,224 @@ public class MainActivity extends Activity {
                 .show();
     }
 
+    private void startRealtimeVoiceChat() {
+        realtimeVoiceEnabled = true;
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            updateVoiceStatus("这台设备暂时不支持系统语音识别，可以先用下方快捷按钮。");
+            return;
+        }
+        if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
+            updateVoiceStatus("需要允许麦克风，小助手才能直接听您说话。");
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQUEST_VOICE_CHAT);
+            return;
+        }
+        ensureVoiceRecognizer();
+        updateVoiceStatus("我在听，您直接说，不用点发送。");
+        restartRealtimeListeningSoon(120);
+    }
+
+    private void ensureVoiceRecognizer() {
+        if (voiceRecognizer != null) return;
+        voiceRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+        voiceRecognizer.setRecognitionListener(new RecognitionListener() {
+            @Override
+            public void onReadyForSpeech(Bundle params) {
+                updateVoiceStatus("我在听，您直接说。");
+            }
+
+            @Override
+            public void onBeginningOfSpeech() {
+                stopAssistantSpeech();
+                updateVoiceStatus("听到了，您慢慢说。");
+            }
+
+            @Override
+            public void onRmsChanged(float rmsdB) {
+            }
+
+            @Override
+            public void onBufferReceived(byte[] buffer) {
+            }
+
+            @Override
+            public void onEndOfSpeech() {
+                updateVoiceStatus("我听完了，正在想。");
+            }
+
+            @Override
+            public void onError(int error) {
+                voiceListening = false;
+                if (!realtimeVoiceEnabled) return;
+                updateVoiceStatus("刚才没听清，您可以再说一遍。");
+                restartRealtimeListeningSoon(error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY ? 900 : 500);
+            }
+
+            @Override
+            public void onResults(Bundle results) {
+                voiceListening = false;
+                handleRealtimeVoiceText(bestRecognitionText(results));
+            }
+
+            @Override
+            public void onPartialResults(Bundle partialResults) {
+                String text = bestRecognitionText(partialResults);
+                if (text.length() > 0) {
+                    stopAssistantSpeech();
+                    updateVoiceStatus("听到了，您继续说。");
+                }
+            }
+
+            @Override
+            public void onEvent(int eventType, Bundle params) {
+            }
+        });
+    }
+
+    private Intent realtimeVoiceIntent() {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "zh-CN");
+        intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 900);
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 700);
+        return intent;
+    }
+
+    private void restartRealtimeListeningSoon(long delayMs) {
+        if (!realtimeVoiceEnabled || voiceRestartScheduled) return;
+        voiceRestartScheduled = true;
+        content.postDelayed(() -> {
+            voiceRestartScheduled = false;
+            startRealtimeListening();
+        }, delayMs);
+    }
+
+    private void startRealtimeListening() {
+        if (!realtimeVoiceEnabled || assistantSpeaking || voiceListening || voiceRecognizer == null || !hasPermission(Manifest.permission.RECORD_AUDIO)) {
+            return;
+        }
+        try {
+            voiceRecognizer.cancel();
+            voiceRecognizer.startListening(realtimeVoiceIntent());
+            voiceListening = true;
+        } catch (Exception ex) {
+            voiceListening = false;
+            updateVoiceStatus("语音入口暂时不可用，请稍后再试。");
+        }
+    }
+
+    private void stopRealtimeVoiceChat(boolean clearStatus) {
+        voicePageSerial++;
+        realtimeVoiceEnabled = false;
+        voiceListening = false;
+        voiceRestartScheduled = false;
+        if (voiceRecognizer != null) {
+            try {
+                voiceRecognizer.cancel();
+            } catch (Exception ignored) {
+            }
+        }
+        if (clearStatus) {
+            updateVoiceStatus("实时语音已暂停。");
+        }
+    }
+
+    private void stopAssistantSpeech() {
+        assistantSpeaking = false;
+        if (assistantTts != null) {
+            try {
+                assistantTts.stop();
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private void updateVoiceStatus(String text) {
+        if (voiceStatusLabel != null) {
+            voiceStatusLabel.setText(text == null ? "" : text);
+        }
+    }
+
+    private String bestRecognitionText(Bundle bundle) {
+        if (bundle == null) return "";
+        java.util.ArrayList<String> list = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+        if (list == null || list.isEmpty() || list.get(0) == null) return "";
+        return list.get(0).trim();
+    }
+
+    private void handleRealtimeVoiceText(String heard) {
+        String clean = heard == null ? "" : heard.trim();
+        if (!realtimeVoiceEnabled) return;
+        if (clean.length() == 0) {
+            updateVoiceStatus("没听清，您再说一遍。");
+            restartRealtimeListeningSoon(500);
+            return;
+        }
+        int serial = ++voiceConversationSerial;
+        boolean findQuestion = looksLikeFindObjectQuestion(clean);
+        String objectAnswer = db.objectMemoryAnswer(clean);
+        if (objectAnswer.length() > 0 && findQuestion) {
+            showCompanionVoiceReply("我帮你找", objectAnswer);
+            return;
+        }
+        if (!prefs.assistantOnlineEnabled() || !prefs.deepSeekKeyConfigured()) {
+            showCompanionVoiceReply("我先陪您说", localVoiceFallback(clean));
+            return;
+        }
+        String thinking = CompanionAssistant.thinkingComfortLine(prefs.companionRole(), findQuestion ? "find" : "chat");
+        showCompanionVoiceWaiting(thinking);
+        new Thread(() -> {
+            try {
+                String answer = DeepSeekClient.chat(
+                        prefs.deepSeekApiKey(),
+                        prefs.deepSeekModel(),
+                        deepSeekSystemPrompt(),
+                        deepSeekUserPrompt(clean));
+                runOnUiThread(() -> {
+                    if (serial == voiceConversationSerial) {
+                        showCompanionVoiceReply("我听懂了", answer + "\n\n说明：这是生活建议，不是医学诊断。");
+                    }
+                });
+            } catch (Exception ex) {
+                runOnUiThread(() -> {
+                    if (serial == voiceConversationSerial) {
+                        showCompanionVoiceReply("这次没连上",
+                                "联网回答没成功：" + ex.getMessage() + "\n\n我还在，您可以再说一遍；夜间强唤醒仍由本地兜底。");
+                    }
+                });
+            }
+        }, "GouXiongRealtimeVoiceChat").start();
+    }
+
+    private String localVoiceFallback(String question) {
+        if (looksLikeFindObjectQuestion(question)) {
+            return CompanionAssistant.findObjectLine(question, db.objectMemorySummary() + "\n" + prefs.visualMemorySummary());
+        }
+        return "我听到了。现在联网陪伴还没配置好，我先用本机记录陪您。\n\n"
+                + proactiveCareText()
+                + "\n\n需要更自然地聊天，可以在“我的小助手”里配置联网 Key。";
+    }
+
+    private void showCompanionVoiceWaiting(String line) {
+        content.removeAllViews();
+        content.addView(Theme.text(this, "小助手在想", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        addAssistantHero("您别急", line, false);
+        addRealtimeVoicePanel();
+        speakAssistantText(line);
+    }
+
+    private void showCompanionVoiceReply(String topic, String reply) {
+        content.removeAllViews();
+        content.addView(Theme.text(this, topic, 30, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        addAssistantHero(prefs.companionRole(), reply, false);
+        addRealtimeVoicePanel();
+        addSettingButton("返回聊天首页", this::showCompanionChat);
+        speakAssistantText(reply);
+    }
+
     private void askDeepSeek(String question) {
         String cleanQuestion = question == null ? "" : question.trim();
         if (cleanQuestion.length() == 0) {
@@ -1988,7 +2255,10 @@ public class MainActivity extends Activity {
     private void addAssistantReplyButton(String label, String reply) {
         Button button = Theme.button(this, label, CompanionAssistant.roleColor(prefs.companionRole()));
         button.setTextSize(20);
-        button.setOnClickListener(v -> showCompanionReply(label, reply));
+        button.setOnClickListener(v -> {
+            if (realtimeVoiceEnabled) showCompanionVoiceReply(label, reply);
+            else showCompanionReply(label, reply);
+        });
         content.addView(button, matchWrap());
         addSpace(content, 10);
     }
@@ -1996,7 +2266,10 @@ public class MainActivity extends Activity {
     private void addAiQuestionButton(String label, String question) {
         Button button = Theme.button(this, label, Theme.GREEN);
         button.setTextSize(20);
-        button.setOnClickListener(v -> askDeepSeek(question));
+        button.setOnClickListener(v -> {
+            if (realtimeVoiceEnabled) handleRealtimeVoiceText(question);
+            else askDeepSeek(question);
+        });
         content.addView(button, matchWrap());
         addSpace(content, 10);
     }
@@ -2445,6 +2718,15 @@ public class MainActivity extends Activity {
             }
             return;
         }
+        if (requestCode == REQUEST_VOICE_CHAT) {
+            if (hasPermission(Manifest.permission.RECORD_AUDIO)) {
+                startRealtimeVoiceChat();
+            } else {
+                updateVoiceStatus("未授权麦克风，不能打开实时语音聊天。");
+                Toast.makeText(this, "未授权麦克风，小助手暂时不能直接听您说话", Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
         if (pendingStartAfterPermission) {
             pendingStartAfterPermission = false;
             if (hasPermission(Manifest.permission.RECORD_AUDIO)) {
@@ -2533,6 +2815,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
+        stopRealtimeVoiceChat(false);
         closeAutoVisionCamera();
         super.onPause();
     }
@@ -2572,28 +2855,76 @@ public class MainActivity extends Activity {
             return;
         }
         String clean = text.replace("\n", "。");
+        if (realtimeVoiceEnabled && voiceRecognizer != null) {
+            try {
+                voiceRecognizer.cancel();
+            } catch (Exception ignored) {
+            }
+            voiceListening = false;
+        }
         if (assistantTts == null) {
             assistantTts = new TextToSpeech(this, status -> {
                 assistantTtsReady = status == TextToSpeech.SUCCESS;
                 if (assistantTtsReady && assistantTts != null) {
                     assistantTts.setLanguage(Locale.CHINA);
+                    installAssistantTtsListener();
+                    assistantSpeaking = true;
                     assistantTts.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "gouxiong-assistant");
                 } else {
                     Toast.makeText(this, clean, Toast.LENGTH_LONG).show();
+                    if (realtimeVoiceEnabled) restartRealtimeListeningSoon(500);
                 }
             });
             return;
         }
         if (assistantTtsReady) {
+            installAssistantTtsListener();
+            assistantSpeaking = true;
             assistantTts.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "gouxiong-assistant");
         } else {
             Toast.makeText(this, clean, Toast.LENGTH_LONG).show();
+            if (realtimeVoiceEnabled) restartRealtimeListeningSoon(500);
         }
+    }
+
+    private void installAssistantTtsListener() {
+        if (assistantTts == null || assistantTtsListenerSet) return;
+        assistantTts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+            @Override
+            public void onStart(String utteranceId) {
+                assistantSpeaking = true;
+            }
+
+            @Override
+            public void onDone(String utteranceId) {
+                runOnUiThread(() -> {
+                    assistantSpeaking = false;
+                    if (realtimeVoiceEnabled) {
+                        updateVoiceStatus("我说完了，继续听您说。");
+                        restartRealtimeListeningSoon(250);
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String utteranceId) {
+                runOnUiThread(() -> {
+                    assistantSpeaking = false;
+                    if (realtimeVoiceEnabled) restartRealtimeListeningSoon(250);
+                });
+            }
+        });
+        assistantTtsListenerSet = true;
     }
 
     @Override
     protected void onDestroy() {
         stopPreview();
+        stopRealtimeVoiceChat(false);
+        if (voiceRecognizer != null) {
+            voiceRecognizer.destroy();
+            voiceRecognizer = null;
+        }
         closeAutoVisionCamera();
         if (visionThread != null) {
             visionThread.quitSafely();
