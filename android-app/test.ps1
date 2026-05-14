@@ -106,6 +106,10 @@ $visionProvider = Get-Content -Encoding UTF8 (Join-Path $root "src\main\java\com
 foreach ($needle in @("ContentProvider", "openFile", "MODE_WRITE_ONLY", "getCacheDir", "image/jpeg", "newImageUri")) {
   if ($visionProvider -notmatch [regex]::Escape($needle)) { throw "Vision provider static check failed: $needle" }
 }
+$liveProtocol = Get-Content -Encoding UTF8 (Join-Path $root "src\main\java\com\gouxiong\sleep\live\LiveCompanionProtocol.java") -Raw
+foreach ($needle in @("OPUS_SAMPLE_RATE = 16000", "OPUS_FRAME_DURATION_MS = 60", "helloMessage", "startCallMessage", "listenMessage", "abortMessage", "wake_word_detected", "voiceMuteMessage")) {
+  if ($liveProtocol -notmatch [regex]::Escape($needle)) { throw "Live protocol static check failed: $needle" }
+}
 
 Write-Host "== Local secret leak check =="
 $localConfig = Join-Path $root "local.deepseek.properties"

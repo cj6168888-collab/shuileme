@@ -7,3 +7,7 @@ This product includes software and documentation developed by 佛山吉麟数字
 Redistributions, derivative works, public demos, app-store listings, and related
 documentation should retain the above attribution notice in accordance with the
 Apache License 2.0 NOTICE requirements.
+
+The Live companion protocol design includes independently rewritten protocol
+helpers informed by the Apache-2.0 project xiaozhi-android-client:
+https://github.com/TOM88812/xiaozhi-android-client
