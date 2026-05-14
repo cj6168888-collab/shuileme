@@ -251,12 +251,12 @@ public class SleepDatabase extends SQLiteOpenHelper {
         int highWeek = countHighRiskSince(now - 7L * day);
         int audioClips = countAudioClipsSince(now - day);
         int deviceReadings = countDeviceReadingsSince(now - day);
-        return "昨晚记录 " + lastNight + " 次，可播放片段 " + audioClips + " 条\n设备读数 " + deviceReadings + " 条\n7 天记录 " + week + " 次，高风险 " + highWeek + " 次\n所有分析均在本机离线生成";
+        return "昨晚记录 " + lastNight + " 次，可播放片段 " + audioClips + " 条\n设备读数 " + deviceReadings + " 条\n7 天记录 " + week + " 次，高风险 " + highWeek + " 次\nAI 可结合这些摘要生成复盘建议，本页为基础记录";
     }
 
     public String doctorReportText(int limit) {
         StringBuilder b = new StringBuilder();
-        b.append("狗熊睡眠离线摘要\n");
+        b.append("狗熊睡眠 AI 复盘摘要\n");
         b.append(localReportText()).append("\n\n");
         b.append("说明：以下为疑似异常提醒证据，不是医学诊断；医生仍需结合问诊、体征和专业检查判断。\n\n");
         List<SleepEvent> events = getRecentEvents(limit);

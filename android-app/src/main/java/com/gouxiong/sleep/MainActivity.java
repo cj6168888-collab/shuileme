@@ -50,6 +50,7 @@ import java.util.Locale;
 
 public class MainActivity extends Activity {
     private static final int REQUEST_PICK_AUDIO = 2101;
+    private static final int OWNER_PROFILE_STEP_COUNT = 6;
 
     private PreferenceStore prefs;
     private SleepDatabase db;
@@ -154,7 +155,7 @@ public class MainActivity extends Activity {
         title.setGravity(Gravity.CENTER);
         box.addView(title, matchWrap());
         addSpace(box, 8);
-        TextView sub = Theme.text(this, "本机离线守护你的夜晚\n必要时叫醒你，不做医学诊断", 21, Theme.MUTED, Typeface.NORMAL);
+        TextView sub = Theme.text(this, "AI 睡眠陪伴和健康建议\n夜间异常及时叫醒，不做医学诊断", 21, Theme.MUTED, Typeface.NORMAL);
         sub.setGravity(Gravity.CENTER);
         box.addView(sub, matchWrap());
         addSpace(box, 28);
@@ -172,7 +173,7 @@ public class MainActivity extends Activity {
         box.addView(simple, matchWrap());
         addSpace(box, 22);
 
-        TextView note = Theme.text(this, "不注册、不收费、不接服务器。详细设置以后再慢慢调。", 18, Theme.MUTED, Typeface.NORMAL);
+        TextView note = Theme.text(this, "联网 AI 是主模式；夜间安全守护保留本地兜底。详细设置以后再慢慢调。", 18, Theme.MUTED, Typeface.NORMAL);
         note.setGravity(Gravity.CENTER);
         box.addView(note, matchWrap());
         setContentView(scroll);
@@ -280,7 +281,7 @@ public class MainActivity extends Activity {
         boolean monitoring = prefs.isMonitoring();
         content.addView(Theme.text(this, monitoring ? "正在守护，安心睡吧" : "今晚准备好了吗？", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
-        content.addView(Theme.text(this, prefs.mode() + " · 离线本机分析", 19, Theme.MUTED, Typeface.NORMAL), matchWrap());
+        content.addView(Theme.text(this, prefs.mode() + " · AI 分析 + 安全守护", 19, Theme.MUTED, Typeface.NORMAL), matchWrap());
         addSpace(content, 24);
         addAssistantHero("我的小助手", CompanionAssistant.homeLine(prefs.companionRole(), monitoring), true);
         addSpace(content, 8);
@@ -804,7 +805,7 @@ public class MainActivity extends Activity {
             addCard("吃药提醒", "尚未设置。需要的话可以在设置里添加早晨用药提醒。", Theme.ORANGE);
         }
         addCard("晨练小贴士", CompanionAssistant.exerciseLine(prefs.companionRole()), Theme.GREEN);
-        addCard("天气小贴士", "当前版本默认离线。出门前记得查看天气和温差。", Theme.BLUE);
+        addCard("AI 生活小贴士", "联网 AI 可结合睡眠、今天状态和主人档案给晨间建议；出门天气仍以手机天气为准。", Theme.BLUE);
         addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
         addSettingButton("记录今天状态", this::showAssistantCheckIn);
         addCard("今天关怀", proactiveCareText(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
@@ -825,21 +826,21 @@ public class MainActivity extends Activity {
         for (String role : CompanionAssistant.ROLES) {
             addCompanionChoice(role, CompanionAssistant.styleSummary(role));
         }
-        addCard("联网聊天增强",
+        addCard("AI 联网陪伴",
                 prefs.assistantOnlineEnabled()
-                        ? "已开启。DeepSeek Key " + (prefs.deepSeekKeyConfigured() ? "已配置" : "未配置") + "。只发送你输入的问题和必要摘要。"
-                        : "已关闭。当前全部使用本机离线文案，不接服务器。",
+                        ? "已开启。DeepSeek Key " + (prefs.deepSeekKeyConfigured() ? "已配置" : "未配置") + "。AI 会结合问题、档案摘要、今天状态和睡眠摘要。"
+                        : "已暂停。基础守护仍可用，但聊天和复盘不再调用 AI。",
                 prefs.assistantOnlineEnabled() ? Theme.GREEN : Theme.ORANGE);
         addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
         addCard("主人档案", prefs.ownerProfileSummary(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
         addSettingButton("记录今天状态", this::showAssistantCheckIn);
         addSettingButton("填写主人档案", this::showOwnerProfileSettings);
-        addSettingButton(prefs.assistantOnlineEnabled() ? "关闭联网聊天增强" : "开启联网聊天增强", () -> {
+        addSettingButton(prefs.assistantOnlineEnabled() ? "暂停 AI 联网" : "开启 AI 联网", () -> {
             prefs.setAssistantOnlineEnabled(!prefs.assistantOnlineEnabled());
             showCompanionSettings();
         });
-        addSettingButton("设置 DeepSeek Key", this::showDeepSeekSettings);
-        addSettingButton("进入离线聊天", this::showCompanionChat);
+        addSettingButton("设置 AI Key / 模型", this::showDeepSeekSettings);
+        addSettingButton("进入 AI 聊天", this::showCompanionChat);
         addSettingButton("返回设置", this::showSettings);
     }
 
@@ -890,7 +891,7 @@ public class MainActivity extends Activity {
 
         new AlertDialog.Builder(this)
                 .setTitle("记录今天状态")
-                .setMessage("只保存在本机，用来让小助手今天更会关心你。")
+                .setMessage("用于小助手和 AI 今天给出更贴近你的建议。不要填写身份证、银行卡等敏感信息。")
                 .setView(box)
                 .setPositiveButton("保存", (d, w) -> saveAssistantCheckIn(
                         mood.getText().toString(),
@@ -947,7 +948,7 @@ public class MainActivity extends Activity {
         content.removeAllViews();
         content.addView(Theme.text(this, "主人档案", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
-        addAssistantHero("我想更懂你", "这些信息只保存在本机，用来让小助手更会关心你。可以少填，也可以随时改。", false);
+        addAssistantHero("我想更懂你", "这些信息会作为 AI 建议上下文。可以少填，也可以随时改；不要填写身份证、银行卡等敏感信息。", false);
         addCard("当前档案", prefs.ownerProfileSummary(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
         addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
         addCard("主动关怀",
@@ -956,13 +957,120 @@ public class MainActivity extends Activity {
                         : "已关闭。小助手只在你点开时回应。",
                 prefs.assistantProactiveCareEnabled() ? Theme.GREEN : Theme.ORANGE);
         addSettingButton("记录今天状态", this::showAssistantCheckIn);
-        addSettingButton("编辑主人档案", this::showOwnerProfileDialog);
+        addSettingButton("小助手一步步建档", () -> showOwnerProfileWizard(0));
+        addSettingButton("一次性编辑主人档案", this::showOwnerProfileDialog);
         addSettingButton(prefs.assistantProactiveCareEnabled() ? "关闭主动关怀" : "开启主动关怀", () -> {
             prefs.setAssistantProactiveCareEnabled(!prefs.assistantProactiveCareEnabled());
             showOwnerProfileSettings();
         });
         addSettingButton("看看今天关怀建议", () -> showCompanionReply("今天关怀建议", proactiveCareText()));
         addSettingButton("返回设置", this::showSettings);
+    }
+
+    private void showOwnerProfileWizard(int step) {
+        int safeStep = Math.max(0, Math.min(OWNER_PROFILE_STEP_COUNT - 1, step));
+        String label = ownerProfileStepTitle(safeStep);
+        content.removeAllViews();
+        content.addView(Theme.text(this, "小助手建档", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        addAssistantHero("第 " + (safeStep + 1) + " 项", CompanionAssistant.profileWizardIntro(prefs.companionRole(), label), false);
+        addCard("进度", (safeStep + 1) + "/" + OWNER_PROFILE_STEP_COUNT + " · " + label
+                + "\n可以少填、跳过，也可以以后再改。AI 会用这些摘要生成更贴近你的建议。", Theme.BLUE);
+        addCard("怎么填", ownerProfileStepExample(safeStep), Theme.GREEN);
+
+        EditText input = profileEditText(ownerProfileStepHint(safeStep));
+        input.setText(ownerProfileStepValue(safeStep));
+        content.addView(input, matchWrap());
+        addSpace(content, 10);
+
+        addSettingButton(safeStep == OWNER_PROFILE_STEP_COUNT - 1 ? "保存并完成" : "保存，下一项",
+                () -> saveOwnerProfileWizardStep(safeStep, input.getText().toString(), safeStep + 1));
+        addSettingButton(safeStep == OWNER_PROFILE_STEP_COUNT - 1 ? "跳过并完成" : "跳过，下一项",
+                () -> {
+                    if (safeStep + 1 >= OWNER_PROFILE_STEP_COUNT) {
+                        showOwnerProfileWizardDone();
+                    } else {
+                        showOwnerProfileWizard(safeStep + 1);
+                    }
+                });
+        if (safeStep > 0) {
+            addSettingButton("上一项", () -> showOwnerProfileWizard(safeStep - 1));
+        }
+        addSettingButton("返回档案页", this::showOwnerProfileSettings);
+    }
+
+    private void saveOwnerProfileWizardStep(int step, String value, int nextStep) {
+        saveOwnerProfileField(step, value);
+        if (nextStep >= OWNER_PROFILE_STEP_COUNT) {
+            showOwnerProfileWizardDone();
+        } else {
+            showOwnerProfileWizard(nextStep);
+        }
+    }
+
+    private void showOwnerProfileWizardDone() {
+        content.removeAllViews();
+        content.addView(Theme.text(this, "建档完成", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        addAssistantHero("我更懂你了", CompanionAssistant.profileWizardDone(prefs.companionRole()), false);
+        addCard("当前档案", prefs.ownerProfileSummary(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
+        addCard("今天关怀", proactiveCareText(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
+        addSettingButton("看看今天关怀建议", () -> showCompanionReply("今天关怀建议", proactiveCareText()));
+        addSettingButton("继续聊天", this::showCompanionChat);
+        addSettingButton("返回档案页", this::showOwnerProfileSettings);
+    }
+
+    private String ownerProfileStepTitle(int step) {
+        if (step == 0) return "身体状况";
+        if (step == 1) return "用药习惯";
+        if (step == 2) return "睡眠情况";
+        if (step == 3) return "家庭情况";
+        if (step == 4) return "兴趣爱好";
+        return "关怀偏好";
+    }
+
+    private String ownerProfileStepHint(int step) {
+        if (step == 0) return "例如：高血压、糖尿病、容易头晕；没有可写“目前没有特别不舒服”";
+        if (step == 1) return "例如：早上降压药，饭后吃；没有可写“暂时没有固定用药”";
+        if (step == 2) return "例如：打鼾、夜醒、午睡、怕吵、容易做噩梦";
+        if (step == 3) return "例如：独居、和老伴住、孩子住附近、紧急时先联系谁";
+        if (step == 4) return "例如：散步、听戏、象棋、养花、听轻音乐";
+        return "例如：提醒轻一点、少说话、早晨多鼓励、难受时先联系家人";
+    }
+
+    private String ownerProfileStepExample(int step) {
+        if (step == 0) return "只写你愿意告诉小助手的情况。App 不做诊断，只用来把提醒说得更合适。";
+        if (step == 1) return "这里是生活提醒，不替代医生医嘱。具体药怎么吃，仍按医生或家人交代。";
+        if (step == 2) return "可以写睡眠习惯和困扰。比如怕吵、常夜醒、午睡多、经常打鼾。";
+        if (step == 3) return "这能帮助小助手在高风险无确认时，提醒你按设置联系家人。电话仍以紧急联系人页为准。";
+        if (step == 4) return "兴趣会用于白天陪伴和情绪关怀，比如建议听一会儿喜欢的戏曲或慢慢散步。";
+        return "偏好会影响小助手说话方式，比如更安静、更简短、更多鼓励。";
+    }
+
+    private String ownerProfileStepValue(int step) {
+        if (step == 0) return prefs.healthProfile();
+        if (step == 1) return prefs.medicationHabits();
+        if (step == 2) return prefs.sleepSituation();
+        if (step == 3) return prefs.familySituation();
+        if (step == 4) return prefs.hobbies();
+        return prefs.carePreference();
+    }
+
+    private void saveOwnerProfileField(int step, String value) {
+        String health = prefs.healthProfile();
+        String medication = prefs.medicationHabits();
+        String sleep = prefs.sleepSituation();
+        String family = prefs.familySituation();
+        String hobbies = prefs.hobbies();
+        String care = prefs.carePreference();
+        if (step == 0) health = value;
+        else if (step == 1) medication = value;
+        else if (step == 2) sleep = value;
+        else if (step == 3) family = value;
+        else if (step == 4) hobbies = value;
+        else care = value;
+        prefs.setOwnerProfile(health, medication, sleep, family, hobbies, care);
+        Toast.makeText(this, "已保存" + ownerProfileStepTitle(step), Toast.LENGTH_SHORT).show();
     }
 
     private void showOwnerProfileDialog() {
@@ -996,7 +1104,7 @@ public class MainActivity extends Activity {
 
         new AlertDialog.Builder(this)
                 .setTitle("主人档案")
-                .setMessage("这些信息只保存在本机。小助手会用它做生活提醒和陪伴，不做诊断。")
+                .setMessage("这些信息会用于小助手和 AI 的生活建议，不做诊断。不要填写身份证、银行卡等敏感信息。")
                 .setView(box)
                 .setPositiveButton("保存", (d, w) -> {
                     prefs.setOwnerProfile(
@@ -1026,19 +1134,28 @@ public class MainActivity extends Activity {
 
     private void showCompanionChat() {
         content.removeAllViews();
-        content.addView(Theme.text(this, "和我聊聊", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
+        content.addView(Theme.text(this, "AI 小助手", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
-        addAssistantHero("离线陪伴", CompanionAssistant.chatIntro(prefs.companionRole()), false);
+        addAssistantHero("AI 陪伴", CompanionAssistant.chatIntro(prefs.companionRole()), false);
         addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
         addCard("我记得的主人信息", prefs.ownerProfileSummary(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
-        addCard("当前模式", CompanionAssistant.chatPrivacy(prefs.companionRole(), prefs.assistantOnlineEnabled())
-                + "\n夜间实时守护仍然不依赖大模型。", Theme.BLUE);
+        addCard("当前 AI 模式", CompanionAssistant.chatPrivacy(prefs.companionRole(), prefs.assistantOnlineEnabled())
+                + "\n夜间紧急唤醒保留本地兜底，避免网络波动影响安全。", prefs.assistantOnlineEnabled() ? Theme.GREEN : Theme.ORANGE);
         if (prefs.assistantOnlineEnabled() && prefs.deepSeekKeyConfigured()) {
-            addSettingButton("问 DeepSeek 大模型", this::showDeepSeekQuestionDialog);
+            addSettingButton("问 AI 小助手", this::showDeepSeekQuestionDialog);
+            addAiQuestionButton("AI 分析昨晚睡眠", "请结合我的主人档案、今天状态、昨晚睡眠摘要和守护完整性，给我一份今天能听懂的睡眠复盘和生活建议。");
+            addAiQuestionButton("AI 生成今日护理建议", "请根据我的身体情况、用药习惯、今天状态和睡眠记录，生成今天的喝水、用药提醒、活动和休息建议。不要诊断。");
+            addAiQuestionButton("AI 陪我聊聊", "我想轻松聊几句。请根据我的兴趣爱好和今天状态，用温柔、简短、适合中老年人的方式陪我说话。");
         } else if (prefs.assistantOnlineEnabled()) {
-            addSettingButton("设置 DeepSeek Key", this::showDeepSeekSettings);
+            addSettingButton("设置 AI Key，开启完整 AI 能力", this::showDeepSeekSettings);
+        } else {
+            addSettingButton("开启 AI 联网", () -> {
+                prefs.setAssistantOnlineEnabled(true);
+                showCompanionChat();
+            });
         }
         addSettingButton("记录今天状态", this::showAssistantCheckIn);
+        addSettingButton("小助手一步步建档", () -> showOwnerProfileWizard(0));
         addAssistantReplyButton("今天关怀建议", proactiveCareText());
         addAssistantReplyButton("按今天状态关心我", CompanionAssistant.checkInCareLine(prefs.companionRole(), prefs.assistantCheckInSummary()));
         addAssistantReplyButton("解释昨晚报告",
@@ -1094,7 +1211,7 @@ public class MainActivity extends Activity {
         box.setPadding(Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8));
 
         TextView note = Theme.text(this,
-                "不要把开发者固定 Key 打进 APK。这里保存的是本机测试 Key，可随时清除。",
+                "联网 AI 是小助手主模式。不要把开发者固定 Key 打进 APK；用户 Key 加密保存，可随时清除。",
                 17, Theme.MUTED, Typeface.NORMAL);
         box.addView(note, matchWrap());
 
@@ -1113,8 +1230,8 @@ public class MainActivity extends Activity {
         box.addView(model, matchWrap());
 
         new AlertDialog.Builder(this)
-                .setTitle("DeepSeek 联网增强")
-                .setMessage("默认离线。开启后，只有你主动点击“问 DeepSeek 大模型”才会联网。")
+                .setTitle("AI Key / 模型")
+                .setMessage("配置后，AI 小助手可联网生成睡眠复盘、生活建议和聊天回复。夜间强唤醒仍有本地兜底。")
                 .setView(box)
                 .setPositiveButton("保存", (d, w) -> {
                     String entered = key.getText().toString().trim();
@@ -1124,7 +1241,7 @@ public class MainActivity extends Activity {
                     }
                     prefs.setDeepSeekModel(model.getText().toString());
                     prefs.setAssistantOnlineEnabled(true);
-                    Toast.makeText(this, keySaved ? "已加密保存 DeepSeek 设置" : "DeepSeek Key 加密保存失败，请重试", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, keySaved ? "已加密保存 AI 设置" : "AI Key 加密保存失败，请重试", Toast.LENGTH_SHORT).show();
                     showCompanionSettings();
                 })
                 .setNegativeButton("取消", null)
@@ -1138,15 +1255,15 @@ public class MainActivity extends Activity {
 
     private void showDeepSeekQuestionDialog() {
         EditText question = new EditText(this);
-        question.setHint("想问小助手什么？");
+        question.setHint("想问 AI 小助手什么？");
         question.setMinLines(4);
         question.setTextSize(20);
         question.setSingleLine(false);
         question.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
 
         new AlertDialog.Builder(this)
-                .setTitle("问 DeepSeek 大模型")
-                .setMessage("会发送你的问题、主人档案摘要和睡眠摘要。不要输入银行卡、身份证等敏感信息。")
+                .setTitle("问 AI 小助手")
+                .setMessage("会发送你的问题、主人档案摘要、今天状态和睡眠摘要。不要输入银行卡、身份证等敏感信息。")
                 .setView(question)
                 .setPositiveButton("发送", (d, w) -> askDeepSeek(question.getText().toString()))
                 .setNegativeButton("取消", null)
@@ -1159,7 +1276,7 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "问题不能为空", Toast.LENGTH_SHORT).show();
             return;
         }
-        showCompanionReply("DeepSeek 正在思考", "已发送问题，等待联网回答。\n夜间守护不依赖大模型。");
+        showCompanionReply("AI 正在思考", "已发送问题，等待联网回答。\n夜间强唤醒保留本地兜底，避免网络波动影响安全。");
         new Thread(() -> {
             try {
                 String answer = DeepSeekClient.chat(
@@ -1167,18 +1284,19 @@ public class MainActivity extends Activity {
                         prefs.deepSeekModel(),
                         deepSeekSystemPrompt(),
                         deepSeekUserPrompt(cleanQuestion));
-                runOnUiThread(() -> showCompanionReply("DeepSeek 回答", answer + "\n\n说明：这是大模型生活建议，不是医学诊断。"));
+                runOnUiThread(() -> showCompanionReply("AI 回答", answer + "\n\n说明：这是 AI 生活建议，不是医学诊断。"));
             } catch (Exception ex) {
-                runOnUiThread(() -> showCompanionReply("DeepSeek 请求失败",
-                        "这次联网回答失败：" + ex.getMessage() + "\n\n离线守护、强唤醒、晨间护理仍可正常使用。"));
+                runOnUiThread(() -> showCompanionReply("AI 请求失败",
+                        "这次联网回答失败：" + ex.getMessage() + "\n\n强唤醒和紧急联系人仍由本地兜底继续工作。"));
             }
         }, "GouXiongDeepSeek").start();
     }
 
     private String deepSeekSystemPrompt() {
-        return "你是狗熊睡眠 App 的小助手，角色是" + prefs.companionRole()
+        return "你是狗熊睡眠 App 的 AI 小助手，角色是" + prefs.companionRole()
                 + "。你面向中老年用户，回答要短、清楚、温柔，适合语音朗读。"
                 + "你不是医生，不做诊断，不下医学结论。"
+                + "你可以结合主人档案、今天状态、睡眠摘要和守护完整性，给睡眠复盘、生活建议、情绪陪伴和医生沟通准备。"
                 + "睡眠记录只能称为疑似记录或提醒事件。"
                 + "异常多晚重复、憋醒样声音、喘息呛咳或明显不适时，建议用户带记录咨询医生。";
     }
@@ -1196,6 +1314,14 @@ public class MainActivity extends Activity {
         Button button = Theme.button(this, label, CompanionAssistant.roleColor(prefs.companionRole()));
         button.setTextSize(20);
         button.setOnClickListener(v -> showCompanionReply(label, reply));
+        content.addView(button, matchWrap());
+        addSpace(content, 10);
+    }
+
+    private void addAiQuestionButton(String label, String question) {
+        Button button = Theme.button(this, label, Theme.GREEN);
+        button.setTextSize(20);
+        button.setOnClickListener(v -> askDeepSeek(question));
         content.addView(button, matchWrap());
         addSpace(content, 10);
     }
@@ -1588,7 +1714,7 @@ public class MainActivity extends Activity {
         } else {
             startService(intent);
         }
-        Toast.makeText(this, "已开始离线守护", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "已开始睡眠守护", Toast.LENGTH_SHORT).show();
         showHome();
     }
 
@@ -1633,7 +1759,7 @@ public class MainActivity extends Activity {
     private void shareReport() {
         Intent share = new Intent(Intent.ACTION_SEND);
         share.setType("text/plain");
-        share.putExtra(Intent.EXTRA_SUBJECT, "狗熊睡眠离线证据摘要");
+        share.putExtra(Intent.EXTRA_SUBJECT, "狗熊睡眠 AI 复盘证据摘要");
         share.putExtra(Intent.EXTRA_TEXT, db.doctorReportText(20));
         startActivity(Intent.createChooser(share, "导出给医生/自己复盘"));
     }

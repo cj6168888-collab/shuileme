@@ -10,8 +10,9 @@ if (-not (Test-Path $local)) {
   throw "Missing local test config: $local"
 }
 
+$rawConfig = Get-Content -Encoding UTF8 $local -Raw
 $props = @{}
-Get-Content -Encoding UTF8 $local | ForEach-Object {
+$rawConfig -split "`r?`n" | ForEach-Object {
   $line = $_.Trim()
   if ($line.Length -eq 0 -or $line.StartsWith("#")) { return }
   $i = $line.IndexOf("=")
@@ -21,10 +22,12 @@ Get-Content -Encoding UTF8 $local | ForEach-Object {
 }
 
 $key = $props["deepseek.apiKey"]
+if ($key -match '(sk-[A-Za-z0-9_-]+)') { $key = $Matches[1] }
 if (-not $key -or -not $key.StartsWith("sk-")) {
   throw "deepseek.apiKey is missing or invalid in local.deepseek.properties"
 }
 $model = $props["deepseek.model"]
+if (-not $model -and $rawConfig -match 'deepseek\.model=([A-Za-z0-9._-]+)') { $model = $Matches[1] }
 if (-not $model) { $model = "deepseek-v4-flash" }
 
 $adb = Join-Path $sdk "platform-tools\adb.exe"

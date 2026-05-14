@@ -309,7 +309,7 @@ public class PreferenceStore {
     }
 
     public boolean assistantOnlineEnabled() {
-        return prefs.getBoolean("assistant_online_enabled", false);
+        return prefs.getBoolean("assistant_online_enabled", true);
     }
 
     public void setAssistantOnlineEnabled(boolean value) {
