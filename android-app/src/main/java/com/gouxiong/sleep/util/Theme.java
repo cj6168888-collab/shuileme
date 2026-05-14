@@ -10,13 +10,14 @@ import android.widget.Button;
 import android.widget.TextView;
 
 public final class Theme {
-    public static final int BLUE = Color.rgb(47, 128, 237);
-    public static final int GREEN = Color.rgb(39, 174, 96);
-    public static final int ORANGE = Color.rgb(242, 153, 74);
-    public static final int RED = Color.rgb(235, 87, 87);
-    public static final int WARM_WHITE = Color.rgb(255, 253, 248);
-    public static final int TEXT = Color.rgb(36, 48, 64);
-    public static final int MUTED = Color.rgb(102, 112, 133);
+    public static final int BLUE = Color.rgb(43, 104, 226);
+    public static final int GREEN = Color.rgb(71, 168, 88);
+    public static final int ORANGE = Color.rgb(255, 147, 30);
+    public static final int RED = Color.rgb(235, 70, 52);
+    public static final int WARM_WHITE = Color.rgb(255, 249, 235);
+    public static final int CREAM = Color.rgb(255, 244, 220);
+    public static final int TEXT = Color.rgb(28, 45, 73);
+    public static final int MUTED = Color.rgb(107, 118, 140);
 
     private Theme() {}
 
@@ -30,7 +31,7 @@ public final class Theme {
         view.setTextSize(sp);
         view.setTextColor(color);
         view.setTypeface(Typeface.DEFAULT, style);
-        view.setLineSpacing(dp(context, 2), 1.05f);
+        view.setLineSpacing(dp(context, 3), 1.08f);
         return view;
     }
 
@@ -41,12 +42,29 @@ public final class Theme {
         button.setTextColor(Color.WHITE);
         button.setAllCaps(false);
         button.setGravity(Gravity.CENTER);
-        button.setMinHeight(dp(context, 72));
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(color);
-        bg.setCornerRadius(dp(context, 18));
+        button.setMinHeight(dp(context, 76));
+        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{lighten(color, 0.18f), color, darken(color, 0.10f)});
+        bg.setCornerRadius(dp(context, 24));
+        bg.setStroke(dp(context, 1), darken(color, 0.18f));
         button.setBackground(bg);
         button.setPadding(dp(context, 12), dp(context, 12), dp(context, 12), dp(context, 12));
+        if (android.os.Build.VERSION.SDK_INT >= 21) {
+            button.setElevation(dp(context, 3));
+            button.setStateListAnimator(null);
+        }
+        return button;
+    }
+
+    public static Button softButton(Context context, String value, int color) {
+        Button button = button(context, value, color);
+        button.setTextColor(darken(color, 0.38f));
+        GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{Color.WHITE, mix(color, Color.WHITE, 0.80f)});
+        bg.setCornerRadius(dp(context, 22));
+        bg.setStroke(dp(context, 1), mix(color, Color.WHITE, 0.45f));
+        button.setBackground(bg);
         return button;
     }
 
@@ -58,9 +76,39 @@ public final class Theme {
     }
 
     public static GradientDrawable card(Context context) {
-        GradientDrawable bg = rounded(Color.WHITE, 18, context);
-        bg.setStroke(dp(context, 1), Color.rgb(232, 237, 245));
+        GradientDrawable bg = rounded(Color.WHITE, 24, context);
+        bg.setStroke(dp(context, 1), Color.rgb(235, 226, 208));
         return bg;
+    }
+
+    public static GradientDrawable tintedCard(Context context, int color) {
+        GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{Color.WHITE, mix(color, Color.WHITE, 0.86f)});
+        bg.setCornerRadius(dp(context, 24));
+        bg.setStroke(dp(context, 1), mix(color, Color.WHITE, 0.56f));
+        return bg;
+    }
+
+    public static GradientDrawable navBar(Context context) {
+        GradientDrawable bg = rounded(Color.rgb(255, 246, 226), 24, context);
+        bg.setStroke(dp(context, 1), Color.rgb(241, 225, 190));
+        return bg;
+    }
+
+    public static int mix(int a, int b, float amountOfB) {
+        float t = Math.max(0f, Math.min(1f, amountOfB));
+        int r = Math.round(Color.red(a) * (1f - t) + Color.red(b) * t);
+        int g = Math.round(Color.green(a) * (1f - t) + Color.green(b) * t);
+        int bl = Math.round(Color.blue(a) * (1f - t) + Color.blue(b) * t);
+        return Color.rgb(r, g, bl);
+    }
+
+    public static int lighten(int color, float amount) {
+        return mix(color, Color.WHITE, amount);
+    }
+
+    public static int darken(int color, float amount) {
+        return mix(color, Color.BLACK, amount);
     }
 
     public static void margin(View view, int left, int top, int right, int bottom) {

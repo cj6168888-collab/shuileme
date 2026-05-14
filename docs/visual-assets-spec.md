@@ -41,7 +41,7 @@
 - 视觉参考板：[`docs/assets/gouxiong-sleep-ui-brand-board.png`](assets/gouxiong-sleep-ui-brand-board.png)
 - 小助手灵动聊天参考板：[`docs/assets/companion-live-chat-ui-board.png`](assets/companion-live-chat-ui-board.png)
 
-这张图用于确定整体风格，不直接作为最终 UI 稿逐字照搬。
+这张图现在作为原生 APK 的主视觉基准：首页、早安护理、强唤醒和小助手角色卡按这套暖色、3D 狗熊、大按钮风格实现。
 
 可采用：
 

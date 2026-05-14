@@ -182,15 +182,12 @@ public class MainActivity extends Activity {
         ScrollView scroll = new ScrollView(this);
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(Theme.dp(this, 24), safeTopPadding(28), Theme.dp(this, 24), Theme.dp(this, 28));
+        box.setPadding(Theme.dp(this, 24), safeTopPadding(22), Theme.dp(this, 24), Theme.dp(this, 28));
         box.setBackgroundColor(Theme.WARM_WHITE);
         scroll.addView(box);
 
-        ImageView logo = new ImageView(this);
-        logo.setImageResource(getResources().getIdentifier("ic_launcher", "drawable", getPackageName()));
-        LinearLayout.LayoutParams logoLp = new LinearLayout.LayoutParams(Theme.dp(this, 96), Theme.dp(this, 96));
-        logoLp.gravity = Gravity.CENTER_HORIZONTAL;
-        box.addView(logo, logoLp);
+        ImageView logo = designImage("ui_brand_logo", 250, ImageView.ScaleType.FIT_CENTER);
+        box.addView(logo, imageLp(250));
 
         TextView title = Theme.text(this, "狗熊睡眠", 34, Theme.TEXT, Typeface.BOLD);
         title.setGravity(Gravity.CENTER);
@@ -302,16 +299,18 @@ public class MainActivity extends Activity {
 
         LinearLayout nav = new LinearLayout(this);
         nav.setGravity(Gravity.CENTER);
-        nav.setPadding(Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 12));
-        nav.setBackgroundColor(0xffffffff);
-        addNav(nav, "守护", () -> showHome(), tab.equals("guard"));
-        addNav(nav, "记录", () -> showRecords(), tab.equals("records"));
-        addNav(nav, "设置", () -> showSettings(), tab.equals("settings"));
+        nav.setPadding(Theme.dp(this, 14), Theme.dp(this, 10), Theme.dp(this, 14), Theme.dp(this, 14));
+        nav.setBackground(Theme.navBar(this));
+        addNav(nav, "守护", () -> showShell("guard"), tab.equals("guard"));
+        addNav(nav, "早安", () -> showShell("morning"), tab.equals("morning"));
+        addNav(nav, "我的", () -> showShell("settings"), tab.equals("settings"));
         root.addView(nav, new LinearLayout.LayoutParams(-1, -2));
 
         setContentView(root);
         if ("records".equals(tab)) {
             showRecords();
+        } else if ("morning".equals(tab)) {
+            showMorningCare();
         } else if ("settings".equals(tab)) {
             showSettings();
         } else {
@@ -322,14 +321,13 @@ public class MainActivity extends Activity {
     private void showHome() {
         content.removeAllViews();
         boolean monitoring = prefs.isMonitoring();
-        content.addView(Theme.text(this, monitoring ? "正在守护，安心睡吧" : "今晚准备好了吗？", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
-        addSpace(content, 8);
-        content.addView(Theme.text(this, prefs.mode() + " · 智能分析 + 安全守护", 19, Theme.MUTED, Typeface.NORMAL), matchWrap());
-        addSpace(content, 24);
-        addAssistantHero("我的小助手", CompanionAssistant.homeLine(prefs.companionRole(), monitoring), true);
-        addSpace(content, 8);
+        content.addView(designImage("ui_sleep_scene", 360, ImageView.ScaleType.FIT_CENTER), imageLp(360));
+        addSpace(content, 14);
+        addStatusPill(monitoring ? "守护进行中" : "守护已就绪", Theme.GREEN);
 
-        Button primary = Theme.button(this, monitoring ? "停止守护" : "开始守护", monitoring ? Theme.RED : Theme.BLUE);
+        Button primary = Theme.button(this, monitoring ? "停止守护" : "▶  开始守护", monitoring ? Theme.RED : Theme.BLUE);
+        primary.setTextSize(26);
+        primary.setMinHeight(Theme.dp(this, 86));
         primary.setOnClickListener(v -> {
             if (prefs.isMonitoring()) {
                 stopMonitoring();
@@ -338,7 +336,11 @@ public class MainActivity extends Activity {
             }
         });
         content.addView(primary, matchWrap());
-        addSpace(content, 20);
+        addSpace(content, 14);
+        addHomeTileGrid();
+        addSpace(content, 12);
+        addAssistantHero("我的小助手", CompanionAssistant.homeLine(prefs.companionRole(), monitoring), true);
+        addSpace(content, 8);
 
         addCard("今晚检查", checkText(), Theme.GREEN);
         addCard("守护完整性", guardIntegrityText(), guardIntegrityScore() >= 80 ? Theme.GREEN : Theme.ORANGE);
@@ -823,9 +825,10 @@ public class MainActivity extends Activity {
         if (prefs.isMonitoring()) {
             stopMonitoring();
         }
-        content.addView(Theme.text(this, "早安护理", 34, Theme.TEXT, Typeface.BOLD), matchWrap());
-        addSpace(content, 10);
+        content.addView(designImage("ui_morning_scene", 250, ImageView.ScaleType.FIT_CENTER), imageLp(250));
+        addSpace(content, 12);
         addAssistantHero("早安", CompanionAssistant.morningGreeting(prefs.companionRole()), true);
+        addMorningTiles();
         addCard("睡眠汇报", db.localReportText() + "\n\n" + guardIntegrityText(), Theme.BLUE);
         addCard("喝水提醒", CompanionAssistant.waterLine(prefs.companionRole()), Theme.GREEN);
         if (prefs.medicationEnabled()) {
@@ -1023,10 +1026,8 @@ public class MainActivity extends Activity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView avatar = Theme.text(this, CompanionAssistant.avatarLabel(role), 30, Color.WHITE, Typeface.BOLD);
-        avatar.setGravity(Gravity.CENTER);
-        avatar.setBackground(Theme.rounded(CompanionAssistant.roleColor(role), 28, this));
-        LinearLayout.LayoutParams avatarLp = new LinearLayout.LayoutParams(Theme.dp(this, 60), Theme.dp(this, 60));
+        ImageView avatar = designImage(roleAssetName(role), 92, ImageView.ScaleType.CENTER_CROP);
+        LinearLayout.LayoutParams avatarLp = new LinearLayout.LayoutParams(Theme.dp(this, 112), Theme.dp(this, 92));
         avatarLp.setMargins(0, 0, Theme.dp(this, 12), 0);
         row.addView(avatar, avatarLp);
 
@@ -2759,6 +2760,91 @@ public class MainActivity extends Activity {
         return card;
     }
 
+    private ImageView designImage(String drawableName, int heightDp, ImageView.ScaleType scaleType) {
+        ImageView image = new ImageView(this);
+        int id = getResources().getIdentifier(drawableName, "drawable", getPackageName());
+        if (id != 0) {
+            image.setImageResource(id);
+        } else {
+            image.setImageResource(getResources().getIdentifier("ic_launcher", "drawable", getPackageName()));
+        }
+        image.setScaleType(scaleType);
+        image.setAdjustViewBounds(false);
+        image.setBackground(Theme.card(this));
+        image.setPadding(Theme.dp(this, 2), Theme.dp(this, 2), Theme.dp(this, 2), Theme.dp(this, 2));
+        image.setMinimumHeight(Theme.dp(this, heightDp));
+        if (android.os.Build.VERSION.SDK_INT >= 21) {
+            image.setElevation(Theme.dp(this, 2));
+        }
+        return image;
+    }
+
+    private String roleAssetName(String role) {
+        if (CompanionAssistant.ROLE_SISTER.equals(role)) return "ui_role_sister";
+        if (CompanionAssistant.ROLE_BROTHER.equals(role)) return "ui_role_brother";
+        if (CompanionAssistant.ROLE_YOUNG_MAN.equals(role)) return "ui_role_young_man";
+        return "ui_role_gentle_woman";
+    }
+
+    private void addStatusPill(String text, int color) {
+        LinearLayout card = new LinearLayout(this);
+        card.setGravity(Gravity.CENTER);
+        card.setPadding(Theme.dp(this, 18), Theme.dp(this, 12), Theme.dp(this, 18), Theme.dp(this, 12));
+        card.setBackground(Theme.tintedCard(this, color));
+        TextView label = Theme.text(this, "✓  " + text, 21, Theme.darken(color, 0.30f), Typeface.BOLD);
+        label.setGravity(Gravity.CENTER);
+        card.addView(label, matchWrap());
+        content.addView(card, matchWrap());
+        addSpace(content, 12);
+    }
+
+    private void addHomeTileGrid() {
+        LinearLayout row1 = new LinearLayout(this);
+        row1.setOrientation(LinearLayout.HORIZONTAL);
+        addSmallTile(row1, "✓\n安心守护", Theme.GREEN, this::showPreSleepCheck);
+        addSmallTile(row1, "☀\n晨间关怀", Theme.ORANGE, this::showMorningCare);
+        content.addView(row1, matchWrap());
+        addSpace(content, 10);
+
+        LinearLayout row2 = new LinearLayout(this);
+        row2.setOrientation(LinearLayout.HORIZONTAL);
+        addSmallTile(row2, "♥\n家人陪伴", Theme.RED, this::showCompanionChat);
+        addSmallTile(row2, "▮\n睡眠记录", Theme.BLUE, this::showRecords);
+        content.addView(row2, matchWrap());
+    }
+
+    private void addMorningTiles() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        Button water = Theme.softButton(this, "💧  喝水\n我没事", Theme.GREEN);
+        water.setTextSize(22);
+        water.setMinHeight(Theme.dp(this, 92));
+        water.setOnClickListener(v -> Toast.makeText(this, "我记下了，今天慢慢喝水。", Toast.LENGTH_SHORT).show());
+        row.addView(water, matchWrap());
+        addSpace(row, 12);
+        Button med = Theme.softButton(this, "💊  已吃药\n我没事", Theme.ORANGE);
+        med.setTextSize(22);
+        med.setMinHeight(Theme.dp(this, 92));
+        med.setOnClickListener(v -> {
+            prefs.confirmMedicationNow();
+            Toast.makeText(this, "已记录今天已吃药", Toast.LENGTH_SHORT).show();
+            showMorningCare();
+        });
+        row.addView(med, matchWrap());
+        content.addView(row, matchWrap());
+        addSpace(content, 14);
+    }
+
+    private void addSmallTile(LinearLayout row, String text, int color, Runnable action) {
+        Button tile = Theme.softButton(this, text, color);
+        tile.setTextSize(18);
+        tile.setMinHeight(Theme.dp(this, 92));
+        tile.setOnClickListener(v -> action.run());
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
+        lp.setMargins(Theme.dp(this, 4), 0, Theme.dp(this, 4), 0);
+        row.addView(tile, lp);
+    }
+
     private void addChoice(LinearLayout box, String text, Runnable action) {
         Button button = Theme.button(this, text, Theme.BLUE);
         button.setOnClickListener(v -> action.run());
@@ -2767,17 +2853,28 @@ public class MainActivity extends Activity {
     }
 
     private void addNav(LinearLayout nav, String text, Runnable action, boolean selected) {
-        Button button = Theme.button(this, text, selected ? Theme.BLUE : Theme.MUTED);
-        button.setTextSize(18);
-        button.setMinHeight(Theme.dp(this, 54));
+        int color = "守护".equals(text) ? Theme.BLUE : ("早安".equals(text) ? Theme.ORANGE : Theme.MUTED);
+        Button button = selected ? Theme.button(this, navLabel(text), color) : Theme.softButton(this, navLabel(text), color);
+        button.setTextSize(17);
+        button.setMinHeight(Theme.dp(this, 66));
         button.setOnClickListener(v -> action.run());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
         lp.setMargins(Theme.dp(this, 4), 0, Theme.dp(this, 4), 0);
         nav.addView(button, lp);
     }
 
+    private String navLabel(String text) {
+        if ("守护".equals(text)) return "🛡\n守护";
+        if ("早安".equals(text)) return "☀\n早安";
+        return "♡\n我的";
+    }
+
     private LinearLayout.LayoutParams matchWrap() {
         return new LinearLayout.LayoutParams(-1, -2);
+    }
+
+    private LinearLayout.LayoutParams imageLp(int heightDp) {
+        return new LinearLayout.LayoutParams(-1, Theme.dp(this, heightDp));
     }
 
     private void addSpace(LinearLayout parent, int dp) {

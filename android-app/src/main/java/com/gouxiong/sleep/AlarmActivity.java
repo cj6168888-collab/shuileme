@@ -25,6 +25,7 @@ import android.view.KeyEvent;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -109,54 +110,55 @@ public class AlarmActivity extends Activity {
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(Gravity.CENTER_HORIZONTAL);
         box.setPadding(Theme.dp(this, 24), safeTopPadding(44), Theme.dp(this, 24), Theme.dp(this, 24));
-        box.setBackgroundColor(Color.rgb(22, 30, 42));
+        box.setBackgroundColor(Theme.WARM_WHITE);
 
-        TextView title = Theme.text(this, "请醒一下", 42, Color.WHITE, Typeface.BOLD);
-        title.setGravity(Gravity.CENTER);
-        box.addView(title, new LinearLayout.LayoutParams(-1, -2));
-        addSpace(box, 12);
+        ImageView alarm = designImage("ui_alarm_scene");
+        box.addView(alarm, new LinearLayout.LayoutParams(-1, Theme.dp(this, 280)));
+        addSpace(box, 10);
 
-        TextView sub = Theme.text(this, "检测到高风险睡眠异常", 24, Color.rgb(255, 224, 176), Typeface.BOLD);
+        TextView sub = Theme.text(this, "检测到高风险睡眠异常", 22, Theme.RED, Typeface.BOLD);
         sub.setGravity(Gravity.CENTER);
         box.addView(sub, new LinearLayout.LayoutParams(-1, -2));
-        addSpace(box, 14);
+        addSpace(box, 6);
 
-        TextView assistant = Theme.text(this, assistantRole + "： " + CompanionAssistant.wakeLine(assistantRole), 20, Color.rgb(190, 230, 205), Typeface.BOLD);
+        TextView assistant = Theme.text(this, assistantRole + "： " + CompanionAssistant.wakeLine(assistantRole), 19, Theme.MUTED, Typeface.BOLD);
         assistant.setGravity(Gravity.CENTER);
         box.addView(assistant, new LinearLayout.LayoutParams(-1, -2));
-        addSpace(box, 14);
+        addSpace(box, 6);
 
-        TextView basis = Theme.text(this, reason, 18, Color.rgb(220, 227, 236), Typeface.NORMAL);
+        TextView basis = Theme.text(this, reason, 16, Theme.MUTED, Typeface.NORMAL);
         basis.setGravity(Gravity.CENTER);
         box.addView(basis, new LinearLayout.LayoutParams(-1, -2));
-        addSpace(box, 24);
+        addSpace(box, 8);
 
         if (drillMode) {
-            TextView drill = Theme.text(this, "演练模式：只测试铃声、震动、亮屏和确认按钮，不会打电话或发短信。", 18, Color.rgb(255, 224, 176), Typeface.BOLD);
+            TextView drill = Theme.text(this, "演练模式：不打电话或发短信。", 16, Theme.ORANGE, Typeface.BOLD);
             drill.setGravity(Gravity.CENTER);
             box.addView(drill, new LinearLayout.LayoutParams(-1, -2));
-            addSpace(box, 16);
+            addSpace(box, 8);
         }
 
-        countdown = Theme.text(this, CompanionAssistant.confirmLine(assistantRole), 22, Color.WHITE, Typeface.NORMAL);
+        countdown = Theme.text(this, CompanionAssistant.confirmLine(assistantRole), 20, Theme.TEXT, Typeface.BOLD);
         countdown.setGravity(Gravity.CENTER);
         box.addView(countdown, new LinearLayout.LayoutParams(-1, -2));
-        addSpace(box, 26);
+        addSpace(box, 14);
 
-        Button ok = Theme.button(this, "我没事，继续守护", Theme.GREEN);
-        ok.setTextSize(25);
-        ok.setMinHeight(Theme.dp(this, 100));
+        Button ok = Theme.button(this, "❤  我醒了", Theme.RED);
+        ok.setTextSize(28);
+        ok.setMinHeight(Theme.dp(this, 88));
         ok.setOnClickListener(v -> confirmSafe());
         box.addView(ok, new LinearLayout.LayoutParams(-1, -2));
-        addSpace(box, 16);
+        addSpace(box, 10);
 
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        Button pause = Theme.button(this, "暂停 10 分钟", Theme.ORANGE);
+        Button pause = Theme.softButton(this, "🛡  我没事", Theme.RED);
         pause.setTextSize(18);
+        pause.setMinHeight(Theme.dp(this, 70));
         pause.setOnClickListener(v -> confirmSafe());
-        Button end = Theme.button(this, "结束本晚", Theme.RED);
+        Button end = Theme.softButton(this, "结束本晚", Theme.ORANGE);
         end.setTextSize(18);
+        end.setMinHeight(Theme.dp(this, 70));
         end.setOnClickListener(v -> {
             stopService(new Intent(this, SleepMonitorService.class));
             confirmSafe();
@@ -166,6 +168,16 @@ public class AlarmActivity extends Activity {
         box.addView(row, new LinearLayout.LayoutParams(-1, -2));
 
         setContentView(box);
+    }
+
+    private ImageView designImage(String drawableName) {
+        ImageView image = new ImageView(this);
+        int id = getResources().getIdentifier(drawableName, "drawable", getPackageName());
+        if (id != 0) image.setImageResource(id);
+        image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        image.setBackground(Theme.card(this));
+        image.setPadding(Theme.dp(this, 2), Theme.dp(this, 2), Theme.dp(this, 2), Theme.dp(this, 2));
+        return image;
     }
 
     private int safeTopPadding(int baseDp) {
