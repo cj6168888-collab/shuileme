@@ -338,8 +338,7 @@ public class MainActivity extends Activity {
     private void showHome() {
         content.removeAllViews();
         boolean monitoring = prefs.isMonitoring();
-        content.addView(designImage("ui_sleep_scene", 360, ImageView.ScaleType.FIT_CENTER), imageLp(360));
-        addSpace(content, 14);
+        addHomeHero(monitoring);
         addStatusPill(monitoring ? "守护进行中" : "守护已就绪", Theme.GREEN);
 
         Button primary = Theme.button(this, monitoring ? "停止守护" : "▶  开始守护", monitoring ? Theme.RED : Theme.BLUE);
@@ -354,35 +353,66 @@ public class MainActivity extends Activity {
         });
         content.addView(primary, matchWrap());
         addSpace(content, 14);
+        addReadinessChips();
+        addSpace(content, 14);
         addHomeTileGrid();
         addSpace(content, 12);
         addAssistantHero("我的小助手", CompanionAssistant.homeLine(prefs.companionRole(), monitoring), true);
         addSpace(content, 8);
 
-        addCard("今晚检查", checkText(), Theme.GREEN);
+        addSectionTitle("睡眠情况", "详细记录和可信度放在这里，不打扰开始守护。");
+        addCard("今晚检查", checkText(), guardIntegrityScore() >= 80 ? Theme.GREEN : Theme.ORANGE);
+        addCard("昨晚摘要", db.localReportText(), Theme.BLUE);
         addCard("守护完整性", guardIntegrityText(), guardIntegrityScore() >= 80 ? Theme.GREEN : Theme.ORANGE);
         addCard("检测可信度", detectionConfidenceText(), Theme.ORANGE);
-        addCard("昨晚摘要", db.localReportText(), Theme.BLUE);
-        addSpace(content, 12);
-        Button selfCheck = Theme.button(this, "睡前自检", Theme.GREEN);
-        selfCheck.setTextSize(20);
-        selfCheck.setOnClickListener(v -> showPreSleepCheck());
-        content.addView(selfCheck, matchWrap());
+    }
+
+    private void addHomeHero(boolean monitoring) {
+        LinearLayout hero = cardContainer();
+        hero.setGravity(Gravity.CENTER_HORIZONTAL);
+        hero.setBackground(Theme.tintedCard(this, Theme.BLUE));
+        ImageView logo = designImage("ui_brand_logo", 170, ImageView.ScaleType.FIT_CENTER);
+        logo.setContentDescription("狗熊睡眠");
+        hero.addView(logo, new LinearLayout.LayoutParams(-1, Theme.dp(this, 170)));
+        addSpace(hero, 8);
+        TextView title = Theme.text(this, monitoring ? "正在静静守着" : "今晚安心入睡", 28, Theme.TEXT, Typeface.BOLD);
+        title.setGravity(Gravity.CENTER);
+        hero.addView(title, matchWrap());
+        addSpace(hero, 4);
+        TextView subtitle = Theme.text(this, monitoring ? "没有异常时保持安静，有风险时再温和干预。" : "不用注册、不收费，打开就能守护。", 18, Theme.MUTED, Typeface.NORMAL);
+        subtitle.setGravity(Gravity.CENTER);
+        hero.addView(subtitle, matchWrap());
+        content.addView(hero, matchWrap());
+        addSpace(content, 14);
+    }
+
+    private void addReadinessChips() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        addMiniChip(row, "麦克风", hasPermission(Manifest.permission.RECORD_AUDIO), Theme.GREEN, () -> requestEssentialPermissions());
+        addMiniChip(row, "音量/蓝牙", true, Theme.BLUE, () -> startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS)));
+        addMiniChip(row, "联系人", prefs.emergencyEnabled(), Theme.ORANGE, this::showEmergencyDialog);
+        content.addView(row, matchWrap());
+    }
+
+    private void addMiniChip(LinearLayout row, String label, boolean ok, int color, Runnable action) {
+        Button chip = Theme.softButton(this, (ok ? "✓ " : "! ") + label, ok ? color : Theme.ORANGE);
+        chip.setTextSize(16);
+        chip.setMinHeight(Theme.dp(this, 54));
+        chip.setOnClickListener(v -> action.run());
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
+        lp.setMargins(Theme.dp(this, 3), 0, Theme.dp(this, 3), 0);
+        row.addView(chip, lp);
+    }
+
+    private void addSectionTitle(String title, String subtitle) {
+        TextView heading = Theme.text(this, title, 24, Theme.TEXT, Typeface.BOLD);
+        content.addView(heading, matchWrap());
+        if (subtitle != null && subtitle.length() > 0) {
+            addSpace(content, 4);
+            content.addView(Theme.text(this, subtitle, 16, Theme.MUTED, Typeface.NORMAL), matchWrap());
+        }
         addSpace(content, 10);
-        Button detectionTest = Theme.button(this, "检测测试", Theme.BLUE);
-        detectionTest.setTextSize(20);
-        detectionTest.setOnClickListener(v -> showDetectionTest());
-        content.addView(detectionTest, matchWrap());
-        addSpace(content, 10);
-        Button morning = Theme.button(this, "我醒了，早安护理", Theme.GREEN);
-        morning.setTextSize(20);
-        morning.setOnClickListener(v -> showMorningCare());
-        content.addView(morning, matchWrap());
-        addSpace(content, 10);
-        Button testAlarm = Theme.button(this, "测试强唤醒", Theme.ORANGE);
-        testAlarm.setTextSize(20);
-        testAlarm.setOnClickListener(v -> startActivity(alarmDrillIntent("手动测试")));
-        content.addView(testAlarm, matchWrap());
     }
 
     private void addAssistantHero(String title, String body, boolean includeChatButton) {
@@ -843,8 +873,7 @@ public class MainActivity extends Activity {
         if (prefs.isMonitoring()) {
             stopMonitoring();
         }
-        content.addView(designImage("ui_morning_scene", 250, ImageView.ScaleType.FIT_CENTER), imageLp(250));
-        addSpace(content, 12);
+        addMorningHero();
         addAssistantHero("早安", CompanionAssistant.morningGreeting(prefs.companionRole()), true);
         addMorningTiles();
         addCard("睡眠汇报", db.localReportText() + "\n\n" + guardIntegrityText(), Theme.BLUE);
@@ -880,6 +909,21 @@ public class MainActivity extends Activity {
         addSettingButton("选择小助手", this::showCompanionSettings);
         addSettingButton("设置吃药提醒", this::showMedicationDialog);
         addSettingButton("返回首页", () -> showShell("guard"));
+    }
+
+    private void addMorningHero() {
+        LinearLayout hero = cardContainer();
+        hero.setGravity(Gravity.CENTER_HORIZONTAL);
+        hero.setBackground(Theme.tintedCard(this, Theme.ORANGE));
+        TextView title = Theme.text(this, "☀  早安护理", 30, Theme.ORANGE, Typeface.BOLD);
+        title.setGravity(Gravity.CENTER);
+        hero.addView(title, matchWrap());
+        addSpace(hero, 8);
+        TextView subtitle = Theme.text(this, "先喝水、确认吃药，再慢慢看昨晚报告。", 18, Theme.MUTED, Typeface.NORMAL);
+        subtitle.setGravity(Gravity.CENTER);
+        hero.addView(subtitle, matchWrap());
+        content.addView(hero, matchWrap());
+        addSpace(content, 14);
     }
 
     private void showCompanionSettings() {
@@ -3225,12 +3269,7 @@ public class MainActivity extends Activity {
         }
         image.setScaleType(scaleType);
         image.setAdjustViewBounds(false);
-        image.setBackground(Theme.card(this));
-        image.setPadding(Theme.dp(this, 2), Theme.dp(this, 2), Theme.dp(this, 2), Theme.dp(this, 2));
         image.setMinimumHeight(Theme.dp(this, heightDp));
-        if (android.os.Build.VERSION.SDK_INT >= 21) {
-            image.setElevation(Theme.dp(this, 2));
-        }
         return image;
     }
 
@@ -3275,21 +3314,21 @@ public class MainActivity extends Activity {
 
         LinearLayout row2 = new LinearLayout(this);
         row2.setOrientation(LinearLayout.HORIZONTAL);
-        addSmallTile(row2, "♥\n家人陪伴", Theme.RED, this::showCompanionChat);
-        addSmallTile(row2, "▮\n睡眠记录", Theme.BLUE, this::showRecords);
+        addSmallTile(row2, "♥\n家人陪伴", Theme.GREEN, this::showCompanionChat);
+        addSmallTile(row2, "▮\n睡眠记录", Theme.BLUE, () -> showRecords());
         content.addView(row2, matchWrap());
     }
 
     private void addMorningTiles() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.VERTICAL);
-        Button water = Theme.softButton(this, "💧  喝水\n我没事", Theme.GREEN);
+        Button water = Theme.softButton(this, "💧  我喝水了", Theme.GREEN);
         water.setTextSize(22);
         water.setMinHeight(Theme.dp(this, 92));
         water.setOnClickListener(v -> Toast.makeText(this, "我记下了，今天慢慢喝水。", Toast.LENGTH_SHORT).show());
         row.addView(water, matchWrap());
         addSpace(row, 12);
-        Button med = Theme.softButton(this, "💊  已吃药\n我没事", Theme.ORANGE);
+        Button med = Theme.softButton(this, "💊  已吃药", Theme.ORANGE);
         med.setTextSize(22);
         med.setMinHeight(Theme.dp(this, 92));
         med.setOnClickListener(v -> {

@@ -16,6 +16,7 @@
 - [AI 优先睡眠健康功能规划](docs/offline-mvp-feature-plan.md)
 - [原生 APK UI/UX 设计规范](docs/native-apk-ui-ux-spec.md)
 - [UI/UX 重新设计总方案](docs/independent-ui-ux-redesign-plan.md)
+- [UI/UX 对照归类审查](docs/ui-ux-reference-classification-audit.md)
 - [Android 技术实施方案](docs/android-technical-implementation.md)
 - [检测算法与测试方案](docs/detection-algorithm-test-plan.md)
 - [权限与发布风险清单](docs/permissions-release-risk-checklist.md)

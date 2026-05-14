@@ -175,8 +175,6 @@ public class AlarmActivity extends Activity {
         int id = getResources().getIdentifier(drawableName, "drawable", getPackageName());
         if (id != 0) image.setImageResource(id);
         image.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        image.setBackground(Theme.card(this));
-        image.setPadding(Theme.dp(this, 2), Theme.dp(this, 2), Theme.dp(this, 2), Theme.dp(this, 2));
         return image;
     }
 
