@@ -1328,6 +1328,7 @@ public class MainActivity extends Activity {
         LinearLayout stage = cardContainer();
         stage.setPadding(Theme.dp(this, 18), Theme.dp(this, 18), Theme.dp(this, 18), Theme.dp(this, 18));
         stage.setBackground(Theme.tintedCard(this, CompanionAssistant.roleColor(role)));
+        stage.setOnClickListener(v -> interruptForUserSpeech());
 
         TextView nameView = Theme.text(this, name, 30, Theme.TEXT, Typeface.BOLD);
         nameView.setGravity(Gravity.CENTER);
@@ -1340,6 +1341,7 @@ public class MainActivity extends Activity {
 
         ImageView avatar = designImage(roleAvatarAssetName(role), 238, ImageView.ScaleType.CENTER_CROP);
         avatar.setContentDescription(name + "，" + liveMoodText(mood));
+        avatar.setOnClickListener(v -> interruptForUserSpeech());
         startAssistantMotion(avatar);
         stage.addView(avatar, imageLp(238));
         addSpace(stage, 16);
@@ -1391,12 +1393,7 @@ public class MainActivity extends Activity {
 
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
-        addLiveActionButton(actions, "我来说", Theme.BLUE, () -> {
-            voiceConversationSerial++;
-            stopAssistantSpeech();
-            updateVoiceStatus("我在听，您直接说。");
-            restartRealtimeListeningSoon(120);
-        }, true);
+        addLiveActionButton(actions, "我来说", Theme.BLUE, this::interruptForUserSpeech, true);
         addLiveActionButton(actions, "暂停", Theme.ORANGE, () -> {
             stopRealtimeVoiceChat(true);
             stopAssistantSpeech();
@@ -1417,6 +1414,14 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
         lp.setMargins(Theme.dp(this, 3), 0, Theme.dp(this, 3), 0);
         row.addView(button, lp);
+    }
+
+    private void interruptForUserSpeech() {
+        realtimeVoiceEnabled = true;
+        voiceConversationSerial++;
+        stopAssistantSpeech();
+        updateVoiceStatus("我在听，您直接说。");
+        restartRealtimeListeningSoon(120);
     }
 
     private void addLiveMemoryStrip() {

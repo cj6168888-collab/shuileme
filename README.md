@@ -23,6 +23,7 @@
 - [独立绘图模型资产清单](docs/imagegen-independent-asset-manifest.md)
 - [小助手设计文件](docs/companion-assistant-design.md)
 - [小助手 Live 实时陪伴架构](docs/live-companion-architecture.md)
+- [Gemini Live 接入路线](docs/gemini-live-integration-roadmap.md)
 - [开源发布清单](docs/open-source-release-checklist.md)
 - [APK 交付说明](docs/apk-delivery-notes.md)
 
