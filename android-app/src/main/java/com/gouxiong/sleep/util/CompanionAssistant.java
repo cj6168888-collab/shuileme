@@ -259,6 +259,27 @@ public final class CompanionAssistant {
         return "你要找“" + object + "”。我现在记得这些位置：\n" + memorySummary + "\n我们先按这个顺序找，不着急。";
     }
 
+    public static String thinkingComfortLine(String role, String task) {
+        role = normalize(role);
+        String prefix;
+        if (ROLE_SISTER.equals(role)) {
+            prefix = "您别急，我在这儿陪着您。";
+        } else if (ROLE_BROTHER.equals(role)) {
+            prefix = "您别急，我先帮您想想。";
+        } else if (ROLE_YOUNG_MAN.equals(role)) {
+            prefix = "您别着急，我正在认真查。";
+        } else {
+            prefix = "您别急，我在这儿。";
+        }
+        if ("vision".equals(task)) {
+            return prefix + "我正在看这张照片，一会儿就告诉您；看不清也没关系，我们再慢慢来。";
+        }
+        if ("find".equals(task)) {
+            return prefix + "我先查一下记过的位置，再帮您一步一步找。";
+        }
+        return prefix + "我听见了，正在认真想怎么回答您，马上回您。";
+    }
+
     public static String profileWizardIntro(String role, String label) {
         role = normalize(role);
         String topic = label == null || label.length() == 0 ? "档案" : label;

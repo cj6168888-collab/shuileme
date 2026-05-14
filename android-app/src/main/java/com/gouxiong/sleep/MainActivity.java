@@ -1495,7 +1495,9 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "没有可分析的照片", Toast.LENGTH_SHORT).show();
             return;
         }
-        showCompanionReply("小助手在看", "我正在认真看这张照片。照片只用于这次主动请求；请不要拍身份证、银行卡等敏感信息。");
+        showCompanionWaiting("小助手在看",
+                CompanionAssistant.thinkingComfortLine(prefs.companionRole(), "vision")
+                        + "\n\n照片只用于这次主动请求；请不要拍身份证、银行卡等敏感信息。");
         new Thread(() -> {
             try {
                 String answer = DeepSeekClient.chatWithImage(
@@ -1926,12 +1928,15 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "问题不能为空", Toast.LENGTH_SHORT).show();
             return;
         }
+        boolean findQuestion = looksLikeFindObjectQuestion(cleanQuestion);
         String objectAnswer = db.objectMemoryAnswer(cleanQuestion);
-        if (objectAnswer.length() > 0 && looksLikeFindObjectQuestion(cleanQuestion)) {
+        if (objectAnswer.length() > 0 && findQuestion) {
             showCompanionReply("我帮你找", objectAnswer);
             return;
         }
-        showCompanionReply("小助手在想", "我听见了，正在认真想怎么回答您。\n夜间强唤醒保留本地兜底，避免网络波动影响安全。");
+        showCompanionWaiting("小助手在想",
+                CompanionAssistant.thinkingComfortLine(prefs.companionRole(), findQuestion ? "find" : "chat")
+                        + "\n\n夜间强唤醒保留本地兜底，避免网络波动影响安全。");
         new Thread(() -> {
             try {
                 String answer = DeepSeekClient.chat(
@@ -2003,6 +2008,11 @@ public class MainActivity extends Activity {
         addSettingButton("读给我听", () -> speakAssistantText(reply));
         addSettingButton("继续聊", this::showCompanionChat);
         addSettingButton("返回首页", () -> showShell("guard"));
+    }
+
+    private void showCompanionWaiting(String topic, String reply) {
+        showCompanionReply(topic, reply);
+        content.postDelayed(() -> speakAssistantText(reply), 250);
     }
 
     private void showMedicationDialog() {

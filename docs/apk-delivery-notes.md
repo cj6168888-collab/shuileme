@@ -7,7 +7,7 @@
 - 调试包：`android-app/build/outputs/apk/gouxiong-sleep-debug.apk`
 - 包名：`com.gouxiong.sleep`
 - 签名：项目固定 debug keystore，路径 `android-app/keystore/debug.keystore`
-- SHA256：`7B5A8E996185546650D3BB561E4A9DCC377D2228CC5D0F9C14457A2EC58D9E19`
+- SHA256：`788DBEF49FD2D89A1C4FC55CB2A6AC47EE1FED739840D4614442607F4E153E60`
 - 构建方式：Android SDK 直编，无 Gradle 依赖
 
 ## 构建命令
