@@ -1,0 +1,104 @@
+$ErrorActionPreference = "Stop"
+
+$projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$sdk = $env:ANDROID_HOME
+if (-not $sdk) { $sdk = $env:ANDROID_SDK_ROOT }
+if (-not $sdk) { throw "ANDROID_HOME or ANDROID_SDK_ROOT is not set." }
+
+$platform = Join-Path $sdk "platforms\android-35\android.jar"
+if (-not (Test-Path $platform)) {
+  $platform = Join-Path $sdk "platforms\android-36\android.jar"
+}
+if (-not (Test-Path $platform)) { throw "No android.jar found for android-35 or android-36." }
+
+$bt = Join-Path $sdk "build-tools\36.1.0"
+$aapt2 = Join-Path $bt "aapt2.exe"
+$d8 = Join-Path $bt "d8.bat"
+$zipalign = Join-Path $bt "zipalign.exe"
+$apksigner = Join-Path $bt "apksigner.bat"
+foreach ($tool in @($aapt2, $d8, $zipalign, $apksigner)) {
+  if (-not (Test-Path $tool)) { throw "Missing Android build tool: $tool" }
+}
+
+$workRoot = Join-Path $env:TEMP "gouxiong-sleep-android-build"
+if (Test-Path $workRoot) {
+  $resolvedWork = (Resolve-Path $workRoot).Path
+  if (-not $resolvedWork.StartsWith((Resolve-Path $env:TEMP).Path)) { throw "Refusing to delete temp dir outside temp: $resolvedWork" }
+  Remove-Item -LiteralPath $resolvedWork -Recurse -Force
+}
+New-Item -ItemType Directory -Force -Path $workRoot | Out-Null
+Copy-Item -LiteralPath (Join-Path $projectRoot "src") -Destination (Join-Path $workRoot "src") -Recurse
+
+$build = Join-Path $workRoot "build"
+$projectBuild = Join-Path $projectRoot "build"
+$resolvedProject = (Resolve-Path $projectRoot).Path
+if (Test-Path $projectBuild) {
+  $resolvedProjectBuild = (Resolve-Path $projectBuild).Path
+  if (-not $resolvedProjectBuild.StartsWith($resolvedProject)) { throw "Refusing to delete project build dir outside project: $resolvedProjectBuild" }
+  Remove-Item -LiteralPath $resolvedProjectBuild -Recurse -Force
+}
+
+$gen = Join-Path $build "generated"
+$classes = Join-Path $build "classes"
+$dex = Join-Path $build "dex"
+$out = Join-Path $build "outputs\apk"
+New-Item -ItemType Directory -Force -Path $gen,$classes,$dex,$out | Out-Null
+
+$manifest = Join-Path $workRoot "src\main\AndroidManifest.xml"
+$res = Join-Path $workRoot "src\main\res"
+$compiled = Join-Path $build "compiled-res.zip"
+$unsigned = Join-Path $build "unsigned.apk"
+$withDex = Join-Path $build "with-dex.apk"
+$aligned = Join-Path $build "aligned.apk"
+$signed = Join-Path $out "gouxiong-sleep-debug.apk"
+$finalOut = Join-Path $projectBuild "outputs\apk"
+$finalApk = Join-Path $finalOut "gouxiong-sleep-debug.apk"
+
+& $aapt2 compile --dir $res -o $compiled
+if ($LASTEXITCODE -ne 0) { throw "aapt2 compile failed" }
+& $aapt2 link -o $unsigned -I $platform --manifest $manifest --java $gen --min-sdk-version 26 --target-sdk-version 35 --auto-add-overlay $compiled
+if ($LASTEXITCODE -ne 0) { throw "aapt2 link failed" }
+
+$sources = Join-Path $build "sources.txt"
+$sourceFiles = Get-ChildItem -Path (Join-Path $workRoot "src\main\java"),$gen -Recurse -Filter *.java | ForEach-Object { $_.FullName }
+[System.IO.File]::WriteAllLines($sources, $sourceFiles, [System.Text.Encoding]::ASCII)
+& javac --release 8 -encoding UTF-8 -classpath $platform -d $classes "@$sources"
+if ($LASTEXITCODE -ne 0) { throw "javac failed" }
+
+$classesJar = Join-Path $build "classes.jar"
+& jar cf $classesJar -C $classes .
+if ($LASTEXITCODE -ne 0) { throw "jar failed" }
+& $d8 --lib $platform --min-api 26 --output $dex $classesJar
+if ($LASTEXITCODE -ne 0) { throw "d8 failed" }
+
+Copy-Item -LiteralPath $unsigned -Destination $withDex
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zip = [System.IO.Compression.ZipFile]::Open($withDex, [System.IO.Compression.ZipArchiveMode]::Update)
+try {
+  $existing = $zip.GetEntry("classes.dex")
+  if ($existing) { $existing.Delete() }
+  [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, (Join-Path $dex "classes.dex"), "classes.dex") | Out-Null
+} finally {
+  $zip.Dispose()
+}
+
+& $zipalign -f 4 $withDex $aligned
+if ($LASTEXITCODE -ne 0) { throw "zipalign failed" }
+
+$keystoreDir = Join-Path $projectRoot "keystore"
+New-Item -ItemType Directory -Force -Path $keystoreDir | Out-Null
+$keystore = Join-Path $keystoreDir "debug.keystore"
+if (-not (Test-Path $keystore)) {
+  & keytool -genkeypair -v -keystore $keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+  if ($LASTEXITCODE -ne 0) { throw "keytool failed" }
+}
+
+& $apksigner sign --ks $keystore --ks-pass pass:android --key-pass pass:android --out $signed $aligned
+if ($LASTEXITCODE -ne 0) { throw "apksigner sign failed" }
+& $apksigner verify --verbose $signed
+if ($LASTEXITCODE -ne 0) { throw "apksigner verify failed" }
+
+New-Item -ItemType Directory -Force -Path $finalOut | Out-Null
+Copy-Item -LiteralPath $signed -Destination $finalApk -Force
+Write-Host "APK built: $finalApk"

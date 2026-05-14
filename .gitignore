@@ -1,0 +1,4 @@
+android-app/build/
+android-app/local.deepseek.properties
+android-app/*.local.properties
+*.keystore

@@ -1,0 +1,159 @@
+package com.gouxiong.sleep.util;
+
+public final class CompanionAssistant {
+    public static final String ROLE_SISTER = "贴心小妹";
+    public static final String ROLE_BROTHER = "懂事小弟";
+    public static final String ROLE_YOUNG_MAN = "阳光小哥";
+    public static final String ROLE_GENTLE_WOMAN = "温柔姐姐";
+    public static final String[] ROLES = {ROLE_SISTER, ROLE_BROTHER, ROLE_YOUNG_MAN, ROLE_GENTLE_WOMAN};
+
+    private CompanionAssistant() {
+    }
+
+    public static String normalize(String role) {
+        if (ROLE_SISTER.equals(role) || ROLE_BROTHER.equals(role) || ROLE_YOUNG_MAN.equals(role) || ROLE_GENTLE_WOMAN.equals(role)) {
+            return role;
+        }
+        return ROLE_GENTLE_WOMAN;
+    }
+
+    public static String avatarLabel(String role) {
+        role = normalize(role);
+        if (ROLE_SISTER.equals(role)) return "妹";
+        if (ROLE_BROTHER.equals(role)) return "弟";
+        if (ROLE_YOUNG_MAN.equals(role)) return "哥";
+        return "姐";
+    }
+
+    public static int roleColor(String role) {
+        role = normalize(role);
+        if (ROLE_SISTER.equals(role)) return Theme.ORANGE;
+        if (ROLE_BROTHER.equals(role)) return Theme.BLUE;
+        if (ROLE_YOUNG_MAN.equals(role)) return Theme.GREEN;
+        return Theme.GREEN;
+    }
+
+    public static String styleSummary(String role) {
+        role = normalize(role);
+        if (ROLE_SISTER.equals(role)) return "活泼温柔，像家人一样陪你";
+        if (ROLE_BROTHER.equals(role)) return "认真清楚，帮你记事和提醒";
+        if (ROLE_YOUNG_MAN.equals(role)) return "可靠坚定，适合安全守护";
+        return "温和耐心，默认陪伴助手";
+    }
+
+    public static String sampleLine(String role) {
+        role = normalize(role);
+        if (ROLE_SISTER.equals(role)) return "早安呀，昨晚我一直在守着你，我们一起看看记录。";
+        if (ROLE_BROTHER.equals(role)) return "早安。昨晚记录已经整理好了，我用简单的话说给你听。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "早安。昨晚守护已结束，我帮你整理重点。";
+        return "早安，昨晚辛苦了。我们先看一个简单总结。";
+    }
+
+    public static String homeLine(String role, boolean monitoring) {
+        role = normalize(role);
+        if (monitoring) {
+            if (ROLE_SISTER.equals(role)) return "我会安静守着，只有需要时才轻轻提醒你。";
+            if (ROLE_BROTHER.equals(role)) return "守护已经开始。我会记录异常，平时不打扰。";
+            if (ROLE_YOUNG_MAN.equals(role)) return "守护进行中。我会保持静默，重点看高风险情况。";
+            return "我会静静守护，只有需要时才提醒你。";
+        }
+        if (ROLE_SISTER.equals(role)) return "睡前我陪你检查一下，准备好就能安心休息。";
+        if (ROLE_BROTHER.equals(role)) return "我帮你检查麦克风、通知和电量，准备好再开始。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "今晚先把守护条件确认好，红色和橙色项优先处理。";
+        return "睡前先做个简单检查，我会用少文字陪你完成。";
+    }
+
+    public static String sleepPrepLine(String role) {
+        role = normalize(role);
+        if (ROLE_SISTER.equals(role)) return "今晚先看麦克风、通知、电量和唤醒声音，准备好就安心睡。";
+        if (ROLE_BROTHER.equals(role)) return "我按顺序检查关键项：麦克风、通知、电池优化、联系人。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "建议先处理橙色和红色项，尤其是电池优化和强唤醒测试。";
+        return "我们先确认今晚能稳定守护，检查完再开始。";
+    }
+
+    public static String morningGreeting(String role) {
+        role = normalize(role);
+        if (ROLE_SISTER.equals(role)) return "早安呀，昨晚我一直在守着你，先慢慢坐起来。";
+        if (ROLE_BROTHER.equals(role)) return "早安。昨晚记录我整理好了，先慢慢起身。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "早安。昨晚守护已结束，我帮你整理重点。";
+        return "早安，昨晚辛苦了。先慢慢坐起来，我们看个简单总结。";
+    }
+
+    public static String waterLine(String role) {
+        role = normalize(role);
+        if (ROLE_SISTER.equals(role)) return "可以先喝几口温水，慢慢来，不着急。";
+        if (ROLE_BROTHER.equals(role)) return "建议先喝水，再看昨晚记录。起身动作慢一点。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "先补一点水，起身时扶稳，别突然站起来。";
+        return "可以先喝几口温水。起身动作慢一点，别突然站起来。";
+    }
+
+    public static String medicationLine(String role, String medicationName, boolean confirmed) {
+        role = normalize(role);
+        if (confirmed) return "今天已确认吃药，我不会再提醒。";
+        String name = medicationName == null || medicationName.length() == 0 ? "早晨用药" : medicationName;
+        if (ROLE_SISTER.equals(role)) return "这是你自己设定的" + name + "提醒，吃过了点一下，我就不催啦。";
+        if (ROLE_BROTHER.equals(role)) return "这是你设定的" + name + "提醒。没确认的话，我过一会儿再提醒。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "如果这是你的固定用药，请按医生或家人交代的方式处理：" + name + "。";
+        return "这是你自己设置的提醒：" + name + "。吃过了点确认，没吃可以稍后再提醒。";
+    }
+
+    public static String exerciseLine(String role) {
+        role = normalize(role);
+        if (ROLE_SISTER.equals(role)) return "今天先做 3 次慢呼吸，再轻轻转动肩颈，舒服就好。";
+        if (ROLE_BROTHER.equals(role)) return "晨间小动作：慢呼吸 3 次，肩颈各转 5 下，不舒服就停。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "先做慢呼吸，再拉伸肩颈。身体状态好时可以晒晒太阳。";
+        return "先做 3 次慢呼吸，再轻轻转动肩颈。身体不舒服时先休息。";
+    }
+
+    public static String wakeLine(String role) {
+        role = normalize(role);
+        if (ROLE_SISTER.equals(role)) return "醒一下呀，先确认你没事。听到了就说我没事。";
+        if (ROLE_BROTHER.equals(role)) return "请醒一下，我在守着你。如果没事，请说我没事。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "现在请醒一下，确认你安全。没事就按绿色按钮。";
+        return "先醒一下，慢慢呼吸，确认你没事。";
+    }
+
+    public static String confirmLine(String role) {
+        role = normalize(role);
+        if (ROLE_SISTER.equals(role)) return "如果听到了，说我没事，或者点绿色按钮";
+        if (ROLE_BROTHER.equals(role)) return "如果没事，请说我没事或按下按钮";
+        if (ROLE_YOUNG_MAN.equals(role)) return "请马上确认安全，说我没事或按按钮";
+        return "如果你没事，请说我没事或按下按钮";
+    }
+
+    public static String chatIntro(String role) {
+        role = normalize(role);
+        if (ROLE_SISTER.equals(role)) return "我先用本机离线短句陪你聊。你可以让我解释昨晚、提醒喝水吃药，或者陪你放松一下。";
+        if (ROLE_BROTHER.equals(role)) return "当前是离线陪伴模式。我可以帮你看报告、记提醒、把建议说简单一点。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "当前不联网。我可以整理重点、给出行动建议，也可以帮你准备给医生看的问题。";
+        return "当前是离线陪伴模式。我可以解释睡眠记录、给生活建议，也可以陪你聊几句。";
+    }
+
+    public static String chatSleepReport(String role, String report, int integrityScore) {
+        role = normalize(role);
+        String prefix;
+        if (ROLE_SISTER.equals(role)) prefix = "我帮你简单看一下：";
+        else if (ROLE_BROTHER.equals(role)) prefix = "我按重点说：";
+        else if (ROLE_YOUNG_MAN.equals(role)) prefix = "重点是这三件事：";
+        else prefix = "我们先看一个简单总结：";
+        return prefix + "\n" + report + "\n守护完整性 " + integrityScore + " 分。记录只能说明疑似异常，不能当诊断。";
+    }
+
+    public static String chatRelax(String role) {
+        role = normalize(role);
+        if (ROLE_SISTER.equals(role)) return "先把肩膀放松，慢慢吸气，再慢慢呼气。今天不急，我们一步一步来。";
+        if (ROLE_BROTHER.equals(role)) return "放松步骤：吸气 4 秒，呼气 6 秒，重复 3 次。做完再决定要不要继续看记录。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "先稳住呼吸。吸气、停一下、慢慢呼气。身体放松后，再做简单拉伸。";
+        return "先慢慢吸气，再慢慢呼气。肩膀放松，手脚放松，身体不舒服就先休息。";
+    }
+
+    public static String chatDoctor(String role) {
+        return "如果多晚重复出现高风险记录、憋醒样声音、喘息呛咳，或白天明显困倦，可以带着 App 的记录咨询医生。不要只靠 App 下结论。";
+    }
+
+    public static String chatPrivacy(String role, boolean onlineEnabled) {
+        return onlineEnabled
+                ? "联网增强已开启。后续应只发送结构化摘要，整夜录音、亲人录音和联系人电话默认不上传。"
+                : "当前默认离线。角色选择、睡眠记录、联系人和录音都保存在本机，不接服务器。";
+    }
+}
