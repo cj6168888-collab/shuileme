@@ -308,6 +308,37 @@ public class PreferenceStore {
         prefs.edit().putString("companion_role", role == null ? "温柔姐姐" : role).apply();
     }
 
+    public boolean assistantPersonaConfigured() {
+        return prefs.getBoolean("assistant_persona_configured", false);
+    }
+
+    public String assistantName() {
+        String name = prefs.getString("assistant_name", "");
+        return name.length() > 0 ? name : "小熊";
+    }
+
+    public String assistantIdentity() {
+        String identity = prefs.getString("assistant_identity", "");
+        return identity.length() > 0 ? identity : "听话贴心的小助理";
+    }
+
+    public void setAssistantPersona(String name, String identity) {
+        String cleanName = clean(name);
+        String cleanIdentity = clean(identity);
+        prefs.edit()
+                .putBoolean("assistant_persona_configured", true)
+                .putString("assistant_name", cleanName.length() > 0 ? cleanName : "小熊")
+                .putString("assistant_identity", cleanIdentity.length() > 0 ? cleanIdentity : "听话贴心的小助理")
+                .apply();
+    }
+
+    public String assistantPersonaSummary() {
+        if (!assistantPersonaConfigured()) {
+            return "还没有正式认识。第一次聊天时，主人可以给小助手起名字、定身份。";
+        }
+        return "名字：" + assistantName() + "\n身份：" + assistantIdentity();
+    }
+
     public boolean assistantOnlineEnabled() {
         return prefs.getBoolean("assistant_online_enabled", true);
     }

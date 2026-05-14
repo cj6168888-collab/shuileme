@@ -155,7 +155,7 @@ public class MainActivity extends Activity {
         title.setGravity(Gravity.CENTER);
         box.addView(title, matchWrap());
         addSpace(box, 8);
-        TextView sub = Theme.text(this, "AI 睡眠陪伴和健康建议\n夜间异常及时叫醒，不做医学诊断", 21, Theme.MUTED, Typeface.NORMAL);
+        TextView sub = Theme.text(this, "贴心睡眠陪伴和健康建议\n夜间异常及时叫醒，不做医学诊断", 21, Theme.MUTED, Typeface.NORMAL);
         sub.setGravity(Gravity.CENTER);
         box.addView(sub, matchWrap());
         addSpace(box, 28);
@@ -173,7 +173,7 @@ public class MainActivity extends Activity {
         box.addView(simple, matchWrap());
         addSpace(box, 22);
 
-        TextView note = Theme.text(this, "联网 AI 是主模式；夜间安全守护保留本地兜底。详细设置以后再慢慢调。", 18, Theme.MUTED, Typeface.NORMAL);
+        TextView note = Theme.text(this, "小助手会陪您说话、看记录；夜间安全守护保留本地兜底。详细设置以后再慢慢调。", 18, Theme.MUTED, Typeface.NORMAL);
         note.setGravity(Gravity.CENTER);
         box.addView(note, matchWrap());
         setContentView(scroll);
@@ -281,7 +281,7 @@ public class MainActivity extends Activity {
         boolean monitoring = prefs.isMonitoring();
         content.addView(Theme.text(this, monitoring ? "正在守护，安心睡吧" : "今晚准备好了吗？", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
-        content.addView(Theme.text(this, prefs.mode() + " · AI 分析 + 安全守护", 19, Theme.MUTED, Typeface.NORMAL), matchWrap());
+        content.addView(Theme.text(this, prefs.mode() + " · 智能分析 + 安全守护", 19, Theme.MUTED, Typeface.NORMAL), matchWrap());
         addSpace(content, 24);
         addAssistantHero("我的小助手", CompanionAssistant.homeLine(prefs.companionRole(), monitoring), true);
         addSpace(content, 8);
@@ -340,7 +340,8 @@ public class MainActivity extends Activity {
 
         LinearLayout words = new LinearLayout(this);
         words.setOrientation(LinearLayout.VERTICAL);
-        String heading = title.equals(role) ? role : title + " · " + role;
+        String companionTitle = prefs.assistantPersonaConfigured() ? prefs.assistantName() : role;
+        String heading = title.equals(role) ? companionTitle : title + " · " + companionTitle;
         words.addView(Theme.text(this, heading, 21, CompanionAssistant.roleColor(role), Typeface.BOLD), matchWrap());
         addSpace(words, 4);
         words.addView(Theme.text(this, body, 18, Theme.MUTED, Typeface.NORMAL), matchWrap());
@@ -805,7 +806,7 @@ public class MainActivity extends Activity {
             addCard("吃药提醒", "尚未设置。需要的话可以在设置里添加早晨用药提醒。", Theme.ORANGE);
         }
         addCard("晨练小贴士", CompanionAssistant.exerciseLine(prefs.companionRole()), Theme.GREEN);
-        addCard("AI 生活小贴士", "联网 AI 可结合睡眠、今天状态和主人档案给晨间建议；出门天气仍以手机天气为准。", Theme.BLUE);
+        addCard("生活小贴士", "小助手可结合睡眠、今天状态和主人档案给晨间建议；出门天气仍以手机天气为准。", Theme.BLUE);
         addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
         addSettingButton("记录今天状态", this::showAssistantCheckIn);
         addCard("今天关怀", proactiveCareText(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
@@ -826,21 +827,23 @@ public class MainActivity extends Activity {
         for (String role : CompanionAssistant.ROLES) {
             addCompanionChoice(role, CompanionAssistant.styleSummary(role));
         }
-        addCard("AI 联网陪伴",
+        addCard("联网陪伴",
                 prefs.assistantOnlineEnabled()
-                        ? "已开启。DeepSeek Key " + (prefs.deepSeekKeyConfigured() ? "已配置" : "未配置") + "。AI 会结合问题、档案摘要、今天状态和睡眠摘要。"
-                        : "已暂停。基础守护仍可用，但聊天和复盘不再调用 AI。",
+                        ? "已开启。DeepSeek Key " + (prefs.deepSeekKeyConfigured() ? "已配置" : "未配置") + "。小助手会结合问题、档案摘要、今天状态和睡眠摘要。"
+                        : "已暂停。基础守护仍可用，但聊天和复盘会变简单。",
                 prefs.assistantOnlineEnabled() ? Theme.GREEN : Theme.ORANGE);
+        addCard("小助手身份", prefs.assistantPersonaSummary(), prefs.assistantPersonaConfigured() ? Theme.GREEN : Theme.ORANGE);
         addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
         addCard("主人档案", prefs.ownerProfileSummary(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
+        addSettingButton(prefs.assistantPersonaConfigured() ? "改名字和身份" : "和小助手先认识一下", this::showAssistantPersonaDialog);
         addSettingButton("记录今天状态", this::showAssistantCheckIn);
         addSettingButton("填写主人档案", this::showOwnerProfileSettings);
-        addSettingButton(prefs.assistantOnlineEnabled() ? "暂停 AI 联网" : "开启 AI 联网", () -> {
+        addSettingButton(prefs.assistantOnlineEnabled() ? "暂停联网陪伴" : "开启联网陪伴", () -> {
             prefs.setAssistantOnlineEnabled(!prefs.assistantOnlineEnabled());
             showCompanionSettings();
         });
-        addSettingButton("设置 AI Key / 模型", this::showDeepSeekSettings);
-        addSettingButton("进入 AI 聊天", this::showCompanionChat);
+        addSettingButton("设置联网 Key / 模型", this::showDeepSeekSettings);
+        addSettingButton("进入小助手聊天", this::showCompanionChat);
         addSettingButton("返回设置", this::showSettings);
     }
 
@@ -891,7 +894,7 @@ public class MainActivity extends Activity {
 
         new AlertDialog.Builder(this)
                 .setTitle("记录今天状态")
-                .setMessage("用于小助手和 AI 今天给出更贴近你的建议。不要填写身份证、银行卡等敏感信息。")
+                .setMessage("用于小助手今天给出更贴近你的建议。不要填写身份证、银行卡等敏感信息。")
                 .setView(box)
                 .setPositiveButton("保存", (d, w) -> saveAssistantCheckIn(
                         mood.getText().toString(),
@@ -899,6 +902,76 @@ public class MainActivity extends Activity {
                         note.getText().toString()))
                 .setNegativeButton("取消", null)
                 .show();
+    }
+
+    private void showAssistantPersonaDialog() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8));
+
+        TextView hint = Theme.text(this,
+                "您可以像聊天一样说：以后叫你暖暖，像女儿一样陪我，听话一点，多哄我开心。",
+                18, Theme.MUTED, Typeface.NORMAL);
+        box.addView(hint, matchWrap());
+
+        EditText message = new EditText(this);
+        message.setHint("直接说一句就行");
+        if (prefs.assistantPersonaConfigured()) {
+            message.setText("以后叫你" + prefs.assistantName() + "，" + prefs.assistantIdentity());
+        }
+        message.setTextSize(20);
+        message.setMinLines(3);
+        message.setSingleLine(false);
+        message.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        box.addView(message, matchWrap());
+
+        new AlertDialog.Builder(this)
+                .setTitle("和小助手说一句")
+                .setMessage("小助手会从这句话里记住名字和身份。")
+                .setView(box)
+                .setPositiveButton("说好了", (d, w) -> saveAssistantPersonaFromMessage(message.getText().toString()))
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
+    private void saveAssistantPersonaFromMessage(String message) {
+        String clean = message == null ? "" : message.trim();
+        if (clean.length() == 0) {
+            Toast.makeText(this, "可以先说一句想怎么称呼我", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String name = extractAssistantName(clean);
+        String identity = clean;
+        if (identity.length() > 60) {
+            identity = identity.substring(0, 60);
+        }
+        saveAssistantPersona(name, identity);
+    }
+
+    private String extractAssistantName(String text) {
+        String[] markers = {"叫你做", "以后叫你", "叫你", "你叫", "名字叫", "以后叫"};
+        for (String marker : markers) {
+            int start = text.indexOf(marker);
+            if (start >= 0) {
+                String tail = text.substring(start + marker.length()).trim();
+                StringBuilder name = new StringBuilder();
+                for (int i = 0; i < tail.length() && name.length() < 8; i++) {
+                    char ch = tail.charAt(i);
+                    if (ch == '，' || ch == ',' || ch == '。' || ch == '；' || ch == ';'
+                            || ch == ' ' || ch == '\n' || ch == '像' || ch == '当' || ch == '做') {
+                        break;
+                    }
+                    name.append(ch);
+                }
+                if (name.length() > 0) return name.toString();
+            }
+        }
+        return prefs.assistantPersonaConfigured() ? prefs.assistantName() : "小熊";
+    }
+
+    private void saveAssistantPersona(String name, String identity) {
+        prefs.setAssistantPersona(name, identity);
+        showCompanionReply("认识好了", CompanionAssistant.firstMeetingDone(prefs.assistantName(), prefs.assistantIdentity()));
     }
 
     private void addCompanionChoice(String role, String desc) {
@@ -948,7 +1021,7 @@ public class MainActivity extends Activity {
         content.removeAllViews();
         content.addView(Theme.text(this, "主人档案", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
-        addAssistantHero("我想更懂你", "这些信息会作为 AI 建议上下文。可以少填，也可以随时改；不要填写身份证、银行卡等敏感信息。", false);
+        addAssistantHero("我想更懂你", "这些信息会让小助手更懂您。可以少填，也可以随时改；不要填写身份证、银行卡等敏感信息。", false);
         addCard("当前档案", prefs.ownerProfileSummary(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
         addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
         addCard("主动关怀",
@@ -975,7 +1048,7 @@ public class MainActivity extends Activity {
         addSpace(content, 8);
         addAssistantHero("第 " + (safeStep + 1) + " 项", CompanionAssistant.profileWizardIntro(prefs.companionRole(), label), false);
         addCard("进度", (safeStep + 1) + "/" + OWNER_PROFILE_STEP_COUNT + " · " + label
-                + "\n可以少填、跳过，也可以以后再改。AI 会用这些摘要生成更贴近你的建议。", Theme.BLUE);
+                + "\n可以少填、跳过，也可以以后再改。小助手会用这些摘要给出更贴近你的建议。", Theme.BLUE);
         addCard("怎么填", ownerProfileStepExample(safeStep), Theme.GREEN);
 
         EditText input = profileEditText(ownerProfileStepHint(safeStep));
@@ -1104,7 +1177,7 @@ public class MainActivity extends Activity {
 
         new AlertDialog.Builder(this)
                 .setTitle("主人档案")
-                .setMessage("这些信息会用于小助手和 AI 的生活建议，不做诊断。不要填写身份证、银行卡等敏感信息。")
+                .setMessage("这些信息会用于小助手的生活建议，不做诊断。不要填写身份证、银行卡等敏感信息。")
                 .setView(box)
                 .setPositiveButton("保存", (d, w) -> {
                     prefs.setOwnerProfile(
@@ -1134,22 +1207,28 @@ public class MainActivity extends Activity {
 
     private void showCompanionChat() {
         content.removeAllViews();
-        content.addView(Theme.text(this, "AI 小助手", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
+        content.addView(Theme.text(this, "小助手聊天", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
-        addAssistantHero("AI 陪伴", CompanionAssistant.chatIntro(prefs.companionRole()), false);
+        addAssistantHero("陪您说说话", CompanionAssistant.chatIntro(prefs.companionRole()), false);
         addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
         addCard("我记得的主人信息", prefs.ownerProfileSummary(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
-        addCard("当前 AI 模式", CompanionAssistant.chatPrivacy(prefs.companionRole(), prefs.assistantOnlineEnabled())
+        if (!prefs.assistantPersonaConfigured()) {
+            addCard("先认识一下", CompanionAssistant.firstMeetingIntro(prefs.companionRole()), Theme.ORANGE);
+            addSettingButton("告诉我怎么称呼", this::showAssistantPersonaDialog);
+        } else {
+            addCard("小助手身份", prefs.assistantPersonaSummary(), Theme.GREEN);
+        }
+        addCard("陪伴方式", CompanionAssistant.chatPrivacy(prefs.companionRole(), prefs.assistantOnlineEnabled())
                 + "\n夜间紧急唤醒保留本地兜底，避免网络波动影响安全。", prefs.assistantOnlineEnabled() ? Theme.GREEN : Theme.ORANGE);
         if (prefs.assistantOnlineEnabled() && prefs.deepSeekKeyConfigured()) {
-            addSettingButton("问 AI 小助手", this::showDeepSeekQuestionDialog);
-            addAiQuestionButton("AI 分析昨晚睡眠", "请结合我的主人档案、今天状态、昨晚睡眠摘要和守护完整性，给我一份今天能听懂的睡眠复盘和生活建议。");
-            addAiQuestionButton("AI 生成今日护理建议", "请根据我的身体情况、用药习惯、今天状态和睡眠记录，生成今天的喝水、用药提醒、活动和休息建议。不要诊断。");
-            addAiQuestionButton("AI 陪我聊聊", "我想轻松聊几句。请根据我的兴趣爱好和今天状态，用温柔、简短、适合中老年人的方式陪我说话。");
+            addSettingButton("想跟我说什么都可以", this::showDeepSeekQuestionDialog);
+            addAiQuestionButton("帮我看看昨晚", "请结合我的主人档案、今天状态、昨晚睡眠摘要和守护完整性，给我一份今天能听懂的睡眠复盘和生活建议。");
+            addAiQuestionButton("今天怎么安排", "请根据我的身体情况、用药习惯、今天状态和睡眠记录，生成今天的喝水、用药提醒、活动和休息建议。不要诊断。");
+            addAiQuestionButton("陪我聊聊天", "我想轻松聊几句。请根据我的兴趣爱好和今天状态，用温柔、简短、适合中老年人的方式陪我说话。");
         } else if (prefs.assistantOnlineEnabled()) {
-            addSettingButton("设置 AI Key，开启完整 AI 能力", this::showDeepSeekSettings);
+            addSettingButton("设置联网陪伴", this::showDeepSeekSettings);
         } else {
-            addSettingButton("开启 AI 联网", () -> {
+            addSettingButton("开启联网陪伴", () -> {
                 prefs.setAssistantOnlineEnabled(true);
                 showCompanionChat();
             });
@@ -1211,7 +1290,7 @@ public class MainActivity extends Activity {
         box.setPadding(Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8));
 
         TextView note = Theme.text(this,
-                "联网 AI 是小助手主模式。不要把开发者固定 Key 打进 APK；用户 Key 加密保存，可随时清除。",
+                "联网陪伴需要 Key。不要把开发者固定 Key 打进 APK；用户 Key 加密保存，可随时清除。",
                 17, Theme.MUTED, Typeface.NORMAL);
         box.addView(note, matchWrap());
 
@@ -1230,8 +1309,8 @@ public class MainActivity extends Activity {
         box.addView(model, matchWrap());
 
         new AlertDialog.Builder(this)
-                .setTitle("AI Key / 模型")
-                .setMessage("配置后，AI 小助手可联网生成睡眠复盘、生活建议和聊天回复。夜间强唤醒仍有本地兜底。")
+                .setTitle("联网 Key / 模型")
+                .setMessage("配置后，小助手可联网生成睡眠复盘、生活建议和聊天回复。夜间强唤醒仍有本地兜底。")
                 .setView(box)
                 .setPositiveButton("保存", (d, w) -> {
                     String entered = key.getText().toString().trim();
@@ -1241,7 +1320,7 @@ public class MainActivity extends Activity {
                     }
                     prefs.setDeepSeekModel(model.getText().toString());
                     prefs.setAssistantOnlineEnabled(true);
-                    Toast.makeText(this, keySaved ? "已加密保存 AI 设置" : "AI Key 加密保存失败，请重试", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, keySaved ? "已加密保存联网设置" : "Key 加密保存失败，请重试", Toast.LENGTH_SHORT).show();
                     showCompanionSettings();
                 })
                 .setNegativeButton("取消", null)
@@ -1255,14 +1334,14 @@ public class MainActivity extends Activity {
 
     private void showDeepSeekQuestionDialog() {
         EditText question = new EditText(this);
-        question.setHint("想问 AI 小助手什么？");
+        question.setHint("想跟小助手说什么？");
         question.setMinLines(4);
         question.setTextSize(20);
         question.setSingleLine(false);
         question.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
 
         new AlertDialog.Builder(this)
-                .setTitle("问 AI 小助手")
+                .setTitle("跟小助手说一句")
                 .setMessage("会发送你的问题、主人档案摘要、今天状态和睡眠摘要。不要输入银行卡、身份证等敏感信息。")
                 .setView(question)
                 .setPositiveButton("发送", (d, w) -> askDeepSeek(question.getText().toString()))
@@ -1276,7 +1355,7 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "问题不能为空", Toast.LENGTH_SHORT).show();
             return;
         }
-        showCompanionReply("AI 正在思考", "已发送问题，等待联网回答。\n夜间强唤醒保留本地兜底，避免网络波动影响安全。");
+        showCompanionReply("小助手在想", "我听见了，正在认真想怎么回答您。\n夜间强唤醒保留本地兜底，避免网络波动影响安全。");
         new Thread(() -> {
             try {
                 String answer = DeepSeekClient.chat(
@@ -1284,17 +1363,20 @@ public class MainActivity extends Activity {
                         prefs.deepSeekModel(),
                         deepSeekSystemPrompt(),
                         deepSeekUserPrompt(cleanQuestion));
-                runOnUiThread(() -> showCompanionReply("AI 回答", answer + "\n\n说明：这是 AI 生活建议，不是医学诊断。"));
+                runOnUiThread(() -> showCompanionReply("小助手回答", answer + "\n\n说明：这是生活建议，不是医学诊断。"));
             } catch (Exception ex) {
-                runOnUiThread(() -> showCompanionReply("AI 请求失败",
-                        "这次联网回答失败：" + ex.getMessage() + "\n\n强唤醒和紧急联系人仍由本地兜底继续工作。"));
+                runOnUiThread(() -> showCompanionReply("小助手没连上",
+                        "这次联网回答没成功：" + ex.getMessage() + "\n\n强唤醒和紧急联系人仍由本地兜底继续工作。"));
             }
         }, "GouXiongDeepSeek").start();
     }
 
     private String deepSeekSystemPrompt() {
         return "你是狗熊睡眠 App 的 AI 小助手，角色是" + prefs.companionRole()
+                + "。" + CompanionAssistant.companionshipPrinciples(prefs.assistantName(), prefs.assistantIdentity())
                 + "。你面向中老年用户，回答要短、清楚、温柔，适合语音朗读。"
+                + "你平时用自然的人类陪伴口吻说话，不要反复强调自己是 AI 或机器人；按主人给你的名字和身份自称。"
+                + "如果用户直接问到联网、隐私或你是不是程序，要诚实简短说明，不要欺骗。"
                 + "你不是医生，不做诊断，不下医学结论。"
                 + "你可以结合主人档案、今天状态、睡眠摘要和守护完整性，给睡眠复盘、生活建议、情绪陪伴和医生沟通准备。"
                 + "睡眠记录只能称为疑似记录或提醒事件。"
@@ -1303,6 +1385,7 @@ public class MainActivity extends Activity {
 
     private String deepSeekUserPrompt(String question) {
         return "用户问题：" + question
+                + "\n\n小助手身份：\n" + prefs.assistantPersonaSummary()
                 + "\n\n今天状态：\n" + prefs.assistantCheckInSummary()
                 + "\n\n主人档案：\n" + prefs.ownerProfileSummary()
                 + "\n\n睡眠摘要：\n" + db.localReportText()
@@ -1759,7 +1842,7 @@ public class MainActivity extends Activity {
     private void shareReport() {
         Intent share = new Intent(Intent.ACTION_SEND);
         share.setType("text/plain");
-        share.putExtra(Intent.EXTRA_SUBJECT, "狗熊睡眠 AI 复盘证据摘要");
+        share.putExtra(Intent.EXTRA_SUBJECT, "狗熊睡眠复盘证据摘要");
         share.putExtra(Intent.EXTRA_TEXT, db.doctorReportText(20));
         startActivity(Intent.createChooser(share, "导出给医生/自己复盘"));
     }

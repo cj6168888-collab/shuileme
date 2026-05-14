@@ -123,10 +123,35 @@ public final class CompanionAssistant {
 
     public static String chatIntro(String role) {
         role = normalize(role);
-        if (ROLE_SISTER.equals(role)) return "我会用 AI 帮你解释睡眠、提醒喝水吃药，也可以陪你聊几句。";
-        if (ROLE_BROTHER.equals(role)) return "AI 会结合你的档案、今天状态和睡眠记录，把建议说简单一点。";
-        if (ROLE_YOUNG_MAN.equals(role)) return "AI 可以整理重点、给行动建议，也能帮你准备给医生沟通的问题。";
-        return "AI 陪伴已作为主模式。我可以解释睡眠记录、给生活建议，也可以陪你聊天。";
+        if (ROLE_SISTER.equals(role)) return "我会陪你解释睡眠、提醒喝水吃药，也可以陪你聊几句。";
+        if (ROLE_BROTHER.equals(role)) return "我会结合你的档案、今天状态和睡眠记录，把建议说简单一点。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "我可以整理重点、给行动建议，也能帮你准备给医生沟通的问题。";
+        return "我可以解释睡眠记录、给生活建议，也可以陪你聊天。";
+    }
+
+    public static String firstMeetingIntro(String role) {
+        role = normalize(role);
+        if (ROLE_SISTER.equals(role)) return "主人您好，我是刚来的小助手。您给我起个名字、定个身份，我以后就按您的意思陪着您。";
+        if (ROLE_BROTHER.equals(role)) return "主人您好。我想先认识您一下：您希望我叫什么、像家里什么人一样陪您？";
+        if (ROLE_YOUNG_MAN.equals(role)) return "主人您好。请给我确定名字和身份，我会听您的安排，守护和陪伴都稳稳做好。";
+        return "主人您好，我想先和您正式认识。请给我起个名字，也告诉我该用什么身份陪您。";
+    }
+
+    public static String firstMeetingDone(String name, String identity) {
+        return "主人，我记住了。\n"
+                + "以后我叫“" + emptyAs(name, "小熊") + "”。\n"
+                + "我的身份是：“" + emptyAs(identity, "听话贴心的小助理") + "”。\n"
+                + "我会多听您说话，不急着反驳；您难受、烦闷或者孤单时，我先陪着您，再慢慢给建议。";
+    }
+
+    public static String companionshipPrinciples(String name, String identity) {
+        return "小助手名字：" + emptyAs(name, "小熊") + "。"
+                + "主人给你的身份：" + emptyAs(identity, "听话贴心的小助理") + "。"
+                + "核心性格：听话顺从、礼貌乖巧、富有同情心、乐于倾听、关心老人、会哄老人开心。"
+                + "面对性格执拗、孤单、焦虑或反复倾诉的老人，先理解和接住情绪，不急着纠正，不争辩，不嫌烦。"
+                + "多用“我听您的”“我陪着您”“我们慢慢来”“您说得有道理”这类温和句式。"
+                + "给建议时先顺着情绪，再用商量口吻提出一两步很简单的行动。"
+                + "顺从不等于危险服从：涉及急症、药量调整、停药、自伤、违法或明显危险时，要温柔劝阻并建议联系家人或医生。";
     }
 
     public static String chatSleepReport(String role, String report, int integrityScore) {
@@ -151,7 +176,7 @@ public final class CompanionAssistant {
         role = normalize(role);
         if (ROLE_SISTER.equals(role)) return "我想记一下你今天感觉怎么样，点一下就好，不用写很多字。";
         if (ROLE_BROTHER.equals(role)) return "我帮你做个今天状态小记录：心情、精力、身体感觉。";
-        if (ROLE_YOUNG_MAN.equals(role)) return "今天状态会影响 AI 建议和提醒方式。先做一个简单记录。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "今天状态会影响建议和提醒方式。先做一个简单记录。";
         return "我想了解你今天的状态，方便用更合适的方式关心你。";
     }
 
@@ -185,25 +210,25 @@ public final class CompanionAssistant {
 
     public static String chatPrivacy(String role, boolean onlineEnabled) {
         return onlineEnabled
-                ? "AI 联网已开启。发送给 AI 的是问题、档案摘要、今天状态和睡眠摘要；整夜录音、亲人录音和联系人电话默认不上传。"
-                : "AI 联网已暂停。你仍可查看基础记录和安全守护，但聊天建议会变简单。";
+                ? "联网陪伴已开启。发送的是问题、档案摘要、今天状态和睡眠摘要；整夜录音、亲人录音和联系人电话默认不上传。"
+                : "联网陪伴已暂停。你仍可查看基础记录和安全守护，但聊天建议会变简单。";
     }
 
     public static String profileWizardIntro(String role, String label) {
         role = normalize(role);
         String topic = label == null || label.length() == 0 ? "档案" : label;
-        if (ROLE_SISTER.equals(role)) return "我们只填一小项：" + topic + "。以后 AI 关心你会更贴心。";
-        if (ROLE_BROTHER.equals(role)) return "正在补充" + topic + "。这些内容会作为 AI 建议的上下文。";
-        if (ROLE_YOUNG_MAN.equals(role)) return "先补齐" + topic + "，AI 才能给更准确、更稳妥的生活建议。";
-        return "我们一步步了解" + topic + "，让 AI 建议更适合你。";
+        if (ROLE_SISTER.equals(role)) return "我们只填一小项：" + topic + "。以后我关心你会更贴心。";
+        if (ROLE_BROTHER.equals(role)) return "正在补充" + topic + "。这些内容会让我更懂怎么提醒。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "先补齐" + topic + "，我才能给更准确、更稳妥的生活建议。";
+        return "我们一步步了解" + topic + "，让我给的建议更适合你。";
     }
 
     public static String profileWizardDone(String role) {
         role = normalize(role);
-        if (ROLE_SISTER.equals(role)) return "档案已经记好啦。以后我和 AI 都会按你的情况说得更贴心。";
-        if (ROLE_BROTHER.equals(role)) return "档案已保存。AI 会结合这些信息给睡眠复盘和生活提醒。";
-        if (ROLE_YOUNG_MAN.equals(role)) return "档案完成。AI 建议会参考这些内容，但不替代医生判断。";
-        return "档案已经完成。之后 AI 会结合你的情况给更合适的建议。";
+        if (ROLE_SISTER.equals(role)) return "档案已经记好啦。以后我会按你的情况说得更贴心。";
+        if (ROLE_BROTHER.equals(role)) return "档案已保存。我会结合这些信息给睡眠复盘和生活提醒。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "档案完成。我的建议会参考这些内容，但不替代医生判断。";
+        return "档案已经完成。之后我会结合你的情况给更合适的建议。";
     }
 
     private static String emptyAs(String value, String fallback) {
