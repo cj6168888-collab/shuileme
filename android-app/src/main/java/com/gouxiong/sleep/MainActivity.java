@@ -10,7 +10,18 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.ImageFormat;
 import android.graphics.Typeface;
+import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.CameraCaptureSession;
+import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraMetadata;
+import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.params.StreamConfigurationMap;
+import android.media.Image;
+import android.media.ImageReader;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.media.Ringtone;
@@ -18,6 +29,8 @@ import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.PowerManager;
 import android.speech.tts.TextToSpeech;
 import android.os.VibrationEffect;
@@ -25,7 +38,9 @@ import android.os.Vibrator;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Base64;
+import android.util.Size;
 import android.view.Gravity;
+import android.view.Surface;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -52,13 +67,22 @@ import java.util.List;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Locale;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class MainActivity extends Activity {
     private static final int REQUEST_PICK_AUDIO = 2101;
     private static final int REQUEST_CAPTURE_SCENE = 2201;
     private static final int REQUEST_CAMERA_VISION = 87;
+    private static final int REQUEST_CAMERA_AUTO_VISION = 88;
     private static final int OWNER_PROFILE_STEP_COUNT = 6;
+    private static final long AUTO_VISION_MIN_INTERVAL_MS = 2L * 60L * 1000L;
+    private static final int AUTO_VISION_MAX_SIDE = 960;
+    private static final int VISION_MAX_JPEG_BYTES = 220 * 1024;
 
     private PreferenceStore prefs;
     private SleepDatabase db;
@@ -74,6 +98,12 @@ public class MainActivity extends Activity {
     private String pendingVisionTask = "";
     private Bitmap latestVisionSnapshot;
     private Uri pendingVisionImageUri;
+    private HandlerThread visionThread;
+    private Handler visionHandler;
+    private CameraDevice autoVisionCamera;
+    private CameraCaptureSession autoVisionSession;
+    private ImageReader autoVisionReader;
+    private boolean autoVisionRunning;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -175,6 +205,7 @@ public class MainActivity extends Activity {
         direct.setOnClickListener(v -> {
             prefs.setFirstLaunchDone();
             showShell("guard");
+            requestEssentialPermissions();
         });
         box.addView(direct, matchWrap());
         addSpace(box, 14);
@@ -236,6 +267,7 @@ public class MainActivity extends Activity {
     private void finishSimpleSetup(boolean emergency) {
         prefs.setFirstLaunchDone();
         showShell("guard");
+        requestEssentialPermissions();
         if (emergency) {
             showEmergencyDialog();
         }
@@ -1231,6 +1263,12 @@ public class MainActivity extends Activity {
         }
         addCard("陪伴方式", CompanionAssistant.chatPrivacy(prefs.companionRole(), prefs.assistantOnlineEnabled())
                 + "\n夜间紧急唤醒保留本地兜底，避免网络波动影响安全。", prefs.assistantOnlineEnabled() ? Theme.GREEN : Theme.ORANGE);
+        addCard("我看到的东西", db.objectMemorySummary(), Theme.BLUE);
+        addCard("视觉陪伴", autoVisionStatusText(), prefs.assistantAutoVisionEnabled() ? Theme.GREEN : Theme.ORANGE);
+        addSettingButton(prefs.assistantAutoVisionEnabled() ? "暂停自动看见" : "开启自动看见", () -> {
+            prefs.setAssistantAutoVisionEnabled(!prefs.assistantAutoVisionEnabled());
+            showCompanionChat();
+        });
         addSettingButton("让小助手看一眼", this::showCompanionVision);
         if (prefs.assistantOnlineEnabled() && prefs.deepSeekKeyConfigured()) {
             addSettingButton("想跟我说什么都可以", this::showDeepSeekQuestionDialog);
@@ -1260,6 +1298,26 @@ public class MainActivity extends Activity {
         addSettingButton("填写主人档案", this::showOwnerProfileSettings);
         addSettingButton("选择小助手", this::showCompanionSettings);
         addSettingButton("返回首页", () -> showShell("guard"));
+        content.postDelayed(this::maybeStartAutoVisionScan, 500);
+    }
+
+    private String autoVisionStatusText() {
+        if (!prefs.assistantAutoVisionEnabled()) {
+            return "已暂停。开启后，进入聊天时小助手会自动看一眼，把药盒、手机、钥匙、眼镜等常用东西的位置记下来。";
+        }
+        StringBuilder b = new StringBuilder();
+        b.append("已开启。进入聊天时会自动低清采样一张图，压缩到约 ")
+                .append(VISION_MAX_JPEG_BYTES / 1024)
+                .append("KB 内再分析，减少等待。");
+        b.append("\n只在聊天页运行，不在夜间守护和后台偷拍。");
+        if (!hasPermission(Manifest.permission.CAMERA)) {
+            b.append("\n需要先允许摄像头。");
+        } else if (!prefs.assistantOnlineEnabled() || !prefs.deepSeekKeyConfigured()) {
+            b.append("\n联网模型未配置时，只保留本机手动记忆。");
+        } else {
+            b.append("\n最近物品记忆：\n").append(db.objectMemorySummary());
+        }
+        return b.toString();
     }
 
     private void showCompanionVision() {
@@ -1269,7 +1327,7 @@ public class MainActivity extends Activity {
         addAssistantHero("我陪你看", CompanionAssistant.visionIntro(prefs.companionRole()), false);
         addCard("怎么用", "点下面的大按钮，我会打开摄像头。可以看脸色、药盒、外面环境、说明书，也可以帮你记东西放在哪里。\n"
                 + CompanionAssistant.visionPrivacy(prefs.assistantOnlineEnabled()), Theme.GREEN);
-        addCard("我记得的位置", prefs.visualMemorySummary(), prefs.importantObjectMemory().length() > 0 ? Theme.GREEN : Theme.ORANGE);
+        addCard("我记得的位置", db.objectMemorySummary() + "\n\n手动备注：\n" + prefs.visualMemorySummary(), Theme.GREEN);
         addCard("吃药看见记录", prefs.medicationVisionSummary(), prefs.medicationSeenAt() > 0 ? Theme.GREEN : Theme.ORANGE);
         addSettingButton("看我气色", () -> requestCameraForVision("face"));
         addSettingButton("看看药吃了吗", () -> requestCameraForVision("medication"));
@@ -1277,13 +1335,12 @@ public class MainActivity extends Activity {
         addSettingButton("记住东西放哪里", this::showObjectMemoryDialog);
         addSettingButton("帮我读书/说明书", () -> requestCameraForVision("read"));
         addSettingButton("看看外面", () -> requestCameraForVision("outside"));
-        if (prefs.importantObjectMemory().length() > 0) {
-            addSettingButton("清除位置记忆", () -> {
-                prefs.clearVisualMemory();
-                Toast.makeText(this, "已清除位置记忆", Toast.LENGTH_SHORT).show();
-                showCompanionVision();
-            });
-        }
+        addSettingButton("清除位置记忆", () -> {
+            prefs.clearVisualMemory();
+            db.clearObjectMemory();
+            Toast.makeText(this, "已清除位置记忆", Toast.LENGTH_SHORT).show();
+            showCompanionVision();
+        });
         addSettingButton("返回聊天", this::showCompanionChat);
         addSettingButton("返回首页", () -> showShell("guard"));
     }
@@ -1397,6 +1454,7 @@ public class MainActivity extends Activity {
                 .setView(box)
                 .setPositiveButton("记住", (d, w) -> {
                     prefs.setVisualMemory(item.getText().toString(), place.getText().toString(), note.getText().toString());
+                    db.upsertObjectMemory(item.getText().toString(), place.getText().toString(), note.getText().toString(), "主人确认");
                     showCompanionReply("我记住了", CompanionAssistant.visualMemorySaved(item.getText().toString(), place.getText().toString()));
                 })
                 .setNegativeButton("取消", null)
@@ -1422,7 +1480,11 @@ public class MainActivity extends Activity {
         content.removeAllViews();
         content.addView(Theme.text(this, "帮我找东西", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
-        addAssistantHero("我帮你想想", CompanionAssistant.findObjectLine(objectName, prefs.visualMemorySummary()), false);
+        String memory = db.objectMemoryAnswer(objectName);
+        if (memory.length() == 0) {
+            memory = CompanionAssistant.findObjectLine(objectName, db.objectMemorySummary() + "\n" + prefs.visualMemorySummary());
+        }
+        addAssistantHero("我帮你想想", memory, false);
         addSettingButton("打开摄像头找一找", () -> requestCameraForVision("find"));
         addSettingButton("记住东西放哪里", this::showObjectMemoryDialog);
         addSettingButton("返回小助手看看", this::showCompanionVision);
@@ -1461,13 +1523,302 @@ public class MainActivity extends Activity {
                 + "\n\n小助手身份：\n" + prefs.assistantPersonaSummary()
                 + "\n\n主人档案：\n" + prefs.ownerProfileSummary()
                 + "\n\n今天状态：\n" + prefs.assistantCheckInSummary()
-                + "\n\n位置记忆：\n" + prefs.visualMemorySummary();
+                + "\n\n自动位置记忆：\n" + db.objectMemorySummary()
+                + "\n\n手动位置备注：\n" + prefs.visualMemorySummary();
     }
 
     private String bitmapToJpegBase64(Bitmap bitmap) {
+        return Base64.encodeToString(bitmapToLimitedJpeg(bitmap), Base64.NO_WRAP);
+    }
+
+    private void maybeStartAutoVisionScan() {
+        if (!prefs.assistantAutoVisionEnabled() || autoVisionRunning || isFinishing()) {
+            return;
+        }
+        if (!autoVisionForegroundReady()) {
+            return;
+        }
+        long last = prefs.assistantAutoVisionLastAt();
+        if (last > 0 && System.currentTimeMillis() - last < AUTO_VISION_MIN_INTERVAL_MS) {
+            return;
+        }
+        if (!hasPermission(Manifest.permission.CAMERA)) {
+            requestPermissions(new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_AUTO_VISION);
+            return;
+        }
+        if (!prefs.assistantOnlineEnabled() || !prefs.deepSeekKeyConfigured()) {
+            return;
+        }
+        startAutoVisionCapture();
+    }
+
+    private void startAutoVisionCapture() {
+        if (autoVisionRunning) return;
+        autoVisionRunning = true;
+        ensureVisionThread();
+        try {
+            CameraManager manager = (CameraManager) getSystemService(CAMERA_SERVICE);
+            if (manager == null) {
+                autoVisionRunning = false;
+                return;
+            }
+            String cameraId = findAutoVisionCameraId(manager);
+            if (cameraId.length() == 0) {
+                autoVisionRunning = false;
+                return;
+            }
+            CameraCharacteristics characteristics = manager.getCameraCharacteristics(cameraId);
+            Size size = chooseVisionSize(characteristics);
+            autoVisionReader = ImageReader.newInstance(size.getWidth(), size.getHeight(), ImageFormat.JPEG, 1);
+            autoVisionReader.setOnImageAvailableListener(reader -> {
+                Image image = null;
+                try {
+                    image = reader.acquireLatestImage();
+                    if (image != null) {
+                        byte[] jpeg = imageToBytes(image);
+                        runOnUiThread(() -> processAutoVisionJpeg(jpeg));
+                    }
+                } catch (Exception ignored) {
+                    closeAutoVisionCamera();
+                } finally {
+                    if (image != null) image.close();
+                }
+            }, visionHandler);
+            manager.openCamera(cameraId, new CameraDevice.StateCallback() {
+                @Override
+                public void onOpened(CameraDevice camera) {
+                    autoVisionCamera = camera;
+                    captureAutoVisionFrame();
+                }
+
+                @Override
+                public void onDisconnected(CameraDevice camera) {
+                    closeAutoVisionCamera();
+                }
+
+                @Override
+                public void onError(CameraDevice camera, int error) {
+                    closeAutoVisionCamera();
+                }
+            }, visionHandler);
+        } catch (Exception ex) {
+            closeAutoVisionCamera();
+        }
+    }
+
+    private void captureAutoVisionFrame() {
+        if (autoVisionCamera == null || autoVisionReader == null) {
+            closeAutoVisionCamera();
+            return;
+        }
+        try {
+            Surface surface = autoVisionReader.getSurface();
+            CaptureRequest.Builder builder = autoVisionCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+            builder.addTarget(surface);
+            builder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
+            autoVisionCamera.createCaptureSession(Collections.singletonList(surface), new CameraCaptureSession.StateCallback() {
+                @Override
+                public void onConfigured(CameraCaptureSession session) {
+                    autoVisionSession = session;
+                    try {
+                        session.capture(builder.build(), new CameraCaptureSession.CaptureCallback() {
+                        }, visionHandler);
+                    } catch (CameraAccessException ex) {
+                        closeAutoVisionCamera();
+                    }
+                }
+
+                @Override
+                public void onConfigureFailed(CameraCaptureSession session) {
+                    closeAutoVisionCamera();
+                }
+            }, visionHandler);
+        } catch (Exception ex) {
+            closeAutoVisionCamera();
+        }
+    }
+
+    private void processAutoVisionJpeg(byte[] jpeg) {
+        closeAutoVisionCamera();
+        if (jpeg == null || jpeg.length == 0 || isFinishing()) {
+            return;
+        }
+        Bitmap bitmap = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.length);
+        if (bitmap == null) {
+            return;
+        }
+        prefs.markAssistantAutoVisionNow();
+        latestVisionSnapshot = bitmap;
+        askDeepSeekAutoVision(bitmap);
+    }
+
+    private boolean autoVisionForegroundReady() {
+        PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+        return (pm == null || pm.isInteractive()) && hasWindowFocus();
+    }
+
+    private void askDeepSeekAutoVision(Bitmap bitmap) {
+        new Thread(() -> {
+            try {
+                String answer = DeepSeekClient.chatWithImage(
+                        prefs.deepSeekApiKey(),
+                        prefs.deepSeekModel(),
+                        deepSeekSystemPrompt(),
+                        deepSeekAutoVisionPrompt(),
+                        bitmapToJpegBase64(bitmap));
+                runOnUiThread(() -> handleAutoVisionAnswer(answer));
+            } catch (Exception ignored) {
+                runOnUiThread(() -> Toast.makeText(this, "小助手这次没有看清", Toast.LENGTH_SHORT).show());
+            }
+        }, "GouXiongAutoVision").start();
+    }
+
+    private String deepSeekAutoVisionPrompt() {
+        return "你正在帮一位中老年主人聊天陪伴时自动看一眼。"
+                + "\n请只返回 JSON，不要写解释，不要 Markdown。格式："
+                + "{\"scene_note\":\"一句很短的生活观察\",\"objects\":[{\"item\":\"钥匙\",\"place\":\"冰箱门上的挂钩\",\"confidence\":\"中\",\"note\":\"可选\"}],\"care\":\"可选的一句关心\"}"
+                + "\n重点识别并记录老人常忘的东西：钥匙、手机、药盒/药瓶、眼镜、钱包、证件/医保卡、遥控器、拐杖、水杯。"
+                + "\nplace 要尽量具体，例如“冰箱门上挂钩”“床头柜第二层抽屉”“沙发左边扶手旁”。"
+                + "\n如果看不清，不要编造位置，objects 返回空数组。"
+                + "\n脸色只能做生活观察，不做诊断；看到药品只能记录位置，不判断吃没吃、药量、换药或停药。";
+    }
+
+    private void handleAutoVisionAnswer(String answer) {
+        int saved = storeAutoVisionMemory(answer);
+        if (saved > 0) {
+            Toast.makeText(this, "我帮您记住了 " + saved + " 个东西的位置", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private int storeAutoVisionMemory(String answer) {
+        try {
+            String json = extractJsonObject(answer);
+            if (json.length() == 0) return 0;
+            JSONObject root = new JSONObject(json);
+            JSONArray objects = root.optJSONArray("objects");
+            if (objects == null) return 0;
+            int saved = 0;
+            for (int i = 0; i < objects.length(); i++) {
+                JSONObject obj = objects.optJSONObject(i);
+                if (obj == null) continue;
+                String item = obj.optString("item", "").trim();
+                String place = obj.optString("place", "").trim();
+                String confidence = obj.optString("confidence", "").trim();
+                String note = obj.optString("note", "").trim();
+                if (item.length() == 0 || place.length() == 0) continue;
+                db.upsertObjectMemory(item, place, note.length() > 0 ? note : "聊天页自动看见", confidence);
+                if (item.contains("药")) {
+                    prefs.markMedicationSeen("自动视觉看见药品位置：" + place);
+                }
+                saved++;
+            }
+            return saved;
+        } catch (Exception ex) {
+            return 0;
+        }
+    }
+
+    private String extractJsonObject(String answer) {
+        if (answer == null) return "";
+        int start = answer.indexOf('{');
+        int end = answer.lastIndexOf('}');
+        if (start < 0 || end <= start) return "";
+        return answer.substring(start, end + 1);
+    }
+
+    private void ensureVisionThread() {
+        if (visionThread != null && visionThread.isAlive()) {
+            return;
+        }
+        visionThread = new HandlerThread("GouXiongVisionCamera");
+        visionThread.start();
+        visionHandler = new Handler(visionThread.getLooper());
+    }
+
+    private String findAutoVisionCameraId(CameraManager manager) throws CameraAccessException {
+        String fallback = "";
+        for (String id : manager.getCameraIdList()) {
+            CameraCharacteristics c = manager.getCameraCharacteristics(id);
+            Integer facing = c.get(CameraCharacteristics.LENS_FACING);
+            if (fallback.length() == 0) fallback = id;
+            if (facing != null && facing == CameraCharacteristics.LENS_FACING_BACK) {
+                return id;
+            }
+        }
+        return fallback;
+    }
+
+    private Size chooseVisionSize(CameraCharacteristics characteristics) {
+        StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+        Size fallback = new Size(640, 480);
+        if (map == null) return fallback;
+        Size[] sizes = map.getOutputSizes(ImageFormat.JPEG);
+        if (sizes == null || sizes.length == 0) return fallback;
+        Arrays.sort(sizes, (a, b) -> (a.getWidth() * a.getHeight()) - (b.getWidth() * b.getHeight()));
+        Size best = sizes[0];
+        for (Size size : sizes) {
+            int max = Math.max(size.getWidth(), size.getHeight());
+            if (max <= AUTO_VISION_MAX_SIDE) {
+                best = size;
+            }
+        }
+        return best;
+    }
+
+    private byte[] imageToBytes(Image image) {
+        ByteBuffer buffer = image.getPlanes()[0].getBuffer();
+        byte[] bytes = new byte[buffer.remaining()];
+        buffer.get(bytes);
+        return bytes;
+    }
+
+    private byte[] bitmapToLimitedJpeg(Bitmap bitmap) {
+        Bitmap scaled = scaleBitmapForVision(bitmap);
+        int quality = 72;
+        byte[] bytes = compressJpeg(scaled, quality);
+        while (bytes.length > VISION_MAX_JPEG_BYTES && quality > 45) {
+            quality -= 7;
+            bytes = compressJpeg(scaled, quality);
+        }
+        return bytes;
+    }
+
+    private Bitmap scaleBitmapForVision(Bitmap bitmap) {
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+        int max = Math.max(width, height);
+        if (max <= AUTO_VISION_MAX_SIDE) {
+            return bitmap;
+        }
+        float ratio = AUTO_VISION_MAX_SIDE / (float) max;
+        int targetWidth = Math.max(1, Math.round(width * ratio));
+        int targetHeight = Math.max(1, Math.round(height * ratio));
+        return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true);
+    }
+
+    private byte[] compressJpeg(Bitmap bitmap, int quality) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 72, out);
-        return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP);
+        bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out);
+        return out.toByteArray();
+    }
+
+    private void closeAutoVisionCamera() {
+        autoVisionRunning = false;
+        try {
+            if (autoVisionSession != null) autoVisionSession.close();
+        } catch (Exception ignored) {
+        }
+        try {
+            if (autoVisionCamera != null) autoVisionCamera.close();
+        } catch (Exception ignored) {
+        }
+        try {
+            if (autoVisionReader != null) autoVisionReader.close();
+        } catch (Exception ignored) {
+        }
+        autoVisionSession = null;
+        autoVisionCamera = null;
+        autoVisionReader = null;
     }
 
     private String proactiveCareText() {
@@ -1575,6 +1926,11 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "问题不能为空", Toast.LENGTH_SHORT).show();
             return;
         }
+        String objectAnswer = db.objectMemoryAnswer(cleanQuestion);
+        if (objectAnswer.length() > 0 && looksLikeFindObjectQuestion(cleanQuestion)) {
+            showCompanionReply("我帮你找", objectAnswer);
+            return;
+        }
         showCompanionReply("小助手在想", "我听见了，正在认真想怎么回答您。\n夜间强唤醒保留本地兜底，避免网络波动影响安全。");
         new Thread(() -> {
             try {
@@ -1589,6 +1945,12 @@ public class MainActivity extends Activity {
                         "这次联网回答没成功：" + ex.getMessage() + "\n\n强唤醒和紧急联系人仍由本地兜底继续工作。"));
             }
         }, "GouXiongDeepSeek").start();
+    }
+
+    private boolean looksLikeFindObjectQuestion(String question) {
+        String q = question == null ? "" : question;
+        return q.contains("在哪") || q.contains("哪里") || q.contains("哪儿") || q.contains("找不到")
+                || q.contains("丢") || q.contains("放哪") || q.contains("不见");
     }
 
     private String deepSeekSystemPrompt() {
@@ -1609,7 +1971,8 @@ public class MainActivity extends Activity {
                 + "\n\n小助手身份：\n" + prefs.assistantPersonaSummary()
                 + "\n\n今天状态：\n" + prefs.assistantCheckInSummary()
                 + "\n\n主人档案：\n" + prefs.ownerProfileSummary()
-                + "\n\n小助手位置记忆：\n" + prefs.visualMemorySummary()
+                + "\n\n小助手自动位置记忆：\n" + db.objectMemorySummary()
+                + "\n\n小助手手动位置备注：\n" + prefs.visualMemorySummary()
                 + "\n\n吃药看见记录：\n" + prefs.medicationVisionSummary()
                 + "\n\n睡眠摘要：\n" + db.localReportText()
                 + "\n\n守护完整性：" + guardIntegrityScore() + "分"
@@ -2036,6 +2399,9 @@ public class MainActivity extends Activity {
         if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
             permissions.add(Manifest.permission.RECORD_AUDIO);
         }
+        if (!hasPermission(Manifest.permission.CAMERA)) {
+            permissions.add(Manifest.permission.CAMERA);
+        }
         if (Build.VERSION.SDK_INT >= 33 && !hasPermission(Manifest.permission.POST_NOTIFICATIONS)) {
             permissions.add(Manifest.permission.POST_NOTIFICATIONS);
         }
@@ -2057,6 +2423,14 @@ public class MainActivity extends Activity {
             } else {
                 Toast.makeText(this, "未授权摄像头，小助手暂时不能看一眼", Toast.LENGTH_LONG).show();
                 showCompanionVision();
+            }
+            return;
+        }
+        if (requestCode == REQUEST_CAMERA_AUTO_VISION) {
+            if (hasPermission(Manifest.permission.CAMERA)) {
+                maybeStartAutoVisionScan();
+            } else {
+                Toast.makeText(this, "未授权摄像头，小助手暂时不能自动看见", Toast.LENGTH_LONG).show();
             }
             return;
         }
@@ -2146,6 +2520,12 @@ public class MainActivity extends Activity {
         }
     }
 
+    @Override
+    protected void onPause() {
+        closeAutoVisionCamera();
+        super.onPause();
+    }
+
     private Bitmap decodeVisionBitmap(Uri uri) {
         if (uri == null) return null;
         try {
@@ -2203,6 +2583,12 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         stopPreview();
+        closeAutoVisionCamera();
+        if (visionThread != null) {
+            visionThread.quitSafely();
+            visionThread = null;
+            visionHandler = null;
+        }
         if (assistantTts != null) {
             assistantTts.stop();
             assistantTts.shutdown();

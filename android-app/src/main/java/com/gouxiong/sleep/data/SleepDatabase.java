@@ -17,7 +17,7 @@ import java.util.Locale;
 
 public class SleepDatabase extends SQLiteOpenHelper {
     private static final String NAME = "gouxiong_sleep.db";
-    private static final int VERSION = 3;
+    private static final int VERSION = 4;
     private static final long DEVICE_MATCH_WINDOW_MS = 15L * 60L * 1000L;
 
     public SleepDatabase(Context context) {
@@ -52,6 +52,7 @@ public class SleepDatabase extends SQLiteOpenHelper {
                 "created_offline INTEGER NOT NULL DEFAULT 1" +
                 ")");
         createDeviceReadingsTable(db);
+        createObjectMemoryTable(db);
     }
 
     @Override
@@ -65,6 +66,9 @@ public class SleepDatabase extends SQLiteOpenHelper {
         }
         if (oldVersion < 3) {
             createDeviceReadingsTable(db);
+        }
+        if (oldVersion < 4) {
+            createObjectMemoryTable(db);
         }
     }
 
@@ -241,6 +245,85 @@ public class SleepDatabase extends SQLiteOpenHelper {
         db.delete("sleep_events", null, null);
         db.delete("nightly_summary", null, null);
         db.delete("device_readings", null, null);
+        db.delete("object_memory", null, null);
+    }
+
+    public void upsertObjectMemory(String itemName, String place, String note, String confidence) {
+        String itemKey = normalizeObjectKey(itemName);
+        String cleanPlace = nullToEmpty(place).trim();
+        if (itemKey.length() == 0 || cleanPlace.length() == 0) {
+            return;
+        }
+        ContentValues values = new ContentValues();
+        values.put("item_key", itemKey);
+        values.put("item_name", displayObjectName(itemName, itemKey));
+        values.put("place", cleanPlace);
+        values.put("note", nullToEmpty(note).trim());
+        values.put("confidence", nullToEmpty(confidence).trim());
+        values.put("last_seen_ts", System.currentTimeMillis());
+        getWritableDatabase().insertWithOnConflict("object_memory", null, values, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    public String objectMemorySummary() {
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT item_name, place, confidence, last_seen_ts FROM object_memory ORDER BY last_seen_ts DESC LIMIT 8",
+                null);
+        try {
+            if (!cursor.moveToFirst()) {
+                return "还没有自动记住物品位置。聊天时小助手看到钥匙、手机、药盒、眼镜等常用物品，会帮你记最近一次位置。";
+            }
+            StringBuilder b = new StringBuilder();
+            do {
+                if (b.length() > 0) b.append("\n");
+                b.append(cursor.getString(0)).append("：").append(cursor.getString(1))
+                        .append("（").append(friendlyTime(cursor.getLong(3))).append("看到");
+                String confidence = cursor.getString(2);
+                if (confidence != null && confidence.length() > 0) {
+                    b.append("，").append(confidence);
+                }
+                b.append("）");
+            } while (cursor.moveToNext());
+            return b.toString();
+        } finally {
+            cursor.close();
+        }
+    }
+
+    public String objectMemoryAnswer(String query) {
+        String key = normalizeObjectKey(query);
+        if (key.length() == 0) {
+            return "";
+        }
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT item_name, place, confidence, last_seen_ts, note FROM object_memory WHERE item_key=? LIMIT 1",
+                new String[]{key});
+        try {
+            if (!cursor.moveToFirst()) {
+                return "";
+            }
+            String item = cursor.getString(0);
+            String place = cursor.getString(1);
+            String confidence = cursor.getString(2);
+            long ts = cursor.getLong(3);
+            String note = cursor.getString(4);
+            StringBuilder b = new StringBuilder();
+            b.append("我记得").append(friendlyTime(ts)).append("看见")
+                    .append(item).append("在").append(place).append("。");
+            if (confidence != null && confidence.length() > 0) {
+                b.append("这个位置是").append(confidence).append("把握。");
+            }
+            b.append("您先去那里看看还在不在。");
+            if (note != null && note.length() > 0) {
+                b.append("\n补充：").append(note);
+            }
+            return b.toString();
+        } finally {
+            cursor.close();
+        }
+    }
+
+    public void clearObjectMemory() {
+        getWritableDatabase().delete("object_memory", null, null);
     }
 
     public String localReportText() {
@@ -311,6 +394,17 @@ public class SleepDatabase extends SQLiteOpenHelper {
                 ")");
     }
 
+    private void createObjectMemoryTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS object_memory (" +
+                "item_key TEXT PRIMARY KEY," +
+                "item_name TEXT NOT NULL," +
+                "place TEXT NOT NULL," +
+                "note TEXT DEFAULT ''," +
+                "confidence TEXT DEFAULT ''," +
+                "last_seen_ts INTEGER NOT NULL" +
+                ")");
+    }
+
     private void addColumn(SQLiteDatabase db, String table, String columnSql) {
         try {
             db.execSQL("ALTER TABLE " + table + " ADD COLUMN " + columnSql);
@@ -327,6 +421,62 @@ public class SleepDatabase extends SQLiteOpenHelper {
             return "外部设备";
         }
         return source.trim();
+    }
+
+    private static String normalizeObjectKey(String value) {
+        if (value == null) return "";
+        String v = value.trim().toLowerCase(Locale.CHINA);
+        if (v.length() == 0) return "";
+        if (containsAny(v, "钥匙", "key", "keys")) return "keys";
+        if (containsAny(v, "手机", "电话", "mobile", "phone")) return "phone";
+        if (containsAny(v, "药", "药盒", "药瓶", "medicine", "pill")) return "medicine";
+        if (containsAny(v, "眼镜", "老花镜", "glasses")) return "glasses";
+        if (containsAny(v, "钱包", "钱夹", "wallet")) return "wallet";
+        if (containsAny(v, "身份证", "医保卡", "证件", "卡包", "card")) return "cards";
+        if (containsAny(v, "遥控器", "remote")) return "remote";
+        if (containsAny(v, "拐杖", "手杖", "cane")) return "cane";
+        if (containsAny(v, "水杯", "杯子", "cup")) return "cup";
+        return v.length() > 16 ? v.substring(0, 16) : v;
+    }
+
+    private static String displayObjectName(String value, String key) {
+        if (value != null && value.trim().length() > 0) {
+            return value.trim();
+        }
+        if ("keys".equals(key)) return "钥匙";
+        if ("phone".equals(key)) return "手机";
+        if ("medicine".equals(key)) return "药品";
+        if ("glasses".equals(key)) return "眼镜";
+        if ("wallet".equals(key)) return "钱包";
+        if ("cards".equals(key)) return "证件/卡";
+        if ("remote".equals(key)) return "遥控器";
+        if ("cane".equals(key)) return "拐杖";
+        if ("cup".equals(key)) return "水杯";
+        return key;
+    }
+
+    private static boolean containsAny(String value, String... needles) {
+        for (String needle : needles) {
+            if (value.contains(needle)) return true;
+        }
+        return false;
+    }
+
+    private static String friendlyTime(long timestamp) {
+        java.util.Calendar now = java.util.Calendar.getInstance(Locale.CHINA);
+        java.util.Calendar then = java.util.Calendar.getInstance(Locale.CHINA);
+        then.setTimeInMillis(timestamp);
+        String hm = new SimpleDateFormat("HH:mm", Locale.CHINA).format(new Date(timestamp));
+        if (now.get(java.util.Calendar.YEAR) == then.get(java.util.Calendar.YEAR)
+                && now.get(java.util.Calendar.DAY_OF_YEAR) == then.get(java.util.Calendar.DAY_OF_YEAR)) {
+            return "今天 " + hm;
+        }
+        now.add(java.util.Calendar.DAY_OF_YEAR, -1);
+        if (now.get(java.util.Calendar.YEAR) == then.get(java.util.Calendar.YEAR)
+                && now.get(java.util.Calendar.DAY_OF_YEAR) == then.get(java.util.Calendar.DAY_OF_YEAR)) {
+            return "昨天 " + hm;
+        }
+        return formatTime(timestamp);
     }
 
     private static int clamp(int value, int min, int max) {

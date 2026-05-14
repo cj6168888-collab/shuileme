@@ -224,7 +224,7 @@ public final class CompanionAssistant {
 
     public static String visionPrivacy(boolean onlineEnabled) {
         return onlineEnabled
-                ? "拍照后，只有你点“请小助手看看这张”才会联网发送这张图；平时不会偷偷拍照。"
+                ? "聊天页会自动低清看一眼来记东西位置；手动拍照后，也可以点“请小助手看看这张”。不在后台偷拍。"
                 : "联网陪伴未开启时，拍照只用于当前页面提示和本机文字记录。";
     }
 

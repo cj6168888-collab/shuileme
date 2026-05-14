@@ -411,6 +411,22 @@ public class PreferenceStore {
         prefs.edit().putBoolean("assistant_proactive_care_enabled", value).apply();
     }
 
+    public boolean assistantAutoVisionEnabled() {
+        return prefs.getBoolean("assistant_auto_vision_enabled", true);
+    }
+
+    public void setAssistantAutoVisionEnabled(boolean value) {
+        prefs.edit().putBoolean("assistant_auto_vision_enabled", value).apply();
+    }
+
+    public long assistantAutoVisionLastAt() {
+        return prefs.getLong("assistant_auto_vision_last_at", 0L);
+    }
+
+    public void markAssistantAutoVisionNow() {
+        prefs.edit().putLong("assistant_auto_vision_last_at", System.currentTimeMillis()).apply();
+    }
+
     public String healthProfile() {
         return prefs.getString("owner_health_profile", "");
     }
