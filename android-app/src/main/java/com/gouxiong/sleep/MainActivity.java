@@ -9,7 +9,6 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Color;
 import android.graphics.ImageFormat;
 import android.graphics.Typeface;
 import android.hardware.camera2.CameraAccessException;
@@ -375,11 +374,10 @@ public class MainActivity extends Activity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView avatar = Theme.text(this, CompanionAssistant.avatarLabel(role), 34, Color.WHITE, Typeface.BOLD);
-        avatar.setGravity(Gravity.CENTER);
-        avatar.setBackground(Theme.rounded(CompanionAssistant.roleColor(role), 32, this));
+        ImageView avatar = designImage(roleAvatarAssetName(role), 104, ImageView.ScaleType.CENTER_CROP);
+        avatar.setContentDescription(role);
         startAssistantMotion(avatar);
-        LinearLayout.LayoutParams avatarLp = new LinearLayout.LayoutParams(Theme.dp(this, 72), Theme.dp(this, 72));
+        LinearLayout.LayoutParams avatarLp = new LinearLayout.LayoutParams(Theme.dp(this, 104), Theme.dp(this, 104));
         avatarLp.setMargins(0, 0, Theme.dp(this, 14), 0);
         row.addView(avatar, avatarLp);
 
@@ -387,9 +385,11 @@ public class MainActivity extends Activity {
         words.setOrientation(LinearLayout.VERTICAL);
         String companionTitle = prefs.assistantPersonaConfigured() ? prefs.assistantName() : role;
         String heading = title.equals(role) ? companionTitle : title + " · " + companionTitle;
-        words.addView(Theme.text(this, heading, 21, CompanionAssistant.roleColor(role), Typeface.BOLD), matchWrap());
+        words.addView(Theme.text(this, heading, 22, CompanionAssistant.roleColor(role), Typeface.BOLD), matchWrap());
         addSpace(words, 4);
         words.addView(Theme.text(this, body, 18, Theme.MUTED, Typeface.NORMAL), matchWrap());
+        addSpace(words, 6);
+        words.addView(Theme.text(this, "我在听您说话", 16, CompanionAssistant.roleColor(role), Typeface.BOLD), matchWrap());
         row.addView(words, new LinearLayout.LayoutParams(0, -2, 1));
 
         card.addView(row, matchWrap());
@@ -405,11 +405,11 @@ public class MainActivity extends Activity {
         addSpace(content, 14);
     }
 
-    private void startAssistantMotion(TextView avatar) {
+    private void startAssistantMotion(View avatar) {
         avatar.postDelayed(() -> animateAssistantAvatar(avatar, true), 300);
     }
 
-    private void animateAssistantAvatar(TextView avatar, boolean outward) {
+    private void animateAssistantAvatar(View avatar, boolean outward) {
         if (avatar.getWindowToken() == null) {
             return;
         }
@@ -2784,6 +2784,13 @@ public class MainActivity extends Activity {
         if (CompanionAssistant.ROLE_BROTHER.equals(role)) return "ui_role_brother";
         if (CompanionAssistant.ROLE_YOUNG_MAN.equals(role)) return "ui_role_young_man";
         return "ui_role_gentle_woman";
+    }
+
+    private String roleAvatarAssetName(String role) {
+        if (CompanionAssistant.ROLE_SISTER.equals(role)) return "ui_avatar_sister";
+        if (CompanionAssistant.ROLE_BROTHER.equals(role)) return "ui_avatar_brother";
+        if (CompanionAssistant.ROLE_YOUNG_MAN.equals(role)) return "ui_avatar_young_man";
+        return "ui_avatar_gentle_woman";
     }
 
     private void addStatusPill(String text, int color) {
