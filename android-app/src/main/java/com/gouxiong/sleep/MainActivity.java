@@ -517,6 +517,9 @@ public class MainActivity extends Activity {
         addModeButton("敏感模式");
         addSpace(content, 12);
 
+        addCard("紧急联系人",
+                prefs.emergencySummary() + "\n" + prefs.emergencyActionSummary(),
+                prefs.emergencyEnabled() ? Theme.GREEN : Theme.ORANGE);
         addSettingButton("紧急联系人电话/短信", this::showEmergencyDialog);
         addSettingButton("唤醒声音：亲人录音/本地歌曲", this::showSoundSettings);
         addSettingButton("异常证据：录音/外部设备", this::showEvidenceSettings);
@@ -555,11 +558,19 @@ public class MainActivity extends Activity {
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8));
 
-        EditText phone = new EditText(this);
-        phone.setText(prefs.emergencyPhone());
-        phone.setHint("紧急联系人电话");
-        phone.setTextSize(20);
-        box.addView(phone, matchWrap());
+        TextView note = Theme.text(this, "最多 3 位。短信会发给全部联系人，电话只拨打第 1 位，避免连续拨号卡住强唤醒。", 17, Theme.MUTED, Typeface.NORMAL);
+        box.addView(note, matchWrap());
+        addSpace(box, 8);
+
+        EditText[] phones = new EditText[PreferenceStore.MAX_EMERGENCY_CONTACTS];
+        for (int i = 0; i < PreferenceStore.MAX_EMERGENCY_CONTACTS; i++) {
+            EditText phone = new EditText(this);
+            phone.setText(prefs.emergencyPhone(i));
+            phone.setHint(i == 0 ? "第 1 联系人电话（优先拨打）" : "第 " + (i + 1) + " 联系人电话（短信通知）");
+            phone.setTextSize(20);
+            phones[i] = phone;
+            box.addView(phone, matchWrap());
+        }
 
         CheckBox call = new CheckBox(this);
         call.setText("唤醒失败后打电话");
@@ -578,8 +589,14 @@ public class MainActivity extends Activity {
                 .setMessage("只在高风险强唤醒无确认时使用。号码只保存在本机。")
                 .setView(box)
                 .setPositiveButton("保存", (d, which) -> {
-                    prefs.setEmergency(phone.getText().toString(), call.isChecked(), sms.isChecked());
-                    requestEmergencyPermissions(call.isChecked(), sms.isChecked());
+                    String[] values = new String[PreferenceStore.MAX_EMERGENCY_CONTACTS];
+                    for (int i = 0; i < phones.length; i++) {
+                        values[i] = phones[i].getText().toString();
+                    }
+                    prefs.setEmergencyContacts(values, call.isChecked(), sms.isChecked());
+                    if (prefs.emergencyEnabled()) {
+                        requestEmergencyPermissions(call.isChecked(), sms.isChecked());
+                    }
                     Toast.makeText(this, "已保存紧急联系人", Toast.LENGTH_SHORT).show();
                     showSettings();
                 })

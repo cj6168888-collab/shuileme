@@ -62,7 +62,7 @@ foreach ($needle in @("sleep_guard_silent_v2", "setSound(null, null)", "enableVi
   if ($service -notmatch [regex]::Escape($needle)) { throw "Static check failed: $needle" }
 }
 $main = Get-Content -Encoding UTF8 (Join-Path $root "src\main\java\com\gouxiong\sleep\MainActivity.java") -Raw
-foreach ($needle in @("showPreSleepCheck", "heartbeatText", "testGentleReminder", "preSleepStatusText", "requestIgnoreBatteryOptimization", "batteryOptimizationText", "guardIntegrityScore", "detectionConfidenceText", "showDetectionTest", "simulateEvent", "showMorningCare", "showMedicationDialog", "scheduleMedicationReminder", "showCompanionSettings", "addCompanionChoice", "showOwnerProfileSettings", "showOwnerProfileDialog", "proactiveCareText", "maybeShowProactiveCare", "startAssistantMotion", "showDeepSeekSettings", "showDeepSeekQuestionDialog", "askDeepSeek", "deepSeekSystemPrompt", "deepSeekUserPrompt", "showCompanionChat", "showCompanionReply", "addAssistantHero", "speakAssistantText", "assistantOnlineEnabled", "ownerProfileSummary", "assistantProactiveCareEnabled", "onNewIntent", "shouldOpenMorningCare", "showEvidenceSettings", "showDeviceReadingDialog", "deviceReadingsText", "createDemoEvidenceClip", "showEventReviewDialog", "playEvidenceAudio", "signalBaselineSamples", "signalAudioBaselineRms", "signalMotionBaseline", "safeTopPadding", "statusBarHeight")) {
+foreach ($needle in @("showPreSleepCheck", "heartbeatText", "testGentleReminder", "preSleepStatusText", "requestIgnoreBatteryOptimization", "batteryOptimizationText", "guardIntegrityScore", "detectionConfidenceText", "showDetectionTest", "simulateEvent", "showMorningCare", "showMedicationDialog", "scheduleMedicationReminder", "showCompanionSettings", "addCompanionChoice", "showOwnerProfileSettings", "showOwnerProfileDialog", "proactiveCareText", "maybeShowProactiveCare", "startAssistantMotion", "showDeepSeekSettings", "showDeepSeekQuestionDialog", "askDeepSeek", "deepSeekSystemPrompt", "deepSeekUserPrompt", "showCompanionChat", "showCompanionReply", "addAssistantHero", "speakAssistantText", "assistantOnlineEnabled", "ownerProfileSummary", "assistantProactiveCareEnabled", "onNewIntent", "shouldOpenMorningCare", "showEvidenceSettings", "showDeviceReadingDialog", "deviceReadingsText", "createDemoEvidenceClip", "showEventReviewDialog", "playEvidenceAudio", "signalBaselineSamples", "signalAudioBaselineRms", "signalMotionBaseline", "safeTopPadding", "statusBarHeight", "setEmergencyContacts", "MAX_EMERGENCY_CONTACTS", "emergencyActionSummary")) {
   if ($main -notmatch [regex]::Escape($needle)) { throw "Static check failed: $needle" }
 }
 $alarm = Get-Content -Encoding UTF8 (Join-Path $root "src\main\java\com\gouxiong\sleep\AlarmActivity.java") -Raw
@@ -76,6 +76,14 @@ foreach ($needle in @("ROLE_SISTER", "ROLE_BROTHER", "ROLE_YOUNG_MAN", "ROLE_GEN
 $deepSeek = Get-Content -Encoding UTF8 (Join-Path $root "src\main\java\com\gouxiong\sleep\util\DeepSeekClient.java") -Raw
 foreach ($needle in @("https://api.deepseek.com/chat/completions", "Authorization", "deepseek-v4-flash", "thinking")) {
   if ($deepSeek -notmatch [regex]::Escape($needle)) { throw "DeepSeek static check failed: $needle" }
+}
+$prefs = Get-Content -Encoding UTF8 (Join-Path $root "src\main\java\com\gouxiong\sleep\util\PreferenceStore.java") -Raw
+foreach ($needle in @("MAX_EMERGENCY_CONTACTS", "emergencyPhone(int index)", "emergencyPhones", "setEmergencyContacts", "emergencySummary", "emergencyActionSummary")) {
+  if ($prefs -notmatch [regex]::Escape($needle)) { throw "Preference static check failed: $needle" }
+}
+$notifier = Get-Content -Encoding UTF8 (Join-Path $root "src\main\java\com\gouxiong\sleep\util\EmergencyNotifier.java") -Raw
+foreach ($needle in @("String[] phones", "sendSms(activity, phones", "sendTextMessage", "call(activity, phones[0])")) {
+  if ($notifier -notmatch [regex]::Escape($needle)) { throw "Emergency notifier static check failed: $needle" }
 }
 $db = Get-Content -Encoding UTF8 (Join-Path $root "src\main\java\com\gouxiong\sleep\data\SleepDatabase.java") -Raw
 foreach ($needle in @("audio_path", "audio_summary", "motion_summary", "device_summary", "evidence_level", "doctorReportText", "device_readings", "insertDeviceReading", "nearestDeviceEvidence", "findNearestDeviceReading")) {

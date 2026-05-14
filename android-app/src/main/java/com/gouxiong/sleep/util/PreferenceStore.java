@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 
 public class PreferenceStore {
     private static final String NAME = "gouxiong_sleep_prefs";
+    public static final int MAX_EMERGENCY_CONTACTS = 3;
 
     private final SharedPreferences prefs;
 
@@ -87,11 +88,39 @@ public class PreferenceStore {
     }
 
     public boolean emergencyEnabled() {
-        return prefs.getBoolean("emergency_enabled", false);
+        return prefs.getBoolean("emergency_enabled", false) && emergencyPhones().length > 0;
     }
 
     public String emergencyPhone() {
-        return prefs.getString("emergency_phone", "");
+        return emergencyPhone(0);
+    }
+
+    public String emergencyPhone(int index) {
+        if (index < 0 || index >= MAX_EMERGENCY_CONTACTS) return "";
+        String value = prefs.getString("emergency_phone_" + (index + 1), "");
+        if (index == 0 && value.length() == 0) {
+            value = prefs.getString("emergency_phone", "");
+        }
+        return clean(value);
+    }
+
+    public String[] emergencyPhones() {
+        java.util.ArrayList<String> phones = new java.util.ArrayList<>();
+        for (int i = 0; i < MAX_EMERGENCY_CONTACTS; i++) {
+            String phone = emergencyPhone(i);
+            if (phone.length() > 0 && !phones.contains(phone)) {
+                phones.add(phone);
+            }
+        }
+        return phones.toArray(new String[0]);
+    }
+
+    public String emergencySummary() {
+        String[] phones = emergencyPhones();
+        if (phones.length == 0) {
+            return "未设置";
+        }
+        return phones.length + " 位联系人：" + joinPhones(phones);
     }
 
     public boolean emergencyCall() {
@@ -103,12 +132,49 @@ public class PreferenceStore {
     }
 
     public void setEmergency(String phone, boolean call, boolean sms) {
-        prefs.edit()
-                .putBoolean("emergency_enabled", phone != null && phone.trim().length() > 0)
-                .putString("emergency_phone", phone == null ? "" : phone.trim())
+        setEmergencyContacts(new String[]{phone}, call, sms);
+    }
+
+    public void setEmergencyContacts(String[] phones, boolean call, boolean sms) {
+        SharedPreferences.Editor editor = prefs.edit()
                 .putBoolean("emergency_call", call)
-                .putBoolean("emergency_sms", sms)
+                .putBoolean("emergency_sms", sms);
+        String first = "";
+        int saved = 0;
+        for (int i = 0; i < MAX_EMERGENCY_CONTACTS; i++) {
+            String phone = "";
+            if (phones != null && i < phones.length) {
+                phone = clean(phones[i]);
+            }
+            if (phone.length() > 0) {
+                saved++;
+                if (first.length() == 0) first = phone;
+            }
+            editor.putString("emergency_phone_" + (i + 1), phone);
+        }
+        editor
+                .putBoolean("emergency_enabled", saved > 0)
+                .putString("emergency_phone", first)
                 .apply();
+    }
+
+    public String emergencyActionSummary() {
+        if (!emergencyEnabled()) {
+            return "未启用";
+        }
+        if (emergencyCall() && emergencySms()) return "短信通知全部联系人，并拨打第 1 位联系人";
+        if (emergencySms()) return "短信通知全部联系人";
+        if (emergencyCall()) return "拨打第 1 位联系人";
+        return "已保存联系人，但未开启电话或短信";
+    }
+
+    private String joinPhones(String[] phones) {
+        StringBuilder b = new StringBuilder();
+        for (String phone : phones) {
+            if (b.length() > 0) b.append("，");
+            b.append(phone);
+        }
+        return b.toString();
     }
 
     public String alarmSource() {
