@@ -92,6 +92,7 @@ public class MainActivity extends Activity {
     private SleepDatabase db;
     private LinearLayout root;
     private LinearLayout content;
+    private LinearLayout navBar;
     private boolean pendingStartAfterPermission;
     private MediaRecorder voiceRecorder;
     private File voiceFile;
@@ -313,6 +314,7 @@ public class MainActivity extends Activity {
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
 
         LinearLayout nav = new LinearLayout(this);
+        navBar = nav;
         nav.setGravity(Gravity.CENTER);
         nav.setPadding(Theme.dp(this, 14), Theme.dp(this, 10), Theme.dp(this, 14), Theme.dp(this, 14));
         nav.setBackground(Theme.navBar(this));
@@ -1299,88 +1301,164 @@ public class MainActivity extends Activity {
     private void showCompanionChat() {
         stopRealtimeVoiceChat(false);
         int pageSerial = ++voicePageSerial;
+        hideBottomNavForLiveCompanion();
         content.removeAllViews();
-        content.addView(Theme.text(this, "小助手聊天", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
-        addSpace(content, 8);
-        addAssistantHero("陪您说说话", CompanionAssistant.chatIntro(prefs.companionRole()), false);
+        String opening = prefs.assistantPersonaConfigured()
+                ? CompanionAssistant.chatIntro(prefs.companionRole())
+                : CompanionAssistant.firstMeetingIntro(prefs.companionRole());
+        addLiveCompanionStage("我在这里，您直接说", opening, "listening");
         addRealtimeVoicePanel();
-        addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
-        addCard("我记得的主人信息", prefs.ownerProfileSummary(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
-        if (!prefs.assistantPersonaConfigured()) {
-            addCard("我会自己问", "您不用进设置。小助手会用语音问您：我叫什么、像什么身份陪您、该怎么称呼您。您直接回答就行。", Theme.ORANGE);
-        } else {
-            addCard("小助手身份", prefs.assistantPersonaSummary(), Theme.GREEN);
-        }
-        addCard("陪伴方式", CompanionAssistant.chatPrivacy(prefs.companionRole(), prefs.assistantOnlineEnabled())
-                + "\n夜间紧急唤醒保留本地兜底，避免网络波动影响安全。", prefs.assistantOnlineEnabled() ? Theme.GREEN : Theme.ORANGE);
-        addCard("我看到的东西", db.objectMemorySummary(), Theme.BLUE);
-        addCard("视觉陪伴", autoVisionStatusText(), prefs.assistantAutoVisionEnabled() ? Theme.GREEN : Theme.ORANGE);
-        addSettingButton(prefs.assistantAutoVisionEnabled() ? "暂停自动看见" : "开启自动看见", () -> {
-            prefs.setAssistantAutoVisionEnabled(!prefs.assistantAutoVisionEnabled());
-            showCompanionChat();
-        });
-        addSettingButton("让小助手看一眼", this::showCompanionVision);
-        if (prefs.assistantOnlineEnabled() && prefs.deepSeekKeyConfigured()) {
-            addAiQuestionButton("帮我看看昨晚", "请结合我的主人档案、今天状态、昨晚睡眠摘要和守护完整性，给我一份今天能听懂的睡眠复盘和生活建议。");
-            addAiQuestionButton("今天怎么安排", "请根据我的身体情况、用药习惯、今天状态和睡眠记录，生成今天的喝水、用药提醒、活动和休息建议。不要诊断。");
-            addAiQuestionButton("陪我聊聊天", "我想轻松聊几句。请根据我的兴趣爱好和今天状态，用温柔、简短、适合中老年人的方式陪我说话。");
-        } else if (prefs.assistantOnlineEnabled()) {
-            addSettingButton("设置联网陪伴", this::showDeepSeekSettings);
-        } else {
-            addSettingButton("开启联网陪伴", () -> {
-                prefs.setAssistantOnlineEnabled(true);
-                showCompanionChat();
-            });
-        }
-        addSettingButton("记录今天状态", this::showAssistantCheckIn);
-        addSettingButton("小助手一步步建档", () -> showOwnerProfileWizard(0));
-        addAssistantReplyButton("今天关怀建议", proactiveCareText());
-        addAssistantReplyButton("按今天状态关心我", CompanionAssistant.checkInCareLine(prefs.companionRole(), prefs.assistantCheckInSummary()));
-        addAssistantReplyButton("解释昨晚报告",
-                CompanionAssistant.chatSleepReport(prefs.companionRole(), db.localReportText(), guardIntegrityScore()));
-        addAssistantReplyButton("陪我睡前放松", CompanionAssistant.chatRelax(prefs.companionRole()));
-        addAssistantReplyButton("吃药提醒怎么用",
-                CompanionAssistant.medicationLine(prefs.companionRole(), prefs.medicationName(), prefs.medicationConfirmedToday())
-                        + "\n你可以在设置里修改药名和重复提醒间隔。");
-        addAssistantReplyButton("什么时候该咨询医生", CompanionAssistant.chatDoctor(prefs.companionRole()));
-        addAssistantReplyButton("隐私怎么保护", CompanionAssistant.chatPrivacy(prefs.companionRole(), prefs.assistantOnlineEnabled()));
-        addSettingButton("填写主人档案", this::showOwnerProfileSettings);
-        addSettingButton("选择小助手", this::showCompanionSettings);
-        addSettingButton("返回首页", () -> showShell("guard"));
+        addLiveMemoryStrip();
+        addLiveCompanionShortcuts();
         content.postDelayed(() -> {
             if (pageSerial == voicePageSerial) startRealtimeVoiceChat();
         }, 350);
         content.postDelayed(this::maybeStartAutoVisionScan, 500);
     }
 
+    private void hideBottomNavForLiveCompanion() {
+        if (navBar != null) {
+            navBar.setVisibility(View.GONE);
+        }
+    }
+
+    private void addLiveCompanionStage(String status, String speech, String mood) {
+        String role = prefs.companionRole();
+        String name = assistantDisplayName();
+        LinearLayout stage = cardContainer();
+        stage.setPadding(Theme.dp(this, 18), Theme.dp(this, 18), Theme.dp(this, 18), Theme.dp(this, 18));
+        stage.setBackground(Theme.tintedCard(this, CompanionAssistant.roleColor(role)));
+
+        TextView nameView = Theme.text(this, name, 30, Theme.TEXT, Typeface.BOLD);
+        nameView.setGravity(Gravity.CENTER);
+        stage.addView(nameView, matchWrap());
+        addSpace(stage, 4);
+        TextView statusView = Theme.text(this, status, 18, CompanionAssistant.roleColor(role), Typeface.BOLD);
+        statusView.setGravity(Gravity.CENTER);
+        stage.addView(statusView, matchWrap());
+        addSpace(stage, 14);
+
+        ImageView avatar = designImage(roleAvatarAssetName(role), 238, ImageView.ScaleType.CENTER_CROP);
+        avatar.setContentDescription(name + "，" + liveMoodText(mood));
+        startAssistantMotion(avatar);
+        stage.addView(avatar, imageLp(238));
+        addSpace(stage, 16);
+
+        LinearLayout bubble = new LinearLayout(this);
+        bubble.setOrientation(LinearLayout.VERTICAL);
+        bubble.setPadding(Theme.dp(this, 18), Theme.dp(this, 14), Theme.dp(this, 18), Theme.dp(this, 14));
+        bubble.setBackground(Theme.rounded(Theme.mix(CompanionAssistant.roleColor(role), Theme.WARM_WHITE, 0.86f), 22, this));
+        TextView line = Theme.text(this, speech, 21, Theme.TEXT, Typeface.BOLD);
+        line.setGravity(Gravity.CENTER);
+        bubble.addView(line, matchWrap());
+        stage.addView(bubble, matchWrap());
+
+        content.addView(stage, matchWrap());
+        addSpace(content, 14);
+    }
+
+    private String assistantDisplayName() {
+        if (prefs.assistantPersonaConfigured()) {
+            return prefs.assistantName();
+        }
+        return prefs.companionRole();
+    }
+
+    private String liveMoodText(String mood) {
+        if ("thinking".equals(mood)) return "正在想一想";
+        if ("speaking".equals(mood)) return "正在慢慢说";
+        if ("seeing".equals(mood)) return "正在看一眼";
+        return "正在听您说";
+    }
+
+    private String liveBubbleText(String text) {
+        String clean = text == null ? "" : text.replace("\n", " ").trim();
+        if (clean.length() <= 86) {
+            return clean;
+        }
+        return clean.substring(0, 86) + "……";
+    }
+
     private void addRealtimeVoicePanel() {
         LinearLayout card = cardContainer();
-        card.setBackground(Theme.tintedCard(this, CompanionAssistant.roleColor(prefs.companionRole())));
-        card.addView(Theme.text(this, "打开就能聊", 24, CompanionAssistant.roleColor(prefs.companionRole()), Typeface.BOLD), matchWrap());
+        int roleColor = CompanionAssistant.roleColor(prefs.companionRole());
+        card.setBackground(Theme.tintedCard(this, roleColor));
+        card.addView(Theme.text(this, "实时陪伴", 24, roleColor, Typeface.BOLD), matchWrap());
         addSpace(card, 8);
-        voiceStatusLabel = Theme.text(this, "正在准备麦克风。您不用点发送，直接说话就行。", 19, Theme.MUTED, Typeface.NORMAL);
+        voiceStatusLabel = Theme.text(this, "我在准备麦克风，您不用找发送按钮。", 19, Theme.MUTED, Typeface.NORMAL);
         card.addView(voiceStatusLabel, matchWrap());
         addSpace(card, 12);
-        Button interrupt = Theme.button(this, "打断小助手，我来说", Theme.RED);
-        interrupt.setTextSize(20);
-        interrupt.setOnClickListener(v -> {
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        addLiveActionButton(actions, "我来说", Theme.BLUE, () -> {
             voiceConversationSerial++;
             stopAssistantSpeech();
             updateVoiceStatus("我在听，您直接说。");
             restartRealtimeListeningSoon(120);
-        });
-        card.addView(interrupt, matchWrap());
-        addSpace(card, 10);
-        Button restart = Theme.softButton(this, "重新开始听我说", Theme.GREEN);
-        restart.setTextSize(20);
-        restart.setOnClickListener(v -> {
-            realtimeVoiceEnabled = true;
+        }, true);
+        addLiveActionButton(actions, "暂停", Theme.ORANGE, () -> {
+            stopRealtimeVoiceChat(true);
             stopAssistantSpeech();
-            restartRealtimeListeningSoon(120);
-        });
-        card.addView(restart, matchWrap());
+            updateVoiceStatus("我先安静等您。要继续时点“我来说”。");
+        }, false);
+        addLiveActionButton(actions, "看一眼", Theme.GREEN, this::showCompanionVision, false);
+        card.addView(actions, matchWrap());
+
         content.addView(card, matchWrap());
         addSpace(content, 14);
+    }
+
+    private void addLiveActionButton(LinearLayout row, String text, int color, Runnable action, boolean primary) {
+        Button button = primary ? Theme.button(this, text, color) : Theme.softButton(this, text, color);
+        button.setTextSize(18);
+        button.setMinHeight(Theme.dp(this, 64));
+        button.setOnClickListener(v -> action.run());
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
+        lp.setMargins(Theme.dp(this, 3), 0, Theme.dp(this, 3), 0);
+        row.addView(button, lp);
+    }
+
+    private void addLiveMemoryStrip() {
+        StringBuilder text = new StringBuilder();
+        if (!prefs.assistantPersonaConfigured()) {
+            text.append("第一次见面时，我会直接问您：我叫什么、像什么身份陪您、该怎么称呼您。");
+        } else {
+            text.append("我记住了：").append(prefs.assistantPersonaSummary().replace("\n", "；"));
+        }
+        if (db.objectMemorySummary().length() > 0) {
+            text.append("\n最近看到：").append(db.objectMemorySummary());
+        }
+        addCard("我记得", text.toString(), prefs.assistantPersonaConfigured() ? Theme.GREEN : Theme.ORANGE);
+    }
+
+    private void addLiveCompanionShortcuts() {
+        LinearLayout row1 = new LinearLayout(this);
+        row1.setOrientation(LinearLayout.HORIZONTAL);
+        addLiveActionButton(row1, "昨晚", Theme.BLUE, () -> askLiveShortcut("昨晚",
+                "请结合我的主人档案、今天状态、昨晚睡眠摘要和守护完整性，给我一份今天能听懂的睡眠复盘和生活建议。"), false);
+        addLiveActionButton(row1, "今天", Theme.GREEN, () -> askLiveShortcut("今天",
+                "请根据我的身体情况、用药习惯、今天状态和睡眠记录，生成今天的喝水、用药提醒、活动和休息建议。不要诊断。"), false);
+        addLiveActionButton(row1, "设置", Theme.ORANGE, this::showCompanionSettings, false);
+        content.addView(row1, matchWrap());
+        addSpace(content, 10);
+
+        LinearLayout row2 = new LinearLayout(this);
+        row2.setOrientation(LinearLayout.HORIZONTAL);
+        addLiveActionButton(row2, "记状态", Theme.GREEN, this::showAssistantCheckIn, false);
+        addLiveActionButton(row2, "建档", Theme.BLUE, () -> showOwnerProfileWizard(0), false);
+        addLiveActionButton(row2, "首页", Theme.ORANGE, () -> showShell("guard"), false);
+        content.addView(row2, matchWrap());
+        addSpace(content, 12);
+    }
+
+    private void askLiveShortcut(String label, String question) {
+        if (prefs.assistantOnlineEnabled() && prefs.deepSeekKeyConfigured()) {
+            realtimeVoiceEnabled = true;
+            handleRealtimeVoiceText(question);
+        } else {
+            showCompanionVoiceReply(label, localVoiceFallback(question));
+        }
     }
 
     private String autoVisionStatusText() {
@@ -2214,21 +2292,22 @@ public class MainActivity extends Activity {
     }
 
     private void showCompanionVoiceWaiting(String line) {
+        hideBottomNavForLiveCompanion();
         content.removeAllViews();
-        content.addView(Theme.text(this, "小助手在想", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
-        addSpace(content, 8);
-        addAssistantHero("您别急", line, false);
+        addLiveCompanionStage("您别急，我想想", line, "thinking");
         addRealtimeVoicePanel();
+        updateVoiceStatus("我先陪着您，正在想。");
         speakAssistantText(line);
     }
 
     private void showCompanionVoiceReply(String topic, String reply) {
+        hideBottomNavForLiveCompanion();
         content.removeAllViews();
-        content.addView(Theme.text(this, topic, 30, Theme.TEXT, Typeface.BOLD), matchWrap());
-        addSpace(content, 8);
-        addAssistantHero(prefs.companionRole(), reply, false);
+        addLiveCompanionStage("我慢慢说给您听", liveBubbleText(reply), "speaking");
         addRealtimeVoicePanel();
-        addSettingButton("返回聊天首页", this::showCompanionChat);
+        addCard("完整回答", reply, CompanionAssistant.roleColor(prefs.companionRole()));
+        addLiveCompanionShortcuts();
+        updateVoiceStatus(topic + "。您可以随时插话。");
         speakAssistantText(reply);
     }
 
