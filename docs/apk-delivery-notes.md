@@ -7,7 +7,7 @@
 - 调试包：`android-app/build/outputs/apk/gouxiong-sleep-debug.apk`
 - 包名：`com.gouxiong.sleep`
 - 签名：项目固定 debug keystore，路径 `android-app/keystore/debug.keystore`
-- SHA256：`877AF18E86C694A765FFC41B755BC9050F6BF24C5410C31B8C8B3EE795120E68`
+- SHA256：`A89ED5893BD370F1322E5E4ADE754005711C51B3E2C9B08E03796A92D5AE24C7`
 - 构建方式：Android SDK 直编，无 Gradle 依赖
 
 ## 构建命令
@@ -57,7 +57,7 @@ cd D:\www\狗熊睡眠\android-app
 - 主动关怀：用户开启后，App 打开时每天最多主动问候一次；夜间守护中不打扰。
 - 灵动聊天界面：小助手头像占位加入轻微呼吸/摇摆动画，离线聊天页显示档案摘要和关怀建议。
 - 离线聊天页：可解释昨晚报告、陪用户睡前放松、说明吃药提醒、提示何时咨询医生、说明隐私边界；默认不接服务器。
-- DeepSeek 联网增强：用户可在手机本机设置 DeepSeek API Key 和模型；只有主动点击“问 DeepSeek 大模型”才会联网，夜间实时守护不依赖大模型。
+- DeepSeek 联网增强：用户可在手机本机设置 DeepSeek API Key 和模型；Key 使用 Android Keystore 加密保存，只有主动点击“问 DeepSeek 大模型”才会联网，夜间实时守护不依赖大模型。
 - DeepSeek 本机测试注入：`android-app/local.deepseek.properties` 保存测试 Key，已加入 `.gitignore`，不会被 `build.ps1` 复制进 APK；连接测试机后可运行 `android-app/set-deepseek-test-key.ps1` 写入 App 本机设置。
 - 角色化强唤醒：强唤醒页会使用当前小助手的确认语气，但不改变检测阈值、强唤醒策略和紧急联系人升级。
 - 本地事件数据库：SQLite 保存事件、反馈、汇总。
@@ -99,7 +99,7 @@ cd D:\www\狗熊睡眠\android-app
 - 亲人录音使用 3GP/AMR 本机文件保存；后续可升级为更高质量 AAC 并加入音量归一化。
 - 本地歌曲通过系统文件选择器授权；如果授权被系统回收，会回退系统闹钟。
 - 小助手当前使用原生动画头像占位和系统 TTS；真实 3D 头像、离线语音包和大模型聊天尚未接入。
-- DeepSeek Key 当前保存在本机 SharedPreferences，适合原型验证；正式发布前应升级到 Android Keystore 加密存储，并明确隐私说明。
+- DeepSeek Key 已使用 Android Keystore 加密保存；正式发布前仍需在目标 Android 机型上验证 Keystore 迁移、清除和调试注入流程。
 - 当前调试包声明 `android:debuggable="true"`，用于本机注入测试配置；正式发行包应关闭 debuggable，并继续禁止把 Key 打进 APK。
 - Google Play 对短信/电话权限有审核风险，如上架受限可切换到系统拨号页/短信编辑页回退。
 

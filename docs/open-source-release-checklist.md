@@ -14,7 +14,7 @@
 - 不提交 `android-app/build/` 输出目录。
 - 不提交 `*.keystore`。
 - 正式发行包关闭 `android:debuggable="true"`。
-- 正式发行前将 DeepSeek Key 存储从 `SharedPreferences` 升级为 Android Keystore。
+- DeepSeek Key 使用 Android Keystore 加密保存；正式发行前验证目标机型上的写入、迁移和清除流程。
 
 ## 当前调试说明
 

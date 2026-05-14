@@ -2,9 +2,23 @@ package com.gouxiong.sleep.util;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
+import android.util.Base64;
+
+import java.nio.charset.StandardCharsets;
+import java.security.KeyStore;
+
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
 
 public class PreferenceStore {
     private static final String NAME = "gouxiong_sleep_prefs";
+    private static final String LEGACY_DEEPSEEK_API_KEY = "deepseek_api_key";
+    private static final String ENCRYPTED_DEEPSEEK_API_KEY = "deepseek_api_key_encrypted_v1";
+    private static final String DEEPSEEK_KEYSTORE_ALIAS = "gouxiong_sleep_deepseek_api_key";
     public static final int MAX_EMERGENCY_CONTACTS = 3;
 
     private final SharedPreferences prefs;
@@ -274,11 +288,39 @@ public class PreferenceStore {
     }
 
     public String deepSeekApiKey() {
-        return prefs.getString("deepseek_api_key", "");
+        String encrypted = prefs.getString(ENCRYPTED_DEEPSEEK_API_KEY, "");
+        if (encrypted.length() > 0) {
+            try {
+                return decryptSecret(encrypted);
+            } catch (Exception ignored) {
+                return "";
+            }
+        }
+        String legacy = prefs.getString(LEGACY_DEEPSEEK_API_KEY, "");
+        if (legacy.length() > 0) {
+            if (setDeepSeekApiKey(legacy)) {
+                prefs.edit().remove(LEGACY_DEEPSEEK_API_KEY).apply();
+            }
+            return clean(legacy);
+        }
+        return "";
     }
 
-    public void setDeepSeekApiKey(String value) {
-        prefs.edit().putString("deepseek_api_key", clean(value)).apply();
+    public boolean setDeepSeekApiKey(String value) {
+        String clean = clean(value);
+        if (clean.length() == 0) {
+            clearDeepSeekApiKey();
+            return true;
+        }
+        try {
+            prefs.edit()
+                    .putString(ENCRYPTED_DEEPSEEK_API_KEY, encryptSecret(clean))
+                    .remove(LEGACY_DEEPSEEK_API_KEY)
+                    .apply();
+            return true;
+        } catch (Exception ex) {
+            return false;
+        }
     }
 
     public boolean deepSeekKeyConfigured() {
@@ -295,7 +337,10 @@ public class PreferenceStore {
     }
 
     public void clearDeepSeekApiKey() {
-        prefs.edit().remove("deepseek_api_key").apply();
+        prefs.edit()
+                .remove(ENCRYPTED_DEEPSEEK_API_KEY)
+                .remove(LEGACY_DEEPSEEK_API_KEY)
+                .apply();
     }
 
     public boolean assistantProactiveCareEnabled() {
@@ -412,6 +457,45 @@ public class PreferenceStore {
 
     private String clean(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private String encryptSecret(String plainText) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, deepSeekSecretKey());
+        byte[] iv = cipher.getIV();
+        byte[] encrypted = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
+        return Base64.encodeToString(iv, Base64.NO_WRAP) + ":" + Base64.encodeToString(encrypted, Base64.NO_WRAP);
+    }
+
+    private String decryptSecret(String blob) throws Exception {
+        String[] parts = blob.split(":", 2);
+        if (parts.length != 2) return "";
+        byte[] iv = Base64.decode(parts[0], Base64.NO_WRAP);
+        byte[] encrypted = Base64.decode(parts[1], Base64.NO_WRAP);
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, deepSeekSecretKey(), new GCMParameterSpec(128, iv));
+        return new String(cipher.doFinal(encrypted), StandardCharsets.UTF_8);
+    }
+
+    private SecretKey deepSeekSecretKey() throws Exception {
+        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+        keyStore.load(null);
+        if (keyStore.containsAlias(DEEPSEEK_KEYSTORE_ALIAS)) {
+            KeyStore.Entry entry = keyStore.getEntry(DEEPSEEK_KEYSTORE_ALIAS, null);
+            if (entry instanceof KeyStore.SecretKeyEntry) {
+                return ((KeyStore.SecretKeyEntry) entry).getSecretKey();
+            }
+        }
+        KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+        KeyGenParameterSpec spec = new KeyGenParameterSpec.Builder(
+                DEEPSEEK_KEYSTORE_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setRandomizedEncryptionRequired(true)
+                .build();
+        generator.init(spec);
+        return generator.generateKey();
     }
 
     private void appendProfileLine(StringBuilder b, String label, String value) {

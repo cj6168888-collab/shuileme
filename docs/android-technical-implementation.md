@@ -8,7 +8,7 @@
 - UI：程序化原生 View，遵循大字体、大按钮、明快配色。
 - 存储：SQLiteOpenHelper，本地结构化事件和汇总数据。
 - 后台：Foreground Service，负责守护会话、音频采样、动作采样、事件判断。
-- 检测：固定安全阈值 + 本机个人基线，基线只保存在 SharedPreferences。
+- 检测：固定安全阈值 + 本机个人基线，基线只保存在 SharedPreferences；DeepSeek Key 使用 Android Keystore 加密保存。
 - 唤醒：全屏 Activity + 高优先级通知 + 震动 + 音频播放。
 - 紧急通知：电话/短信权限仅在用户启用紧急联系人时请求；最多 3 位联系人，短信通知全部联系人，电话拨打第 1 位联系人。
 

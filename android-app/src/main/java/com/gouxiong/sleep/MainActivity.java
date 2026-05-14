@@ -106,9 +106,10 @@ public class MainActivity extends Activity {
         String model = intent.getStringExtra("debug_deepseek_model");
         boolean injected = false;
         if (key != null && key.startsWith("sk-")) {
-            prefs.setDeepSeekApiKey(key);
-            prefs.setAssistantOnlineEnabled(true);
-            injected = true;
+            if (prefs.setDeepSeekApiKey(key)) {
+                prefs.setAssistantOnlineEnabled(true);
+                injected = true;
+            }
         }
         if (model != null && model.trim().length() > 0) {
             prefs.setDeepSeekModel(model);
@@ -1038,12 +1039,13 @@ public class MainActivity extends Activity {
                 .setView(box)
                 .setPositiveButton("保存", (d, w) -> {
                     String entered = key.getText().toString().trim();
+                    boolean keySaved = true;
                     if (entered.length() > 0) {
-                        prefs.setDeepSeekApiKey(entered);
+                        keySaved = prefs.setDeepSeekApiKey(entered);
                     }
                     prefs.setDeepSeekModel(model.getText().toString());
                     prefs.setAssistantOnlineEnabled(true);
-                    Toast.makeText(this, "已保存 DeepSeek 设置", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, keySaved ? "已加密保存 DeepSeek 设置" : "DeepSeek Key 加密保存失败，请重试", Toast.LENGTH_SHORT).show();
                     showCompanionSettings();
                 })
                 .setNegativeButton("取消", null)

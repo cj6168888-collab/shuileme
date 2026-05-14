@@ -12,7 +12,9 @@ Do not commit:
 ## DeepSeek Testing
 
 DeepSeek API keys are for local testing only. Use `android-app/local.deepseek.properties`,
-which is ignored by git. The APK build must not contain API keys.
+which is ignored by git. The APK build must not contain API keys. Inside the app,
+user-provided DeepSeek keys are stored through Android Keystore encryption rather
+than plain preferences.
 
 ## Reporting Security Issues
 
