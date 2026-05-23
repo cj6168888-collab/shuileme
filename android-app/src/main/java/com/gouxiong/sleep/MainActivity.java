@@ -189,6 +189,10 @@ public class MainActivity extends Activity {
     private long lastLiveAudioFrameAtMs;
     private int liveModelAudioFrameCount;
     private long lastLiveModelAudioFrameAtMs;
+    private int liveAsrFallbackSerial;
+    private long lastLiveSttHandledAtMs;
+    private String lastLiveSttHandledText = "";
+    private boolean handlingLiveAsrTranscript;
     private int liveBargeInCandidateFrames;
     private long lastLiveBargeInAtMs;
     private float liveBargeInNoiseFloorRms = LIVE_BARGE_IN_INITIAL_NOISE_FLOOR_RMS;
@@ -387,9 +391,12 @@ public class MainActivity extends Activity {
                 showShell("assistant");
             }
             String finalHeard = heard;
+            stopLiveAudioStreaming();
+            abortLiveCompanionSpeech();
             content.postDelayed(() -> {
                 realtimeVoiceEnabled = true;
                 stopAssistantSpeech();
+                stopLiveAudioStreaming();
                 handleRealtimeVoiceText(finalHeard);
             }, 700);
             return true;
@@ -4371,17 +4378,10 @@ public class MainActivity extends Activity {
         sleepCheckPending = false;
         updateLiveStageStatus("我在这里，您直接说", "listening");
         XiaozhiVoiceProfile.configureRealtimeAudio(this);
-        ensureLiveCompanionSession();
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            updateVoiceStatus("这台设备暂时不支持系统语音识别，可以先用下方快捷按钮。");
-            updateLiveStageStatus("这台设备暂时不能听", "comforting");
-            return;
-        }
         if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
             requestMicrophoneForLiveChatIfNeeded();
             return;
         }
-        ensureVoiceRecognizer();
         if (!prefs.assistantPersonaConfigured() && !firstMeetingPromptedThisSession) {
             firstMeetingPromptedThisSession = true;
             String intro = CompanionAssistant.firstMeetingIntro(prefs.companionRole());
@@ -4390,9 +4390,44 @@ public class MainActivity extends Activity {
             speakAssistantText(intro);
             return;
         }
+        if (prefs.serverRegistered()) {
+            ensureLiveCompanionSession();
+            updateVoiceStatus("正在连接实时语音，连上后您直接说。");
+            updateLiveStageStatus("正在连接实时语音", "listening");
+            scheduleLiveAsrFallback(++liveAsrFallbackSerial);
+            return;
+        }
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            updateVoiceStatus("这台设备暂时不支持系统语音识别，可以先用下方快捷按钮。");
+            updateLiveStageStatus("这台设备暂时不能听", "comforting");
+            return;
+        }
+        ensureVoiceRecognizer();
         updateVoiceStatus("我在听，您直接说，不用点发送。");
         updateLiveStageStatus("我在听，您直接说", "listening");
         restartRealtimeListeningSoon(120);
+    }
+
+    private void scheduleLiveAsrFallback(int serial) {
+        if (content == null) return;
+        content.postDelayed(() -> {
+            if (!realtimeVoiceEnabled || serial != liveAsrFallbackSerial) {
+                return;
+            }
+            if (liveAudioStreaming && (liveAudioFrameCount > 0 || liveCompanionConnected)) {
+                return;
+            }
+            prefs.recordLiveAudioFrameState(liveAudioFrameCount, "cloud_asr_fallback_to_system", 0f);
+            if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+                updateVoiceStatus("实时语音没有连通，这台设备也没有可用的系统语音识别。");
+                updateLiveStageStatus("语音入口不可用", "comforting");
+                return;
+            }
+            ensureVoiceRecognizer();
+            updateVoiceStatus("实时语音连接慢，我先用手机系统识别听您说。");
+            updateLiveStageStatus("改用系统语音识别", "listening");
+            restartRealtimeListeningSoon(120);
+        }, 6500);
     }
 
     private void ensureLiveCompanionSession() {
@@ -4421,7 +4456,7 @@ public class MainActivity extends Activity {
                     runOnUiThread(() -> {
                         updateVoiceStatus("实时陪伴已连上，我在听您说。");
                         updateLiveStageStatus("实时陪伴已连上", "listening");
-                        prefs.recordLiveAudioFrameState(liveAudioFrameCount, "paused_for_speech_recognizer", 0f);
+                        startLiveAudioStreamingIfPossible();
                         flushPendingLiveCompanionText();
                     });
                 }
@@ -4438,7 +4473,7 @@ public class MainActivity extends Activity {
 
                 @Override
                 public void onStt(String text) {
-                    runOnUiThread(() -> updateVoiceStatus("我听到了，正在想。"));
+                    runOnUiThread(() -> handleLiveSttTranscript(text));
                 }
 
                 @Override
@@ -4601,10 +4636,12 @@ public class MainActivity extends Activity {
         if (!realtimeVoiceEnabled || !liveCompanionConnected || liveCompanionSession == null) {
             return;
         }
-        if (voiceRecognizer != null || voiceListening) {
-            prefs.recordLiveAudioFrameState(liveAudioFrameCount, "paused_for_speech_recognizer", 0f);
-            Log.i(TAG, "Live PCM recorder paused: system SpeechRecognizer owns microphone");
-            return;
+        if (voiceRecognizer != null) {
+            try {
+                voiceRecognizer.cancel();
+            } catch (Exception ignored) {
+            }
+            voiceListening = false;
         }
         if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
             return;
@@ -4639,6 +4676,28 @@ public class MainActivity extends Activity {
             livePcmRecorder = null;
             Log.w(TAG, "Live PCM recorder start failed", ex);
             prefs.recordLiveAudioFrameState(0, "recorder_start_failed", 0f);
+        }
+    }
+
+    private void handleLiveSttTranscript(String text) {
+        String clean = text == null ? "" : text.trim();
+        if (clean.length() == 0 || !realtimeVoiceEnabled) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (clean.equals(lastLiveSttHandledText) && now - lastLiveSttHandledAtMs < 2500L) {
+            return;
+        }
+        lastLiveSttHandledText = clean;
+        lastLiveSttHandledAtMs = now;
+        prefs.recordSpeechRecognitionState("server_stt", clean, 0);
+        updateVoiceStatus("我听到了，正在想。");
+        updateLiveStageStatus("听到了，我正在想", "thinking");
+        handlingLiveAsrTranscript = true;
+        try {
+            handleRealtimeVoiceText(clean);
+        } finally {
+            handlingLiveAsrTranscript = false;
         }
     }
 
@@ -5271,15 +5330,19 @@ public class MainActivity extends Activity {
         if (sleepCheckPending || recentPersistedSleepCheckPending()) {
             if (looksLikeStillAwakeReply(clean)) {
                 sleepCheckPending = false;
+                prefs.recordSleepCheckPending(false);
                 restoreSleepSoundAfterAwakeReply();
                 showCompanionVoiceReply("我继续陪您", sleepCheckContinueLine());
                 return;
             }
             if (looksLikeReadyToSleepReply(clean)) {
+                prefs.recordSleepCheckPending(false);
                 enterSleepGuardFromCompanion(true);
                 return;
             }
-            sleepCheckPending = false;
+            updateVoiceStatus("我听到了。您要是还没睡，可以直接说“没睡”或“继续”。");
+            updateLiveStageStatus("等您确认是否睡着", "comforting");
+            return;
         }
         if (!prefs.assistantPersonaConfigured()) {
             saveAssistantPersonaFromMessage(clean);
@@ -5327,6 +5390,15 @@ public class MainActivity extends Activity {
             return;
         }
         String thinking = CompanionAssistant.thinkingComfortLine(prefs.companionRole(), findQuestion ? "find" : "chat");
+        if (handlingLiveAsrTranscript && liveCompanionConnected) {
+            prefs.recordLiveVoiceState("heard", "server_stt", clean);
+            hideBottomNavForLiveCompanion();
+            content.removeAllViews();
+            addLiveCompanionStage("我听懂了", "正在等实时模型回答。", "thinking");
+            updateVoiceStatus("我听懂了，等实时模型接着回答。");
+            updateLiveStageStatus("我听懂了，正在回答", "thinking");
+            return;
+        }
         showCompanionVoiceWaiting(thinking);
         if (trySendLiveCompanionText(clean, deepSeekUserPrompt(clean), serial)) {
             return;
@@ -5335,8 +5407,8 @@ public class MainActivity extends Activity {
     }
 
     private boolean recentPersistedSleepCheckPending() {
-        long at = prefs.lastVoiceStateAt();
-        return "sleep_check".equals(prefs.lastVoiceStateStage())
+        long at = prefs.sleepCheckPendingAt();
+        return prefs.sleepCheckPending()
                 && at > 0L
                 && System.currentTimeMillis() - at < 5L * 60L * 1000L;
     }
@@ -5448,6 +5520,7 @@ public class MainActivity extends Activity {
             return false;
         }
         sleepCheckPending = true;
+        prefs.recordSleepCheckPending(true);
         voiceConversationSerial++;
         String line = prefs.ownerAddress() + "，您睡了么？";
         prefs.recordLiveVoiceState("sleep_check", "可能睡着确认", line);
@@ -5494,6 +5567,7 @@ public class MainActivity extends Activity {
 
     private void enterSleepGuardFromCompanion(boolean confirmedByUser) {
         sleepCheckPending = false;
+        prefs.recordSleepCheckPending(false);
         pendingSleepContinuationText = "";
         String line = confirmedByUser
                 ? "好的，您安心睡。我把声音收起来，开始安静守护。"

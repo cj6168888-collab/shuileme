@@ -52,6 +52,21 @@ public class PreferenceStore {
         return prefs.getLong("last_voice_state_at", 0L);
     }
 
+    public void recordSleepCheckPending(boolean pending) {
+        SharedPreferences.Editor editor = prefs.edit()
+                .putBoolean("sleep_check_pending", pending)
+                .putLong("sleep_check_pending_at", pending ? System.currentTimeMillis() : 0L);
+        editor.apply();
+    }
+
+    public boolean sleepCheckPending() {
+        return prefs.getBoolean("sleep_check_pending", false);
+    }
+
+    public long sleepCheckPendingAt() {
+        return prefs.getLong("sleep_check_pending_at", 0L);
+    }
+
     public void recordCompanionShortcutRoute(String route, String source) {
         prefs.edit()
                 .putString("last_companion_shortcut_route", clean(route))

@@ -2480,7 +2480,7 @@ function handleLiveInputText(socket, session, text) {
     return sendWsText(socket, { type: 'tts', session_id: session.id, state: 'sentence_start', text: '您别急，我正在想，马上回您。' });
   }
   session.busy = true;
-  sendWsText(socket, { type: 'stt', session_id: session.id, text });
+  sendWsText(socket, { type: 'stt', session_id: session.id, text, source: 'client_text' });
   sendWsText(socket, liveEmotionEvent(session, { emotion: 'thinking', intensity: 0.74, gesture: 'nod', safety_level: 'normal', source: 'input_text' }, 'thinking'));
   sendWsText(socket, { type: 'tts', session_id: session.id, state: 'sentence_start', text: '您别急，我想想。' });
   createLiveTextTurn(session.userId, text, delta => {

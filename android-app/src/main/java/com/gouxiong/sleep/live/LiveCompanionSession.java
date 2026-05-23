@@ -138,7 +138,11 @@ public final class LiveCompanionSession {
             if ("tts".equals(type)) {
                 currentListener().onTts(event.optString("state", ""), event.optString("text", ""));
             } else if ("stt".equals(type)) {
-                currentListener().onStt(event.optString("text", ""));
+                String source = event.optString("source", "");
+                String state = event.optString("state", "");
+                if (!"client_text".equals(source) && !"partial".equals(state)) {
+                    currentListener().onStt(event.optString("text", ""));
+                }
             } else if ("emotion".equals(type)) {
                 currentListener().onEmotion(
                         event.optString("emotion", ""),

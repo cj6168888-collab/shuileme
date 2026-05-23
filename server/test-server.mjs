@@ -521,7 +521,7 @@ try {
   if (!liveEvents.some(item => item.type === 'audio_received' && item.frames === 1 && item.audio_format === 'pcm16')) {
     throw new Error('live websocket audio frame ack failed');
   }
-  if (!liveEvents.some(item => item.type === 'stt' && String(item.text || '').includes('晚上总醒'))) {
+  if (!liveEvents.some(item => item.type === 'stt' && item.source === 'client_text' && String(item.text || '').includes('晚上总醒'))) {
     throw new Error('live websocket stt event failed');
   }
   if (!liveEvents.some(item => item.type === 'tts' && item.state === 'sentence_delta' && String(item.text || '').length > 0)) {
