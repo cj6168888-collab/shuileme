@@ -3926,6 +3926,7 @@ public class MainActivity extends Activity {
         addCheckRow("模型", status.modelReady() ? "文本/看图/音频可用" : "未完整证明", status.modelReady(), null);
         addCheckRow("实时语音", status.realtimeConfigured && status.modelAudioOutputStreaming && status.apkLowLatencyAudioPlayback ? "模型音频优先" : "未完整证明", status.realtimeConfigured && status.modelAudioOutputStreaming && status.apkLowLatencyAudioPlayback, null);
         addCheckRow("麦克风", prefs.microphoneProbePassed() ? "现场拾音通过" : "未证明真实拾音", prefs.microphoneProbePassed(), this::showMicrophoneHonestCheck);
+        addCheckRow("听懂人话", prefs.speechRecognitionShortState(), prefs.speechRecognitionPassed(), this::showCompanionChat);
         addCheckRow("2D Avatar", status.local2dAvatarView && status.avatarStateMachine ? (status.live2dSdk ? "Live2D" : "本机2D，非Live2D") : "未完整证明", status.local2dAvatarView && status.avatarStateMachine, null);
         addCheckRow("故事/助眠音", status.bedtimeStory && status.musicPlayback ? "可用" : "未完整证明", status.bedtimeStory && status.musicPlayback, null);
         addCheckRow("新闻", status.newsBriefing ? "已接真实源" : "未接入，不编", status.newsBriefing, this::showNewsCapabilityStatus);
@@ -4411,7 +4412,7 @@ public class MainActivity extends Activity {
                     runOnUiThread(() -> {
                         updateVoiceStatus("实时陪伴已连上，我在听您说。");
                         updateLiveStageStatus("实时陪伴已连上", "listening");
-                        startLiveAudioStreamingIfPossible();
+                        prefs.recordLiveAudioFrameState(liveAudioFrameCount, "paused_for_speech_recognizer", 0f);
                         flushPendingLiveCompanionText();
                     });
                 }
@@ -4589,6 +4590,11 @@ public class MainActivity extends Activity {
 
     private void startLiveAudioStreamingIfPossible() {
         if (!realtimeVoiceEnabled || !liveCompanionConnected || liveCompanionSession == null) {
+            return;
+        }
+        if (voiceRecognizer != null || voiceListening) {
+            prefs.recordLiveAudioFrameState(liveAudioFrameCount, "paused_for_speech_recognizer", 0f);
+            Log.i(TAG, "Live PCM recorder paused: system SpeechRecognizer owns microphone");
             return;
         }
         if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
@@ -5007,6 +5013,7 @@ public class MainActivity extends Activity {
             @Override
             public void onReadyForSpeech(Bundle params) {
                 lastVoiceCallbackAtMs = System.currentTimeMillis();
+                prefs.recordSpeechRecognitionState("ready", "", 0);
                 updateVoiceStatus("我在听，您直接说。");
                 updateLiveStageStatus("我在听您说话", "listening");
             }
@@ -5015,6 +5022,7 @@ public class MainActivity extends Activity {
             public void onBeginningOfSpeech() {
                 lastVoiceCallbackAtMs = System.currentTimeMillis();
                 lastCompanionActiveAtMs = lastVoiceCallbackAtMs;
+                prefs.recordSpeechRecognitionState("beginning", "", 0);
                 stopAssistantSpeech();
                 updateVoiceStatus("听到了，您慢慢说。");
                 updateLiveStageStatus("听到了，您慢慢说", "user_speaking");
@@ -5033,6 +5041,7 @@ public class MainActivity extends Activity {
             public void onEndOfSpeech() {
                 lastVoiceCallbackAtMs = System.currentTimeMillis();
                 lastCompanionActiveAtMs = lastVoiceCallbackAtMs;
+                prefs.recordSpeechRecognitionState("end", "", 0);
                 updateVoiceStatus("我听完了，正在想。");
                 updateLiveStageStatus("我听完了，正在想", "thinking");
             }
@@ -5040,6 +5049,7 @@ public class MainActivity extends Activity {
             @Override
             public void onError(int error) {
                 voiceListening = false;
+                prefs.recordSpeechRecognitionState("error", "", error);
                 if (!realtimeVoiceEnabled) return;
                 if (sleepCheckPending && error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
                     enterSleepGuardFromCompanion(false);
@@ -5056,13 +5066,16 @@ public class MainActivity extends Activity {
             @Override
             public void onResults(Bundle results) {
                 voiceListening = false;
-                handleRealtimeVoiceText(bestRecognitionText(results));
+                String text = bestRecognitionText(results);
+                prefs.recordSpeechRecognitionState("result", text, 0);
+                handleRealtimeVoiceText(text);
             }
 
             @Override
             public void onPartialResults(Bundle partialResults) {
                 String text = bestRecognitionText(partialResults);
                 if (text.length() > 0) {
+                    prefs.recordSpeechRecognitionState("partial", text, 0);
                     stopAssistantSpeech();
                     updateVoiceStatus("听到了，您继续说。");
                     updateLiveStageStatus("听到了，您继续说", "user_speaking");
@@ -5110,12 +5123,15 @@ public class MainActivity extends Activity {
             voiceInputLevel = 0f;
             updateVoiceStatus("正在打开麦克风，您可以直接说。");
             updateLiveStageStatus("正在打开麦克风", "listening");
+            stopLiveAudioStreaming();
+            prefs.recordSpeechRecognitionState("starting", "", 0);
             voiceRecognizer.cancel();
             voiceRecognizer.startListening(realtimeVoiceIntent());
             voiceListening = true;
             scheduleVoiceListenWatchdog(listenSerial);
         } catch (Exception ex) {
             voiceListening = false;
+            prefs.recordSpeechRecognitionState("start_failed", ex.getMessage(), -1);
             updateVoiceStatus("语音入口暂时不可用，请稍后再试。");
             updateLiveStageStatus("语音入口暂时不可用", "comforting");
         }

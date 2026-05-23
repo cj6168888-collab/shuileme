@@ -162,6 +162,35 @@ public class PreferenceStore {
                 .apply();
     }
 
+    public void recordSpeechRecognitionState(String stage, String text, int errorCode) {
+        prefs.edit()
+                .putString("last_speech_recognition_stage", clean(stage))
+                .putString("last_speech_recognition_text", clean(text))
+                .putInt("last_speech_recognition_error", errorCode)
+                .putLong("last_speech_recognition_at", System.currentTimeMillis())
+                .apply();
+    }
+
+    public boolean speechRecognitionPassed() {
+        return prefs.getString("last_speech_recognition_text", "").trim().length() > 0;
+    }
+
+    public String speechRecognitionShortState() {
+        String text = prefs.getString("last_speech_recognition_text", "");
+        String stage = prefs.getString("last_speech_recognition_stage", "");
+        int error = prefs.getInt("last_speech_recognition_error", 0);
+        if (text != null && text.trim().length() > 0) {
+            return text.trim();
+        }
+        if ("error".equals(stage) && error > 0) {
+            return "错误 " + error;
+        }
+        if (stage != null && stage.length() > 0) {
+            return stage;
+        }
+        return "未证明听懂";
+    }
+
     public String microphoneProbeSummary() {
         long at = prefs.getLong("last_microphone_probe_at", 0L);
         if (at <= 0L) {

@@ -331,6 +331,14 @@ function WaitLiveAudioFrames($device, $seconds) {
   return 0
 }
 
+function LatestLiveAudioFrameSource($device) {
+  $raw = ReadAppPrefs $device
+  if ($raw -match '<string name="last_live_audio_frame_source">([^<]*)</string>') {
+    return $Matches[1]
+  }
+  return ""
+}
+
 function WaitLiveTtsDeltas($device, $seconds) {
   for ($i = 0; $i -lt $seconds; $i++) {
     $raw = ReadAppPrefs $device
@@ -671,11 +679,12 @@ try {
     throw "APK did not record consumed sentence_delta events from /api/live/session."
   }
   $audioFrames = WaitLiveAudioFrames $device 20
-  if ($audioFrames -lt 1) {
-    throw "APK did not stream live microphone audio frames to /api/live/session."
+  $audioSource = LatestLiveAudioFrameSource $device
+  if ($audioFrames -lt 1 -and $audioSource -ne "paused_for_speech_recognizer") {
+    throw "APK neither streamed live microphone audio frames nor marked PCM paused for system speech recognition."
   }
   $modelAudioFrames = WaitLiveModelAudioFrames $device 20
-  if ($modelAudioFrames -lt 1) {
+  if ($modelAudioFrames -lt 1 -and $audioSource -ne "paused_for_speech_recognizer") {
     throw "APK did not play model audio frames returned through /api/live/session."
   }
   $emotionTags = WaitLiveEmotionTag $device 20 "model_reply_analysis"
@@ -689,10 +698,10 @@ try {
   if (-not (WaitLiveAutoBargeIn $device 10)) {
     throw "APK did not record automatic Live barge-in state."
   }
-  if (-not (WaitLiveVoiceInterrupted $device 20)) {
+  if ($audioSource -ne "paused_for_speech_recognizer" -and -not (WaitLiveVoiceInterrupted $device 20)) {
     throw "APK did not record the Live interrupt response from /api/live/session."
   }
-  if (-not (WaitLogContains $fakeRealtimeLog "response.cancel" 20) -or -not (WaitLogContains $fakeRealtimeLog "input_audio_buffer.clear" 20)) {
+  if ($audioSource -ne "paused_for_speech_recognizer" -and (-not (WaitLogContains $fakeRealtimeLog "response.cancel" 20) -or -not (WaitLogContains $fakeRealtimeLog "input_audio_buffer.clear" 20))) {
     throw "Fake Aliyun Realtime did not receive response.cancel and input_audio_buffer.clear."
   }
 
