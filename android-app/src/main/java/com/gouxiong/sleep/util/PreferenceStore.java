@@ -151,6 +151,37 @@ public class PreferenceStore {
                 .apply();
     }
 
+    public void recordSleepGuardAudioState(boolean started, int reads, double rms, int peak, String error) {
+        prefs.edit()
+                .putBoolean("last_sleep_guard_audio_started", started)
+                .putInt("last_sleep_guard_audio_reads", Math.max(0, reads))
+                .putFloat("last_sleep_guard_audio_rms", (float) Math.max(0d, rms))
+                .putInt("last_sleep_guard_audio_peak", Math.max(0, peak))
+                .putString("last_sleep_guard_audio_error", clean(error))
+                .putLong("last_sleep_guard_audio_at", System.currentTimeMillis())
+                .apply();
+    }
+
+    public boolean sleepGuardAudioPassed() {
+        return prefs.getBoolean("last_sleep_guard_audio_started", false)
+                && prefs.getInt("last_sleep_guard_audio_reads", 0) > 0
+                && prefs.getString("last_sleep_guard_audio_error", "").length() == 0;
+    }
+
+    public String sleepGuardAudioShortState() {
+        String error = prefs.getString("last_sleep_guard_audio_error", "");
+        if (error != null && error.length() > 0) {
+            return clean(error);
+        }
+        int reads = prefs.getInt("last_sleep_guard_audio_reads", 0);
+        float rms = prefs.getFloat("last_sleep_guard_audio_rms", 0f);
+        int peak = prefs.getInt("last_sleep_guard_audio_peak", 0);
+        if (reads > 0) {
+            return "读" + reads + " RMS " + (int) rms + " 峰" + peak;
+        }
+        return prefs.getBoolean("last_sleep_guard_audio_started", false) ? "已启动未读到" : "未证明";
+    }
+
     public void recordMicrophoneProbeState(boolean started, int frames, float maxRms, float minRms, String error) {
         prefs.edit()
                 .putBoolean("last_microphone_probe_started", started)
@@ -249,7 +280,7 @@ public class PreferenceStore {
     }
 
     public double signalAudioBaselineRms() {
-        return Double.longBitsToDouble(prefs.getLong("signal_audio_baseline_rms", Double.doubleToLongBits(1800.0)));
+        return Double.longBitsToDouble(prefs.getLong("signal_audio_baseline_rms", Double.doubleToLongBits(120.0)));
     }
 
     public double signalMotionBaseline() {

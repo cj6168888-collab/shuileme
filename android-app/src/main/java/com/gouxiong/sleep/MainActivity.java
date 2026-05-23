@@ -109,6 +109,7 @@ public class MainActivity extends Activity {
     public static final String ACTION_DEBUG_LIVE_BARGE_IN = "com.gouxiong.sleep.action.DEBUG_LIVE_BARGE_IN";
     public static final String ACTION_DEBUG_CAMERA_GLANCE = "com.gouxiong.sleep.action.DEBUG_CAMERA_GLANCE";
     public static final String ACTION_DEBUG_MICROPHONE_VERIFY = "com.gouxiong.sleep.action.DEBUG_MICROPHONE_VERIFY";
+    public static final String ACTION_DEBUG_START_SLEEP_GUARD = "com.gouxiong.sleep.action.DEBUG_START_SLEEP_GUARD";
     private static final int REQUEST_PICK_AUDIO = 2101;
     private static final int REQUEST_CAPTURE_SCENE = 2201;
     private static final int REQUEST_CAMERA_VISION = 87;
@@ -469,6 +470,12 @@ public class MainActivity extends Activity {
             prefs.setFirstLaunchDone();
             showShell("assistant");
             content.postDelayed(this::showMicrophoneHonestCheck, 350);
+            return true;
+        }
+        if (ACTION_DEBUG_START_SLEEP_GUARD.equals(intent.getAction())) {
+            prefs.setFirstLaunchDone();
+            showShell("guard");
+            content.postDelayed(this::startMonitoring, 250);
             return true;
         }
         return false;
@@ -3927,6 +3934,7 @@ public class MainActivity extends Activity {
         addCheckRow("实时语音", status.realtimeConfigured && status.modelAudioOutputStreaming && status.apkLowLatencyAudioPlayback ? "模型音频优先" : "未完整证明", status.realtimeConfigured && status.modelAudioOutputStreaming && status.apkLowLatencyAudioPlayback, null);
         addCheckRow("麦克风", prefs.microphoneProbePassed() ? "现场拾音通过" : "未证明真实拾音", prefs.microphoneProbePassed(), this::showMicrophoneHonestCheck);
         addCheckRow("听懂人话", prefs.speechRecognitionShortState(), prefs.speechRecognitionPassed(), this::showCompanionChat);
+        addCheckRow("睡眠守护拾音", prefs.sleepGuardAudioShortState(), prefs.sleepGuardAudioPassed(), () -> showShell("guard"));
         addCheckRow("2D Avatar", status.local2dAvatarView && status.avatarStateMachine ? (status.live2dSdk ? "Live2D" : "本机2D，非Live2D") : "未完整证明", status.local2dAvatarView && status.avatarStateMachine, null);
         addCheckRow("故事/助眠音", status.bedtimeStory && status.musicPlayback ? "可用" : "未完整证明", status.bedtimeStory && status.musicPlayback, null);
         addCheckRow("新闻", status.newsBriefing ? "已接真实源" : "未接入，不编", status.newsBriefing, this::showNewsCapabilityStatus);

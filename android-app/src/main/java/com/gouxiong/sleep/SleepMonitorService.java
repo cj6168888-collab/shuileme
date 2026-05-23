@@ -62,7 +62,9 @@ public class SleepMonitorService extends Service implements SensorEventListener 
     private int sessionEvents;
     private int sessionHighRisk;
     private int sessionAutoCancel;
-    private double audioBaselineRms = 1800.0;
+    private int audioReadCount;
+    private long lastAudioStatePersistAt;
+    private double audioBaselineRms = 120.0;
     private double motionBaseline = 2.0;
     private int baselineSamples;
     private long lastBaselinePersistAt;
@@ -142,19 +144,37 @@ public class SleepMonitorService extends Service implements SensorEventListener 
     }
 
     private void startAudio() {
+        prefs.recordSleepGuardAudioState(false, 0, 0, 0, "starting");
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            prefs.recordSleepGuardAudioState(false, 0, 0, 0, "未授权麦克风");
             db.insertEvent("权限不完整", "low", 0.5, "record", "未授权麦克风，守护可信度降低");
             return;
         }
         int min = AudioRecord.getMinBufferSize(AUDIO_SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+        if (min <= 0) {
+            prefs.recordSleepGuardAudioState(false, 0, 0, 0, "AudioRecord缓冲不可用");
+            db.insertEvent("麦克风不可用", "low", 0.5, "record", "AudioRecord 缓冲不可用：" + min);
+            return;
+        }
         int bufferSize = Math.max(min, AUDIO_SAMPLE_RATE);
         try {
             recorder = new AudioRecord(MediaRecorder.AudioSource.MIC, AUDIO_SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
+            if (recorder.getState() != AudioRecord.STATE_INITIALIZED) {
+                prefs.recordSleepGuardAudioState(false, 0, 0, 0, "AudioRecord未初始化");
+                db.insertEvent("麦克风不可用", "low", 0.5, "record", "AudioRecord 未初始化");
+                recorder.release();
+                recorder = null;
+                return;
+            }
             recorder.startRecording();
         } catch (Exception ex) {
+            prefs.recordSleepGuardAudioState(false, 0, 0, 0, ex.getMessage() == null ? "麦克风启动失败" : ex.getMessage());
             db.insertEvent("麦克风不可用", "low", 0.5, "record", "麦克风被占用或系统限制");
             return;
         }
+        audioReadCount = 0;
+        lastAudioStatePersistAt = 0L;
+        prefs.recordSleepGuardAudioState(true, 0, 0, 0, "");
 
         audioThread = new Thread(() -> {
             short[] buffer = new short[bufferSize / 2];
@@ -173,6 +193,15 @@ public class SleepMonitorService extends Service implements SensorEventListener 
                     double rms = Math.sqrt(sum / Math.max(1, read));
                     lastRms = Math.max(rms, peak * 0.35);
                     lastPeak = peak;
+                    audioReadCount++;
+                    long now = System.currentTimeMillis();
+                    if (audioReadCount <= 3 || now - lastAudioStatePersistAt > 3000L) {
+                        prefs.recordSleepGuardAudioState(true, audioReadCount, lastRms, lastPeak, "");
+                        prefs.recordSleepAudioReadState(audioReadCount, lastRms, lastPeak);
+                        lastAudioStatePersistAt = now;
+                    }
+                } else if (read < 0) {
+                    prefs.recordSleepGuardAudioState(true, audioReadCount, lastRms, lastPeak, "read=" + read);
                 }
             }
         }, "GouXiongAudio");
@@ -252,18 +281,21 @@ public class SleepMonitorService extends Service implements SensorEventListener 
     }
 
     private void loadSignalBaseline() {
-        audioBaselineRms = clamp(prefs.signalAudioBaselineRms(), 800.0, 6500.0);
+        audioBaselineRms = clamp(prefs.signalAudioBaselineRms(), 20.0, 6500.0);
         motionBaseline = clamp(prefs.signalMotionBaseline(), 0.5, 8.0);
         baselineSamples = Math.max(0, prefs.signalBaselineSamples());
+        if (baselineSamples < BASELINE_READY_SAMPLES && audioBaselineRms > 500.0) {
+            audioBaselineRms = 120.0;
+        }
     }
 
     private void updateSignalBaselineIfCalm(long now, double rms, double motion,
                                             double mediumRmsThreshold, double mediumMotionThreshold) {
-        if (rms < 80 || rms > Math.min(6500.0, mediumRmsThreshold * 0.72)
+        if (rms < 1 || rms > Math.min(6500.0, mediumRmsThreshold * 0.72)
                 || motion > Math.min(10.0, mediumMotionThreshold * 0.72)) {
             return;
         }
-        double audio = clamp(rms, 800.0, 6500.0);
+        double audio = clamp(rms, 20.0, 6500.0);
         double movement = clamp(motion, 0.5, 8.0);
         if (baselineSamples <= 0) {
             audioBaselineRms = audio;
@@ -288,11 +320,11 @@ public class SleepMonitorService extends Service implements SensorEventListener 
     }
 
     private double mediumRmsThreshold() {
-        return clamp(Math.max(7000.0, audioBaselineRms * 4.5), 7000.0, 11000.0);
+        return clamp(Math.max(180.0, audioBaselineRms * 5.0), 180.0, 1800.0);
     }
 
     private double highRmsThreshold() {
-        return clamp(Math.max(14000.0, audioBaselineRms * 7.5), 14000.0, 22000.0);
+        return clamp(Math.max(900.0, audioBaselineRms * 12.0), 900.0, 6000.0);
     }
 
     private double mediumMotionThreshold() {
