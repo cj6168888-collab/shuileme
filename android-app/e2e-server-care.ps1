@@ -193,6 +193,7 @@ function TapText($device, $text) {
       Start-Sleep -Seconds 1
       continue
     }
+    & $adb -s $device shell input swipe 540 1900 540 720 350 | Out-Null
     Start-Sleep -Seconds 1
   }
   throw "Could not find tappable text '$text' in UI dump."

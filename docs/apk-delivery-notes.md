@@ -166,6 +166,7 @@ cd D:\www\睡了么\android-app
 - 实时陪伴 WebSocket 已有服务端自动化验收：能鉴权升级、接收小智式事件、接收 PCM16 音频帧并 ack、用 `input_text` 走模型/兜底回答和服务端落库，并对模型文本回复发送 `sentence_delta` 增量事件与结构化 `emotion` Avatar 事件；APK 自动化验收也已确认模拟识别文本会经 `/api/live/session` 进入服务端并以 `live_voice` 来源保存，APK 消费了 `sentence_delta`，记录 `last_live_emotion_tag_*`，同时发送实时麦克风 PCM 帧。服务端单测另用本地假阿里 Realtime 验证：PCM16 会转发为 `input_audio_buffer.append`，转写、文本增量、结构化情绪事件和二进制音频帧会映射回 APK 协议；收到 `abort` 后会转发 `response.cancel` 与 `input_audio_buffer.clear`；APK E2E 验证模型音频帧已进入 `AudioTrack` 播放路径并能触发 Live 中断。
 - 免发送语音聊天已有自动化验收：`e2e-live-voice.ps1` 会模拟一条识别结果，验证 APK 走 Live WebSocket 自动联网回答、实时回复页面状态、服务端落库、音频帧传输、模型音频播放、结构化 Avatar 情绪标签落入 APK 偏好，并触发自动 PCM 插话打断处理链路，确认 APK 记录 `last_live_auto_barge_in_count`、`last_live_auto_barge_in_speech_ms`、动态阈值和噪声底，且服务端收到 Realtime 取消事件；它不等同于真实麦克风中文识别、真实老人插话和真实扬声器回采验收。
 - `e2e-avatar-states.ps1` 会在模拟器上验证“看一眼” Camera2 返回真实 JPEG 帧并写入 `last_vision_capture_*`，以及噩梦强唤醒演练进入前台 `AlarmActivity` 并记录 `urgent_wakeup`；摄像头验收依赖模拟器或真机有可用摄像头映射。
+- 2026-05-23 模拟器复验：`android-app/test.ps1`、`e2e-assistant-ui-mode.ps1`、`e2e-avatar-states.ps1`、`e2e-server-care.ps1`、`e2e-live-voice.ps1` 均通过。期间发现服务端关怀消息过长时，`ProactiveCareActivity` 操作按钮可能被挤出屏幕，已改为可滚动页面，并让 E2E 滚动寻找确认按钮；新 APK 复制到 `artifacts/apk/shuileme-debug-20260523-validated.apk`，SHA256 为 `60EB714A6FFB61F88878B59F87756BF71F280B6142894AE6B15D95CE44F3ACE6`。
 - 模型 Key 和阿里短信 AK 都只放服务端；正式发布前仍需验证 APK 里没有任何模型、短信或后台管理密钥。
 - 服务端导出/删除、验证码限流和审计日志已具备基础接口；正式生产仍需要 HTTPS、备份保留策略和误删恢复流程。
 - 当前调试包声明 `android:debuggable="true"`，用于本机注入测试配置；正式发行包应关闭 debuggable，并继续禁止把 Key 打进 APK。

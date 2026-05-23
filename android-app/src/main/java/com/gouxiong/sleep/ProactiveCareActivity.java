@@ -14,6 +14,7 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -134,7 +135,12 @@ public class ProactiveCareActivity extends Activity {
         card.addView(chat, matchWrap());
 
         root.addView(card, matchWrap());
-        setContentView(root);
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(Theme.WARM_WHITE);
+        scroll.addView(root, new ScrollView.LayoutParams(-1, -2));
+        setContentView(scroll);
     }
 
     private ImageView avatarImage(String role) {
