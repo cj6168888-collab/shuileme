@@ -605,6 +605,53 @@ function companionCapabilityStatus() {
   };
 }
 
+function truthGateStatus() {
+  const live = liveSessionStatus();
+  const companion = companionCapabilityStatus();
+  const model = modelStatus();
+  return {
+    rule: 'Only mark proven when a real input, real output, fallback, visible status, automation, and device acceptance path are present.',
+    checked_at: now(),
+    gates: {
+      sleep_guard_audio_capture: {
+        status: 'apk_runtime_verifiable',
+        proven_by: 'APK records last_sleep_guard_audio_started/reads/rms/peak/error from SleepMonitorService AudioRecord.',
+        not_proven: 'sleep disorder classification, medical diagnosis, stable trigger rates across phone vendors'
+      },
+      speech_recognition: {
+        status: 'device_required',
+        proven_by: 'APK only marks passed after Android SpeechRecognizer returns recognized text.',
+        not_proven: 'all dialects, quiet speech, noisy TV background, offline recognition on every device'
+      },
+      realtime_model_audio: {
+        status: live.realtime_configured ? 'configured_not_globally_proven' : 'not_configured',
+        proven_by: live.realtime_configured ? 'Server Realtime bridge is configured and protocol path exists.' : '',
+        not_proven: 'APK default voice page currently prioritizes system SpeechRecognizer, so raw PCM streaming and model audio playback must be verified on a real device session before claiming always-on model voice.'
+      },
+      local_sleep_sound: {
+        status: companion.music_playback.implemented ? 'implemented_local_only' : 'not_implemented',
+        proven_by: 'APK local AudioTrack generated rain/white-noise player.',
+        not_proven: 'licensed music platform, song catalog, copyrighted tracks'
+      },
+      news: {
+        status: companion.news_briefing.implemented ? 'rss_configured' : 'not_configured',
+        proven_by: companion.news_briefing.implemented ? 'Configured RSS source.' : '',
+        not_proven: companion.news_briefing.implemented ? 'editorial authority, all-source realtime news coverage' : 'current news; model must not invent news'
+      },
+      avatar: {
+        status: model.implemented.local_2d_avatar_view ? 'local_2d_runtime' : 'not_proven',
+        proven_by: 'Native AvatarView state machine and role images.',
+        not_proven: model.implemented.live2d_sdk ? '' : 'Live2D SDK physics/rigging is not connected'
+      },
+      health_advice: {
+        status: 'life_reminder_only',
+        proven_by: 'Prompts and responses forbid diagnosis.',
+        not_proven: 'medical diagnosis, treatment decision, sleep apnea detection'
+      }
+    }
+  };
+}
+
 function newsConfigured() {
   return /^https?:\/\//i.test(env('GOUXIONG_NEWS_RSS_URL', ''));
 }
@@ -2512,7 +2559,7 @@ async function route(req, res) {
     }
 
     if (req.method === 'GET' && (path === '/health' || path === '/api/health')) {
-      return send(res, 200, { ok: true, service: APP_NAME, time: now(), sms: smsStatus(), model: modelStatus(), companion: companionCapabilityStatus(), security: securityStatus() });
+      return send(res, 200, { ok: true, service: APP_NAME, time: now(), sms: smsStatus(), model: modelStatus(), companion: companionCapabilityStatus(), security: securityStatus(), truth: truthGateStatus() });
     }
 
     if (req.method === 'POST' && path === '/api/auth/request-code') {

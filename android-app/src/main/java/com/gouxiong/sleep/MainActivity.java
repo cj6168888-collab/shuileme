@@ -3930,8 +3930,9 @@ public class MainActivity extends Activity {
         addSpace(content, 8);
         addCheckRow("服务端", status.ok ? "通过" : "异常", status.ok, null);
         addCheckRow("短信", status.smsAliyunConfigured && !status.smsDevMode ? "真实阿里短信" : (status.smsDevMode ? "开发模式" : "未配置"), status.smsAliyunConfigured && !status.smsDevMode, null);
-        addCheckRow("模型", status.modelReady() ? "文本/看图/音频可用" : "未完整证明", status.modelReady(), null);
-        addCheckRow("实时语音", status.realtimeConfigured && status.modelAudioOutputStreaming && status.apkLowLatencyAudioPlayback ? "模型音频优先" : "未完整证明", status.realtimeConfigured && status.modelAudioOutputStreaming && status.apkLowLatencyAudioPlayback, null);
+        addCheckRow("模型", status.modelReady() ? "Key已配，需探测" : "未完整证明", status.modelReady(), null);
+        boolean realtimePathReady = status.realtimeConfigured && status.modelAudioOutputStreaming && status.apkLowLatencyAudioPlayback;
+        addCheckRow("实时语音", realtimePathReady ? "链路已配，真机待验" : "未完整证明", realtimePathReady, null);
         addCheckRow("麦克风", prefs.microphoneProbePassed() ? "现场拾音通过" : "未证明真实拾音", prefs.microphoneProbePassed(), this::showMicrophoneHonestCheck);
         addCheckRow("听懂人话", prefs.speechRecognitionShortState(), prefs.speechRecognitionPassed(), this::showCompanionChat);
         addCheckRow("睡眠守护拾音", prefs.sleepGuardAudioShortState(), prefs.sleepGuardAudioPassed(), () -> showShell("guard"));
