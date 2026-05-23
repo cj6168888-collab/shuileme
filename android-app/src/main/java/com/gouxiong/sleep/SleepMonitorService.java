@@ -102,10 +102,18 @@ public class SleepMonitorService extends Service implements SensorEventListener 
         prefs.markHeartbeat();
         resetAudioRing();
         Notification notification = buildGuardNotification();
-        if (Build.VERSION.SDK_INT >= 29) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
-        } else {
-            startForeground(NOTIFICATION_ID, notification);
+        try {
+            if (Build.VERSION.SDK_INT >= 29) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+            } else {
+                startForeground(NOTIFICATION_ID, notification);
+            }
+        } catch (Exception ex) {
+            prefs.recordSleepGuardAudioState(false, 0, 0, 0,
+                    "前台守护启动失败：" + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
+            prefs.setMonitoring(false);
+            stopSelf();
+            return START_NOT_STICKY;
         }
         startSensors();
         startAudio();

@@ -5268,7 +5268,7 @@ public class MainActivity extends Activity {
             return;
         }
         lastCompanionActiveAtMs = System.currentTimeMillis();
-        if (sleepCheckPending) {
+        if (sleepCheckPending || recentPersistedSleepCheckPending()) {
             if (looksLikeStillAwakeReply(clean)) {
                 sleepCheckPending = false;
                 restoreSleepSoundAfterAwakeReply();
@@ -5332,6 +5332,13 @@ public class MainActivity extends Activity {
             return;
         }
         startHttpVoiceAnswer(clean, serial);
+    }
+
+    private boolean recentPersistedSleepCheckPending() {
+        long at = prefs.lastVoiceStateAt();
+        return "sleep_check".equals(prefs.lastVoiceStateStage())
+                && at > 0L
+                && System.currentTimeMillis() - at < 5L * 60L * 1000L;
     }
 
     private void startHttpVoiceAnswer(String clean, int serial) {
@@ -6106,14 +6113,29 @@ public class MainActivity extends Activity {
     }
 
     private void beginMonitoringService() {
-        prefs.setMonitoring(true);
-        Intent intent = new Intent(this, SleepMonitorService.class);
-        if (Build.VERSION.SDK_INT >= 26) {
-            startForegroundService(intent);
-        } else {
-            startService(intent);
+        try {
+            prefs.recordSleepGuardAudioState(false, 0, 0, 0, "服务启动中");
+            prefs.setMonitoring(true);
+            Intent intent = new Intent(this, SleepMonitorService.class);
+            if (Build.VERSION.SDK_INT >= 26) {
+                startForegroundService(intent);
+            } else {
+                startService(intent);
+            }
+        } catch (Exception ex) {
+            prefs.setMonitoring(false);
+            prefs.recordSleepGuardAudioState(false, 0, 0, 0,
+                    "服务启动失败：" + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
+            Toast.makeText(this, "睡眠守护启动失败，请看诚实检查", Toast.LENGTH_LONG).show();
+            showHome();
+            return;
         }
         Toast.makeText(this, "已开始睡眠守护", Toast.LENGTH_SHORT).show();
+        content.postDelayed(() -> {
+            if (prefs.isMonitoring() && !prefs.sleepGuardAudioPassed()) {
+                Toast.makeText(this, "守护已启动，但真机拾音未证明，请看诚实检查", Toast.LENGTH_LONG).show();
+            }
+        }, 8000L);
         showHome();
     }
 

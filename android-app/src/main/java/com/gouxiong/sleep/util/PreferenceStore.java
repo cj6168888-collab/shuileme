@@ -44,6 +44,14 @@ public class PreferenceStore {
                 .apply();
     }
 
+    public String lastVoiceStateStage() {
+        return prefs.getString("last_voice_state_stage", "");
+    }
+
+    public long lastVoiceStateAt() {
+        return prefs.getLong("last_voice_state_at", 0L);
+    }
+
     public void recordCompanionShortcutRoute(String route, String source) {
         prefs.edit()
                 .putString("last_companion_shortcut_route", clean(route))
@@ -163,12 +171,18 @@ public class PreferenceStore {
     }
 
     public boolean sleepGuardAudioPassed() {
+        long at = prefs.getLong("last_sleep_guard_audio_at", 0L);
         return prefs.getBoolean("last_sleep_guard_audio_started", false)
                 && prefs.getInt("last_sleep_guard_audio_reads", 0) > 0
+                && System.currentTimeMillis() - at < 90_000L
                 && prefs.getString("last_sleep_guard_audio_error", "").length() == 0;
     }
 
     public String sleepGuardAudioShortState() {
+        long at = prefs.getLong("last_sleep_guard_audio_at", 0L);
+        if (at > 0L && System.currentTimeMillis() - at >= 90_000L) {
+            return "过期，需重测";
+        }
         String error = prefs.getString("last_sleep_guard_audio_error", "");
         if (error != null && error.length() > 0) {
             return clean(error);
