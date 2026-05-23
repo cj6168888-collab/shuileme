@@ -2555,7 +2555,7 @@ public class MainActivity extends Activity {
         liveStageAvatar = new AvatarView(this);
         liveStageAvatar.setRole(role);
         liveStageAvatar.setCharacterResource(roleAvatarResourceId(role));
-        liveStageAvatar.setCharacterBitmapMode(prefs.assistantVideoChatMode());
+        liveStageAvatar.setCharacterBitmapMode(true);
         liveStageAvatar.setAnimationEnabled(!prefs.debugCompanionUiTestMode());
         liveStageAvatar.applyCommand(AvatarCommand.setState(avatarStateForMood(mood)));
         liveStageAvatar.setContentDescription(name + "，" + liveMoodText(mood));

@@ -318,7 +318,6 @@ public final class AvatarView extends View {
     private void drawBitmapStateCue(Canvas canvas, float left, float top, float right, float bottom, float size, float t) {
         float cx = (left + right) / 2f;
         float faceY = top + (bottom - top) * bitmapFaceYRatio();
-        float mouthY = top + (bottom - top) * bitmapMouthYRatio();
         float unit = Math.max(Theme.dp(getContext(), 8), size * 0.032f);
         paint.setStyle(Paint.Style.FILL);
         if (state == AvatarState.URGENT_WAKEUP) {
@@ -329,7 +328,7 @@ public final class AvatarView extends View {
             return;
         }
         if (state == AvatarState.SPEAKING || mouthLevel > 0.08f) {
-            drawBitmapMouthHint(canvas, cx, mouthY, unit, t);
+            drawBitmapSpeakingPulse(canvas, cx, bottom, unit, t);
             return;
         }
         if (state == AvatarState.SEEING || state == AvatarState.READING || state == AvatarState.FINDING) {
@@ -345,22 +344,24 @@ public final class AvatarView extends View {
         }
     }
 
-    private void drawBitmapMouthHint(Canvas canvas, float cx, float mouthY, float unit, float t) {
-        float open = unit * (0.28f + mouthLevel * 1.18f + (float) Math.abs(Math.sin(t * 7.5f)) * 0.16f);
-        float width = unit * (1.18f + mouthLevel * 0.54f);
+    private void drawBitmapSpeakingPulse(Canvas canvas, float cx, float bottom, float unit, float t) {
+        float level = Math.max(0.16f, mouthLevel);
+        float y = bottom - unit * 3.2f;
+        float gap = unit * 0.82f;
         paint.setStyle(Paint.Style.FILL);
-        paint.setColor(Color.argb(112, 70, 36, 36));
-        canvas.drawOval(oval(cx, mouthY, width, open), paint);
-        paint.setColor(Color.argb(92, 255, 128, 128));
-        canvas.drawOval(oval(cx, mouthY + open * 0.32f, width * 0.58f, open * 0.28f), paint);
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(unit * 0.14f);
-        paint.setStrokeCap(Paint.Cap.ROUND);
-        paint.setColor(Color.argb(148, 94, 48, 42));
-        rect.set(cx - width * 1.10f, mouthY - open * 1.65f, cx + width * 1.10f, mouthY + open * 1.35f);
-        canvas.drawArc(rect, 28f, 124f, false, paint);
-        paint.setStyle(Paint.Style.FILL);
+        for (int i = 0; i < 3; i++) {
+            float wave = 0.55f + 0.45f * (float) Math.abs(Math.sin(t * 7.5f + i * 0.72f));
+            float h = unit * (0.52f + level * 1.2f * wave);
+            float x = cx - gap + i * gap;
+            paint.setColor(Color.argb(70 + i * 20, 45, 134, 128));
+            rect.set(x - unit * 0.17f, y - h, x + unit * 0.17f, y + h * 0.20f);
+            canvas.drawRoundRect(rect, unit * 0.16f, unit * 0.16f, paint);
+        }
         paint.setAlpha(255);
+    }
+
+    private void drawBitmapMouthHint(Canvas canvas, float cx, float bottom, float unit, float t) {
+        drawBitmapSpeakingPulse(canvas, cx, bottom, unit, t);
     }
 
     private float bitmapFaceYRatio() {
@@ -370,9 +371,7 @@ public final class AvatarView extends View {
     }
 
     private float bitmapMouthYRatio() {
-        if (CompanionAssistant.ROLE_YOUNG_MAN.equals(role)) return 0.47f;
-        if (CompanionAssistant.ROLE_BROTHER.equals(role)) return 0.405f;
-        return 0.385f;
+        return 0.82f;
     }
 
     private float stateBreathScale() {

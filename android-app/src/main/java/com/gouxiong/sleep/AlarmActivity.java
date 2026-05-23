@@ -128,6 +128,8 @@ public class AlarmActivity extends Activity {
 
         AvatarView alarm = new AvatarView(this);
         alarm.setRole(assistantRole);
+        alarm.setCharacterResource(avatarResourceId(assistantRole));
+        alarm.setCharacterBitmapMode(true);
         alarm.applyCommand(AvatarCommand.urgentWake());
         alarm.applyCommand(AvatarCommand.setState(AvatarState.URGENT_WAKEUP));
         alarm.setContentDescription(assistantRole + "正在紧急叫醒");
@@ -416,5 +418,18 @@ public class AlarmActivity extends Activity {
     private void addSpace(LinearLayout parent, int dp) {
         android.view.View space = new android.view.View(this);
         parent.addView(space, new LinearLayout.LayoutParams(1, Theme.dp(this, dp)));
+    }
+
+    private int avatarResourceId(String role) {
+        int id = getResources().getIdentifier(avatarAssetName(role), "drawable", getPackageName());
+        if (id != 0) return id;
+        return R.drawable.avatar_2d_gentle_woman;
+    }
+
+    private String avatarAssetName(String role) {
+        if (CompanionAssistant.ROLE_SISTER.equals(role)) return "avatar_2d_sister";
+        if (CompanionAssistant.ROLE_BROTHER.equals(role)) return "avatar_2d_brother";
+        if (CompanionAssistant.ROLE_YOUNG_MAN.equals(role)) return "avatar_2d_young_man";
+        return "avatar_2d_gentle_woman";
     }
 }
