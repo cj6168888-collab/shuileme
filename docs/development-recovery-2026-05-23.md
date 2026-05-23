@@ -11,7 +11,7 @@
 - 服务端源码、SQLite 数据、后台令牌文件和本地备份仍在本机目录中。
 - 服务端本地单测通过：`npm.cmd test`。
 - 服务端可启动，本地入口为 `http://127.0.0.1:8787`，后台页面为 `http://127.0.0.1:8787/admin`。
-- 当前服务端 `/health` 是开发降级状态：短信为 dev mode，模型为 fallback，阿里短信和 DashScope/百炼 Key 未恢复。
+- 当前线上服务端 `/health` 已恢复阿里云短信和阿里百炼模型：`sms.provider=aliyun`、`aliyun_configured=true`、`dev_sms=false`、`model.provider=aliyun-dashscope`、`realtime_configured=true`。
 - Android SDK 已定位到 `C:\Users\Lenovo\AppData\Local\Android\Sdk`；使用临时环境变量后 `android-app/test.ps1` 可完成 APK 构建、签名校验和静态验收。
 - Git 工作区有大量未提交改动和新增文件，这些改动代表 2026-05-18 之后的开发成果，不能随意回退。
 
@@ -43,11 +43,33 @@ cd D:\重要\www\www\狗熊睡眠\server
 npm.cmd run ops:check
 ```
 
-当前结果：失败 1 项、警告 2 项。
+本地旧结果：失败 1 项、警告 2 项。
 
 - 失败：阿里短信变量未补齐。
 - 警告：阿里模型 Key 未配置，会走兜底。
 - 警告：服务监听 `0.0.0.0:8787`，生产需放在 HTTPS 反向代理和防火墙后。
+
+2026-05-23 线上复查：
+
+```powershell
+ssh jilin-prod "cd /opt/shuileme/server && /opt/shuileme/runtime/node/bin/node ops-check.mjs"
+Invoke-WebRequest -UseBasicParsing -Uri 'https://jilinpc.com/shuileme/health'
+```
+
+当前线上结果：失败 0 项、警告 0 项。
+
+- 通过：服务端密钥、后台令牌、后台 Basic Auth、阿里云短信、阿里百炼模型 Key、数据库、备份目录、验证码限流、审计日志。
+- 部署位置：`/opt/shuileme/server`，数据目录 `/opt/shuileme/data`，备份目录 `/opt/shuileme/backups`。
+- 运行方式：`shuileme-server.service`，仅监听 `127.0.0.1:18787`，由 `https://jilinpc.com/shuileme/` 反向代理进入，避开“数字员工”系统目录和端口。
+
+线上模型烟测：
+
+```powershell
+ssh jilin-prod "cd /opt/shuileme/server && /opt/shuileme/runtime/node/bin/node smoke-model.mjs"
+ssh jilin-prod "cd /opt/shuileme/server && /opt/shuileme/runtime/node/bin/node smoke-realtime.mjs"
+```
+
+结果：文本聊天、视觉理解、音频摘要、主动关怀均返回 `aliyun-dashscope`；Realtime WebSocket 返回 `session.created`，模型为 `qwen3-omni-flash-realtime`。
 
 本地启动：
 
@@ -139,7 +161,7 @@ server/backups/
 
 1. 先不要清理或回退 Git 工作区。
 2. 恢复 Android SDK 路径，跑通 `android-app/build.ps1` 和 `android-app/test.ps1`。
-3. 补回服务端短信和模型 Key，跑 `server/npm.cmd run ops:check`、`smoke:model`、`smoke:realtime`。
+3. 服务端短信 Key 和模型 Key 已补回线上环境；本地如需完全复刻，可按 `D:\重要\股权分析报告\摘要.txt` 中的记录恢复到本机私有 `.env`，不要提交。
 4. 有模拟器或真机后，依次跑四个 E2E：
    - `e2e-assistant-ui-mode.ps1`
    - `e2e-avatar-states.ps1`
