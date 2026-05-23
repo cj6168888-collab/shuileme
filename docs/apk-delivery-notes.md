@@ -167,6 +167,7 @@ cd D:\www\睡了么\android-app
 - 免发送语音聊天已有自动化验收：`e2e-live-voice.ps1` 会模拟一条识别结果，验证 APK 走 Live WebSocket 自动联网回答、实时回复页面状态、服务端落库、音频帧传输、模型音频播放、结构化 Avatar 情绪标签落入 APK 偏好，并触发自动 PCM 插话打断处理链路，确认 APK 记录 `last_live_auto_barge_in_count`、`last_live_auto_barge_in_speech_ms`、动态阈值和噪声底，且服务端收到 Realtime 取消事件；它不等同于真实麦克风中文识别、真实老人插话和真实扬声器回采验收。
 - `e2e-avatar-states.ps1` 会在模拟器上验证“看一眼” Camera2 返回真实 JPEG 帧并写入 `last_vision_capture_*`，以及噩梦强唤醒演练进入前台 `AlarmActivity` 并记录 `urgent_wakeup`；摄像头验收依赖模拟器或真机有可用摄像头映射。
 - 2026-05-23 模拟器复验：`android-app/test.ps1`、`e2e-assistant-ui-mode.ps1`、`e2e-avatar-states.ps1`、`e2e-server-care.ps1`、`e2e-live-voice.ps1` 均通过。期间发现服务端关怀消息过长时，`ProactiveCareActivity` 操作按钮可能被挤出屏幕，已改为可滚动页面，并让 E2E 滚动寻找确认按钮；新 APK 复制到 `artifacts/apk/shuileme-debug-20260523-validated.apk`，SHA256 为 `60EB714A6FFB61F88878B59F87756BF71F280B6142894AE6B15D95CE44F3ACE6`。
+- 2026-05-23 增加“麦克风拾音验证”：App 内新增现场验证入口，会实际打开 `AudioRecord` 采样 2.5 秒，逐项显示权限、AudioRecord 启动、PCM 帧数和 RMS 声音变化。只有帧数充足且 RMS 有明显非静音变化，才标记“本机拾音已证明”；模拟器本轮结果为权限和采样通过、83 帧、RMS `0.0001-0.0002`，因此诚实判定为“未证明采到真实声音”。后续真机必须对着手机说话或播放声音样本复验，不能仅凭权限或帧数宣称麦克风功能完成。
 - 模型 Key 和阿里短信 AK 都只放服务端；正式发布前仍需验证 APK 里没有任何模型、短信或后台管理密钥。
 - 服务端导出/删除、验证码限流和审计日志已具备基础接口；正式生产仍需要 HTTPS、备份保留策略和误删恢复流程。
 - 当前调试包声明 `android:debuggable="true"`，用于本机注入测试配置；正式发行包应关闭 debuggable，并继续禁止把 Key 打进 APK。

@@ -151,6 +151,50 @@ public class PreferenceStore {
                 .apply();
     }
 
+    public void recordMicrophoneProbeState(boolean started, int frames, float maxRms, float minRms, String error) {
+        prefs.edit()
+                .putBoolean("last_microphone_probe_started", started)
+                .putInt("last_microphone_probe_frames", Math.max(0, frames))
+                .putFloat("last_microphone_probe_max_rms", Math.max(0f, maxRms))
+                .putFloat("last_microphone_probe_min_rms", Math.max(0f, minRms))
+                .putString("last_microphone_probe_error", clean(error))
+                .putLong("last_microphone_probe_at", System.currentTimeMillis())
+                .apply();
+    }
+
+    public String microphoneProbeSummary() {
+        long at = prefs.getLong("last_microphone_probe_at", 0L);
+        if (at <= 0L) {
+            return "还没有做过现场拾音验证。权限打开不等于真的采到声音。";
+        }
+        boolean started = prefs.getBoolean("last_microphone_probe_started", false);
+        int frames = prefs.getInt("last_microphone_probe_frames", 0);
+        float maxRms = prefs.getFloat("last_microphone_probe_max_rms", 0f);
+        float minRms = prefs.getFloat("last_microphone_probe_min_rms", 0f);
+        String error = prefs.getString("last_microphone_probe_error", "");
+        StringBuilder b = new StringBuilder();
+        b.append("AudioRecord 启动：").append(started ? "是" : "否").append("\n");
+        b.append("PCM 帧数：").append(frames).append("\n");
+        b.append("RMS 范围：").append(String.format(java.util.Locale.US, "%.4f - %.4f", minRms, maxRms)).append("\n");
+        if (error != null && error.length() > 0) {
+            b.append("错误：").append(error).append("\n");
+        }
+        b.append("结论：").append(microphoneProbePassed() ? "已证明本机能采到非静音声音。" : "未证明真实拾音；不能把麦克风能力标成已完成。");
+        return b.toString();
+    }
+
+    public boolean microphoneProbePassed() {
+        int frames = prefs.getInt("last_microphone_probe_frames", 0);
+        float maxRms = prefs.getFloat("last_microphone_probe_max_rms", 0f);
+        float minRms = prefs.getFloat("last_microphone_probe_min_rms", 0f);
+        String error = prefs.getString("last_microphone_probe_error", "");
+        return prefs.getBoolean("last_microphone_probe_started", false)
+                && frames >= 12
+                && maxRms >= 0.010f
+                && maxRms - minRms >= 0.004f
+                && (error == null || error.length() == 0);
+    }
+
     public String mode() {
         return prefs.getString("mode", "标准模式");
     }

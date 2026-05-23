@@ -108,6 +108,7 @@ public class MainActivity extends Activity {
     public static final String ACTION_DEBUG_LIVE_ABORT = "com.gouxiong.sleep.action.DEBUG_LIVE_ABORT";
     public static final String ACTION_DEBUG_LIVE_BARGE_IN = "com.gouxiong.sleep.action.DEBUG_LIVE_BARGE_IN";
     public static final String ACTION_DEBUG_CAMERA_GLANCE = "com.gouxiong.sleep.action.DEBUG_CAMERA_GLANCE";
+    public static final String ACTION_DEBUG_MICROPHONE_VERIFY = "com.gouxiong.sleep.action.DEBUG_MICROPHONE_VERIFY";
     private static final int REQUEST_PICK_AUDIO = 2101;
     private static final int REQUEST_CAPTURE_SCENE = 2201;
     private static final int REQUEST_CAMERA_VISION = 87;
@@ -178,6 +179,8 @@ public class MainActivity extends Activity {
     private LiveCompanionSession liveCompanionSession;
     private LivePcmPlayer livePcmPlayer;
     private LivePcmRecorder livePcmRecorder;
+    private LivePcmRecorder microphoneProbeRecorder;
+    private int microphoneProbeSerial;
     private volatile boolean liveCompanionConnected;
     private volatile boolean liveCompanionConnecting;
     private boolean liveAudioStreaming;
@@ -460,6 +463,12 @@ public class MainActivity extends Activity {
                 updateLiveStageStatus("我认真看一眼", "seeing");
                 startVisionFrameCapture("debug_camera_glance", true, false, false, "调试验收摄像头是否能打开并返回图像。");
             }, 350);
+            return true;
+        }
+        if (ACTION_DEBUG_MICROPHONE_VERIFY.equals(intent.getAction())) {
+            prefs.setFirstLaunchDone();
+            showShell("assistant");
+            content.postDelayed(this::showMicrophoneHonestCheck, 350);
             return true;
         }
         return false;
@@ -2438,14 +2447,14 @@ public class MainActivity extends Activity {
             updateLiveStageStatus("我先安静等您", "comforting");
         }, false);
         addLiveActionButton(actions, "看一眼", Theme.GREEN, this::startQuickVisionGlance, false);
-        addLiveActionButton(actions, "设置", Theme.BLUE, this::showCompanionSettings, false);
+        addLiveActionButton(actions, "拾音", Theme.RED, this::showMicrophoneHonestCheck, false);
         stage.addView(actions, matchWrap());
 
         LinearLayout careActions = new LinearLayout(this);
         careActions.setOrientation(LinearLayout.HORIZONTAL);
         addLiveActionButton(careActions, "故事", Theme.BLUE, this::askBedtimeStory, false);
         addLiveActionButton(careActions, "助眠音", Theme.GREEN, this::toggleSleepSound, false);
-        addLiveActionButton(careActions, "新闻", Theme.ORANGE, this::showNewsCapabilityStatus, false);
+        addLiveActionButton(careActions, "设置", Theme.BLUE, this::showCompanionSettings, false);
         stage.addView(careActions, matchWrap());
 
         content.addView(stage, matchWrap());
@@ -3923,9 +3932,11 @@ public class MainActivity extends Activity {
         addCard("短信验证码", status.smsLine(), status.smsAliyunConfigured && !status.smsDevMode ? Theme.GREEN : Theme.ORANGE);
         addCard("阿里多模态", status.modelLine(), status.modelReady() ? Theme.GREEN : Theme.ORANGE);
         addCard("实时陪伴", status.liveLine(), status.websocketLiveSession ? Theme.GREEN : Theme.ORANGE);
+        addCard("麦克风拾音", prefs.microphoneProbeSummary(), prefs.microphoneProbePassed() ? Theme.GREEN : Theme.RED);
         addCard("2D小助手", status.avatarLine(), status.local2dAvatarView && status.avatarStateMachine && status.mouthLevelProtocol ? Theme.GREEN : Theme.ORANGE);
         addCard("陪伴能力", status.companionLine(), status.bedtimeStory && status.possibleAsleepConfirm && status.musicPlayback && !status.newsBriefing ? Theme.GREEN : Theme.ORANGE);
         addCard("安全边界", "模型 Key、短信 AK 和管理令牌都应只放服务端。APK 只保存登录态，夜间强唤醒和紧急联系人继续由本机兜底。", Theme.BLUE);
+        addSettingButton("现场验证麦克风拾音", this::showMicrophoneHonestCheck);
         addSettingButton("重新检查", this::showServerCapabilityCheck);
         addSettingButton("返回账号", this::showServerAccountSettings);
     }
@@ -3938,6 +3949,108 @@ public class MainActivity extends Activity {
         addSettingButton("连接服务设置", this::showServerUrlDialog);
         addSettingButton("重新检查", this::showServerCapabilityCheck);
         addSettingButton("返回账号", this::showServerAccountSettings);
+    }
+
+    private void showMicrophoneHonestCheck() {
+        stopRealtimeVoiceChat(false);
+        content.removeAllViews();
+        content.addView(Theme.text(this, "麦克风拾音验证", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        addCard("诚实规则",
+                "这里不是检查“有没有权限”，而是现场打开麦克风采样 2.5 秒。\n只有同时满足：AudioRecord 启动、收到 PCM 帧、RMS 有明显非静音变化，才算拾音已证明。",
+                Theme.BLUE);
+        if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
+            prefs.recordMicrophoneProbeState(false, 0, 0f, 0f, "未授权 RECORD_AUDIO");
+            addCard("当前结论", "麦克风未授权，拾音功能未实现到可用状态。", Theme.RED);
+            addSettingButton("授权麦克风", () -> requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQUEST_VOICE_CHAT));
+            addSettingButton("返回小助手", this::showCompanionChat);
+            return;
+        }
+        addCard("正在验证", "请对着手机说一句话，或轻拍桌面。验证时长约 2.5 秒。", Theme.ORANGE);
+        addSettingButton("返回小助手", this::showCompanionChat);
+        startMicrophoneHonestProbe(++microphoneProbeSerial);
+    }
+
+    private void startMicrophoneHonestProbe(final int serial) {
+        stopMicrophoneHonestProbe();
+        new Thread(() -> {
+            final int[] frames = {0};
+            final float[] maxRms = {0f};
+            final float[] minRms = {Float.MAX_VALUE};
+            final String[] error = {""};
+            final boolean[] started = {false};
+            try {
+                LivePcmRecorder recorder = new LivePcmRecorder();
+                microphoneProbeRecorder = recorder;
+                recorder.start(new LivePcmRecorder.Listener() {
+                    @Override
+                    public void onPcmFrame(short[] samples, float rms, long captureTimeMs) {
+                        frames[0]++;
+                        if (rms > maxRms[0]) maxRms[0] = rms;
+                        if (rms < minRms[0]) minRms[0] = rms;
+                    }
+
+                    @Override
+                    public void onRecorderError(Throwable ex) {
+                        error[0] = ex == null ? "未知录音错误" : ex.getMessage();
+                    }
+                });
+                started[0] = true;
+                Thread.sleep(2500L);
+            } catch (Throwable ex) {
+                error[0] = ex.getMessage() == null ? ex.toString() : ex.getMessage();
+            } finally {
+                stopMicrophoneHonestProbe();
+            }
+            float min = minRms[0] == Float.MAX_VALUE ? 0f : minRms[0];
+            prefs.recordMicrophoneProbeState(started[0], frames[0], maxRms[0], min, error[0]);
+            if (serial == microphoneProbeSerial) {
+                runOnUiThread(() -> showMicrophoneHonestResult(started[0], frames[0], maxRms[0], min, error[0]));
+            }
+        }, "GouXiongMicrophoneHonestProbe").start();
+    }
+
+    private void stopMicrophoneHonestProbe() {
+        LivePcmRecorder recorder = microphoneProbeRecorder;
+        microphoneProbeRecorder = null;
+        if (recorder != null) {
+            try {
+                recorder.stop();
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private void showMicrophoneHonestResult(boolean started, int frames, float maxRms, float minRms, String error) {
+        content.removeAllViews();
+        content.addView(Theme.text(this, "麦克风拾音验证", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        boolean frameOk = frames >= 12;
+        boolean soundOk = maxRms >= 0.010f && maxRms - minRms >= 0.004f;
+        addCard("1. 权限", hasPermission(Manifest.permission.RECORD_AUDIO) ? "已授权 RECORD_AUDIO" : "未授权 RECORD_AUDIO", hasPermission(Manifest.permission.RECORD_AUDIO) ? Theme.GREEN : Theme.RED);
+        addCard("2. AudioRecord", started ? "已启动 16kHz / PCM16 / 30ms 帧采样" : "没有启动：" + emptyText(error, "未知原因"), started ? Theme.GREEN : Theme.RED);
+        addCard("3. PCM 帧", "2.5 秒内收到 " + frames + " 帧。" + (frameOk ? "帧数足够。" : "帧数不足，不能证明稳定采样。"), frameOk ? Theme.GREEN : Theme.RED);
+        addCard("4. 声音变化",
+                "RMS 最小 " + formatRms(minRms) + "，最大 " + formatRms(maxRms) + "，变化 " + formatRms(Math.max(0f, maxRms - minRms)) + "。\n"
+                        + (soundOk ? "已证明采到非静音声音。" : "未证明采到真实声音；可能是模拟器无麦克风、权限被系统限制，或环境太安静。"),
+                soundOk ? Theme.GREEN : Theme.RED);
+        if (error != null && error.length() > 0) {
+            addCard("错误", error, Theme.RED);
+        }
+        addCard("最终结论", prefs.microphoneProbePassed()
+                ? "本机拾音已通过现场验证。下一步还要验证：帧是否实时发到服务端、服务端是否转给 Realtime 模型。"
+                : "麦克风拾音未通过现场验证。当前不能把“直接听您说话”标成完成能力。",
+                prefs.microphoneProbePassed() ? Theme.GREEN : Theme.RED);
+        addSettingButton("重新验证", this::showMicrophoneHonestCheck);
+        addSettingButton("返回小助手", this::showCompanionChat);
+    }
+
+    private String formatRms(float value) {
+        return String.format(Locale.US, "%.4f", Math.max(0f, value));
+    }
+
+    private String emptyText(String value, String fallback) {
+        return value == null || value.length() == 0 ? fallback : value;
     }
 
     private void syncOwnerProfileQuietAfterAccountOpen() {
@@ -6363,6 +6476,7 @@ public class MainActivity extends Activity {
             sleepSoundPlayer.stop();
             sleepSoundPlayer = null;
         }
+        stopMicrophoneHonestProbe();
         stopRealtimeVoiceChat(false);
         if (voiceRecognizer != null) {
             voiceRecognizer.destroy();
