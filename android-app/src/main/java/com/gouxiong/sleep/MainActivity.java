@@ -4682,6 +4682,12 @@ public class MainActivity extends Activity {
             return;
         }
         try {
+            if (assistantTts != null) {
+                try {
+                    assistantTts.stop();
+                } catch (Exception ignored) {
+                }
+            }
             if (livePcmPlayer == null) {
                 livePcmPlayer = new LivePcmPlayer();
                 liveModelAudioFrameCount = 0;
@@ -4923,7 +4929,9 @@ public class MainActivity extends Activity {
             updateLiveStageSpeech(liveBubbleText(visible));
             updateVoiceStatus("我正在说，您可以随时插话。");
         }
-        speakLiveStreamingChunk(false);
+        if (!shouldPreferRealtimeModelAudio()) {
+            speakLiveStreamingChunk(false);
+        }
     }
 
     private void finishLiveTtsReply(String answer, int serial) {
@@ -4953,7 +4961,19 @@ public class MainActivity extends Activity {
         updateLiveStageStatus("我慢慢说给您听", "speaking");
         updateLiveStageSpeech(liveBubbleText(reply));
         updateVoiceStatus("我听懂了。您可以随时插话。");
-        if (liveStreamingSpeechBuffer.length() > 0) {
+        if (shouldPreferRealtimeModelAudio() || liveModelAudioFrameCount > 0) {
+            liveStreamingSpeechBuffer.setLength(0);
+            if (liveModelAudioFrameCount > 0) {
+                updateVoiceStatus("正在播放模型语音，您可以随时插话。");
+            } else {
+                updateVoiceStatus("实时模型语音还在路上；如果没有声音，再回退系统语音。");
+                content.postDelayed(() -> {
+                    if (realtimeVoiceEnabled && liveModelAudioFrameCount == 0 && liveStreamingSerial == serial) {
+                        speakAssistantText(reply);
+                    }
+                }, 1800L);
+            }
+        } else if (liveStreamingSpeechBuffer.length() > 0) {
             liveStreamingSpeechBuffer.append("。说明：这是生活建议，不是医学诊断。");
             speakLiveStreamingChunk(true);
         } else if (liveStreamingTtsChunkCount > 0) {
@@ -4978,6 +4998,10 @@ public class MainActivity extends Activity {
         String suffix = finalFlush ? "-final" : "";
         speakAssistantTextQueued(pending, prefs.companionRole(), queueMode,
                 "gouxiong-live-stream-" + liveStreamingSerial + "-" + chunk + suffix);
+    }
+
+    private boolean shouldPreferRealtimeModelAudio() {
+        return realtimeVoiceEnabled && liveCompanionConnected;
     }
 
     private boolean isLiveStreamingChunkReady(String pending) {

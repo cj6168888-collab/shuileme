@@ -168,6 +168,7 @@ cd D:\www\睡了么\android-app
 - `e2e-avatar-states.ps1` 会在模拟器上验证“看一眼” Camera2 返回真实 JPEG 帧并写入 `last_vision_capture_*`，以及噩梦强唤醒演练进入前台 `AlarmActivity` 并记录 `urgent_wakeup`；摄像头验收依赖模拟器或真机有可用摄像头映射。
 - 2026-05-23 模拟器复验：`android-app/test.ps1`、`e2e-assistant-ui-mode.ps1`、`e2e-avatar-states.ps1`、`e2e-server-care.ps1`、`e2e-live-voice.ps1` 均通过。期间发现服务端关怀消息过长时，`ProactiveCareActivity` 操作按钮可能被挤出屏幕，已改为可滚动页面，并让 E2E 滚动寻找确认按钮；新 APK 复制到 `artifacts/apk/shuileme-debug-20260523-validated.apk`，SHA256 为 `60EB714A6FFB61F88878B59F87756BF71F280B6142894AE6B15D95CE44F3ACE6`。
 - 2026-05-23 增加“麦克风拾音验证”：App 内新增现场验证入口，会实际打开 `AudioRecord` 采样 2.5 秒，逐项显示权限、AudioRecord 启动、PCM 帧数和 RMS 声音变化。只有帧数充足且 RMS 有明显非静音变化，才标记“本机拾音已证明”；模拟器本轮结果为权限和采样通过、83 帧、RMS `0.0001-0.0002`，因此诚实判定为“未证明采到真实声音”。后续真机必须对着手机说话或播放声音样本复验，不能仅凭权限或帧数宣称麦克风功能完成。
+- 2026-05-23 语音输出策略修正：实时陪伴 WebSocket 在线时，APK 优先播放服务端 Realtime 返回的模型 PCM 音频帧；收到模型音频帧后会立即停止 Android 系统 TTS，避免“模型音频 + 系统女声”混播。`sentence_delta` 文本只负责字幕和状态，系统 TTS 只在没有模型音频时延迟兜底。线上服务端已显式设置 `ALIYUN_REALTIME_VOICE=Cherry`，后续如替换为更接近“小智式”的可用云端音色，应通过服务端环境变量切换并重新真机试听。
 - 模型 Key 和阿里短信 AK 都只放服务端；正式发布前仍需验证 APK 里没有任何模型、短信或后台管理密钥。
 - 服务端导出/删除、验证码限流和审计日志已具备基础接口；正式生产仍需要 HTTPS、备份保留策略和误删恢复流程。
 - 当前调试包声明 `android:debuggable="true"`，用于本机注入测试配置；正式发行包应关闭 debuggable，并继续禁止把 Key 打进 APK。
