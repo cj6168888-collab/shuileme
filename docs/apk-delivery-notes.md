@@ -1,42 +1,76 @@
-# 狗熊睡眠 APK 交付说明
+# 睡了么 APK 交付说明
 
-交付时间：2026-05-14
+交付时间：2026-05-18
 
 ## APK
 
 - 调试包：`android-app/build/outputs/apk/gouxiong-sleep-debug.apk`
 - 包名：`com.gouxiong.sleep`
 - 签名：项目固定 debug keystore，路径 `android-app/keystore/debug.keystore`
-- SHA256：`3A09F762848E2B8AB59EE2E63A91EE66DD3D3E77382C7C39D0B553D07D754F83`
+- SHA256：`D824113DC9D38D82B3A43773E246CF38F6ADF552856181D665A4010DF8AD645F`
 - 构建方式：Android SDK 直编，无 Gradle 依赖
 
 ## 构建命令
 
 ```powershell
-cd D:\www\狗熊睡眠\android-app
+cd D:\www\睡了么\android-app
 powershell -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
 ## 本地测试命令
 
 ```powershell
-cd D:\www\狗熊睡眠\android-app
+cd D:\www\睡了么\android-app
 powershell -ExecutionPolicy Bypass -File .\test.ps1
 ```
+
+小助手视频/文字模式验收：
+```powershell
+cd D:\www\睡了么\android-app
+powershell -ExecutionPolicy Bypass -File .\e2e-assistant-ui-mode.ps1
+```
+
+该脚本会安装 APK、注入测试偏好、打开小助手页，真实点击右上角“文/视频”切换，验证视频模式不显示文字气泡、文字模式不保留大半身 Avatar，并保存两张截图到 `artifacts/`。
+
+小助手 Avatar 状态验收：
+```powershell
+cd D:\www\睡了么\android-app
+powershell -ExecutionPolicy Bypass -File .\e2e-avatar-states.ps1
+```
+
+该脚本会安装 APK、授予摄像头权限，触发调试“看一眼”入口并等待 `last_vision_capture_*` 写入，确认 Camera2 真实返回一帧；冷安装后如模拟器进程未及时 attach，会 force-stop 后重试，但不会伪造拍照结果。随后触发噩梦强唤醒演练，确认 `AlarmActivity` 进入前台并记录 `urgent_wakeup`，同时保存“看一眼”和“紧急叫醒”截图到 `artifacts/`。`AlarmActivity` 内是否使用紧急 `AvatarView` 由 `android-app/test.ps1` 的静态检查保证。
+
+端到端服务端关怀链路：
+
+```powershell
+cd D:\www\睡了么\android-app
+powershell -ExecutionPolicy Bypass -File .\e2e-server-care.ps1
+```
+
+该脚本会启动临时开发短信服务端、创建测试账号、把服务端 token 注入模拟器调试包、下发一条 `/api/care/brief` 主动关怀消息、触发 APK 轮询朗读并确认已读；成功后默认把模拟器账号偏好恢复到本地 `http://10.0.2.2:8787`。
+
+端到端免发送语音聊天链路：
+
+```powershell
+cd D:\www\睡了么\android-app
+powershell -ExecutionPolicy Bypass -File .\e2e-live-voice.ps1
+```
+
+该脚本会注入一条“系统语音识别已听到”的调试文本，验证 APK 从 Live 小助手页通过 `/api/live/session` WebSocket 发送 `input_text`、记录实时回复页面状态、检查服务端以 `live_voice` 来源落库，并确认 APK 已经向同一条 WebSocket 发送实时麦克风 PCM 音频帧。它验证的是 `SpeechRecognizer` 之后的免发送语音链路和音频帧传输；真实麦克风中文识别效果仍需要真机说话验收。
 
 ## 安装命令
 
 连接 Android 手机并开启 USB 调试后：
 
 ```powershell
-cd D:\www\狗熊睡眠\android-app
+cd D:\www\睡了么\android-app
 & "$env:ANDROID_HOME\platform-tools\adb.exe" install -r .\build\outputs\apk\gouxiong-sleep-debug.apk
 ```
 
 ## 已实现功能
 
 - 原生 Android APK。
-- 不注册、不收费；小助手主流程转为联网 AI，用户配置 Key 后调用 DeepSeek。
+- 小助手主流程转为联网 AI，APK 通过手机号登录到服务端，由服务端调用阿里百炼/DashScope 多模态模型，Key 不进入 APK。
 - 首次引导：直接开始 / 简单设置。
 - 大字体首页：开始守护、停止守护、睡前检查、昨晚摘要。
 - 前台守护服务：麦克风和加速度计本地采样。
@@ -55,11 +89,15 @@ cd D:\www\狗熊睡眠\android-app
 - 我的助手设置页：四个角色卡片、角色说明、示例话术、系统 TTS 试听、联网陪伴开关和 Key/模型设置；名字、身份和主人称呼不走表单，统一回到聊天页由小助手主动问。
 - 自然语言第一次认识：不单开认识页；聊天页里小助手会主动开口问，主人可直接说“以后叫你暖暖，像女儿一样陪我，你叫我奶奶”，系统从这句话里记住小助手名字、身份和对主人的称呼。
 - 主人档案：可记录身体状况、用药习惯、睡眠情况、家庭情况、兴趣爱好和关怀偏好；支持小助手分步建档，用于联网建议上下文，不做诊断。
-- 今日状态记忆：小助手可记录当天心情、精力和身体备注，用于当天关怀建议、早安护理和 DeepSeek 主动提问上下文。
+- 今日状态记忆：小助手可记录当天心情、精力和身体备注，用于当天关怀建议、早安护理和多模态模型上下文。
 - 主动关怀：用户开启后，App 打开时每天最多主动问候一次；夜间守护中不打扰。
+- 养生小妙招：小助手会根据主人身体状况、用药习惯、睡眠和兴趣，主动整理安全的养生小妙招、食补食疗方向并汇报给主人；主人感兴趣时，可继续让小助手一步一步讲做法。该能力只做日常食养建议，不承诺疗效、不替代医嘱。
 - 陪伴人格：小助手系统提示词加入“听话顺从、礼貌乖巧、富有同情心、乐于倾听、先理解不争辩、哄老人开心”的规则；涉及药量、急症和危险事项时仍温柔劝阻。
-- 灵动聊天界面：小助手卡片已使用参考图拆出的 3D 角色头像，并加入轻微呼吸/摇摆动画；聊天页显示档案摘要、今天状态和快捷陪伴任务，老人端不大面积显示“AI”字样。
-- 聊天页：打开后自动进入实时语音聊天，用户直接说话即可；系统识别到一句话后自动请小助手回答，不再要求转文字后点发送。仍保留快捷任务和基础固定话术作为兜底。
+- 灵动聊天界面：小助手卡片已使用参考图拆出的 3D 角色头像，并加入轻微呼吸/摇摆动画；聊天页显示档案摘要、今天状态和快捷陪伴任务，老人端不大面积显示“AI”字样。Live 状态点和声波条使用固定高度容器与缩放动画，不再随波形撑高或压缩页面。
+- 小妙招交互：养生小妙招不再作为聊天页显眼按钮出现，而是作为小助手主动关心和自然语言问答能力；主人问“有什么妙招/食补建议/今天怎么吃”时再调用。
+- 2D Avatar 小助手：Live 主视觉已从单张图片动画替换为原生 `AvatarView`，具备 `AvatarState` 状态机和 `AvatarCommand` 指令协议；已覆盖 listening、user_speaking、thinking、speaking、interrupted、seeing、reading、finding、comforting、happy、worried、urgent_wakeup 等状态。模型 PCM 音频帧会按能量驱动嘴型；视频聊天大半身 PNG 会在脸部/嘴部位置显示轻量开合提示，不再把说话条形波画在身体下方；系统 TTS 当前使用定时嘴型驱动。
+- 四角色新美术：已用图像模型生成贴心小妹、懂事小弟、阳光小哥、温柔姐姐的统一风格半身资产，透明 PNG 已归档到 `docs/assets/avatars/transparent/`，Android 资源为 `avatar_2d_*`。角色选择卡、助手头像入口和小助手视频聊天舞台已切换到新资产。
+- 聊天页：打开后自动进入实时语音聊天，用户直接说话即可；系统识别到一句话后自动请小助手回答，不再要求转文字后点发送。新增“视频/文字”显示切换：视频模式默认显示大半身 2D 角色、声波和必要控制，不显示对话文字气泡；文字模式显示大字对话气泡，不显示大半身角色。
 - 摄像头权限按需：实时语音聊天不主动弹摄像头权限；用户点“让小助手看一眼”或已授权自动视觉时才使用摄像头。
 - 自动视觉陪伴：摄像头已授权时，进入小助手聊天页后默认启动一次原生 Camera2 低清采样，图片缩放并压缩到约 220KB 内再分析；未授权时不弹窗打断实时语音，用户点“让小助手看一眼”才请求摄像头权限；不在夜间守护和后台偷拍，可在聊天页暂停。
 - 视觉陪伴：聊天页保留“让小助手看一眼”，用户主动授权摄像头后可拍照看气色、看药盒/药杯、读书/说明书、看外面和找东西；照片写入 App 缓存而不是相册。
@@ -67,8 +105,17 @@ cd D:\www\狗熊睡眠\android-app
 - 找物回答：用户问“我的钥匙在哪/丢哪了/找不到了”时，先走本机位置记忆回答最近看到的位置，例如“我记得昨天下午 16:00 看见钥匙在冰箱门上的挂钩，您先去那里看看还在不在。”
 - 吃药看见记录：拍照后仍需用户主动确认“今天已吃药”，系统会记录确认并避免重复提醒；不根据照片判断药量、换药或停药。
 - 联网看图通道：已接入主动拍照后的图片请求格式，配置支持图片输入的模型后可让小助手看图朗读、找物和给生活提醒；失败时保留本机兜底。
-- DeepSeek 联网陪伴：用户可在手机本机设置 DeepSeek API Key 和模型；Key 使用 Android Keystore 加密保存，主动提问或点击快捷陪伴任务时联网，夜间强唤醒保留本地兜底。
-- DeepSeek 本机测试注入：`android-app/local.deepseek.properties` 保存测试 Key，已加入 `.gitignore`，不会被 `build.ps1` 复制进 APK；连接测试机后可运行 `android-app/set-deepseek-test-key.ps1` 写入 App 本机设置。
+- 阿里多模态联网陪伴：APK 只保存服务端登录态，主动聊天、看图、声波摘要分析都通过服务端代理；夜间强唤醒保留本地兜底。
+- 主动关怀话术专用接口：喝水、吃药、晨间简报、睡眠异常唤醒不再伪装成普通聊天，APK 调用 `/api/care/brief`，服务端结合长期记忆生成可直接朗读的话。
+- 模型配置：服务端会读取桌面 `guanlin-aliyun-ai.env` 中的 `DASHSCOPE_API_KEY`，Key 不进入 APK；服务能力自检会显示阿里多模态是否已配置。
+- 睡眠声波分析：睡眠报告新增“AI分析声波”，把真实波形采样统计、疑似异常、录音/设备摘要压成结构化文本发给服务端 `/api/audio`；如有正式异常现场 WAV 且大小不超过限制，会随请求附带一段录音给阿里音频模型辅助复盘。未配置模型时明确返回兜底提醒。
+- 实时陪伴会话：服务端新增 `/api/live/session` 小智式 WebSocket，支持 `hello/start/listen/abort/input_text`、PCM16 音频帧接收确认、长期记忆和模型文本流式回复；APK 小助手语音页已优先使用原生 WebSocket 发送识别文本，失败时才回退普通 HTTP 聊天；APK 已接入 `LivePcmRecorder`，会把 16kHz/30ms raw PCM 麦克风帧发送给服务端，并消费 `sentence_delta` 增量来刷新气泡和分段排队 TTS。服务端已具备可选阿里 Realtime 桥接，能把 PCM16 转给阿里实时模型并回传流式转写、文本增量和模型音频帧；APK 已接入 `AudioTrack` PCM 流式播放器，可低延迟播放服务端回传的模型音频帧。APK 发出 `abort` 时会先停本地 TTS/PCM 播放，服务端会向 Realtime 桥转发 `response.cancel` 和 `input_audio_buffer.clear`；小助手正在说话或播放模型音频时，APK 会参考 WebRTC/Silero 一类成熟 VAD 的短帧和最短语音时长思路，用实时 PCM 的 RMS、自适应噪声底、回落阈值和 240ms 连续语音门触发同一条 `abort` 链路，避免把普通背景噪声当成主人插话。
+- 服务能力自检：设置页的联网账号里可检查服务端 `/health`，明确显示阿里短信、阿里多模态、实时陪伴 WebSocket、Realtime 桥接、服务端 ASR、模型音频回传、APK 低延迟播放、自动插话打断、结构化 Avatar 情绪事件和数字人是否真实配置，避免把兜底能力误认为真实模型能力；管理后台另有“模型探测”，可手动验证阿里文本模型真实连通。
+- 服务端资料导出/删除：APK 联网账号页可导出本账号服务端资料，或删除服务端账号、健康档案、长期记忆、聊天记录和待读消息；本机睡眠记录仍由本地删除入口单独处理。
+- 服务端风控和审计：手机号验证码已加同手机号/同来源限流；后台查看详情、导出、删除、消息下发、模型探测和用户自助导出/删除都会写审计日志，便于追溯。
+- 长期记忆自动提取：服务端聊天接口会自动从用户话里沉淀身体状况、用药习惯、睡眠情况、家庭情况、兴趣爱好、情绪状态、财务风险、异常事件和关怀偏好；后续小助手回答会把这些结构化记忆放入上下文。
+- 服务端消息朗读：APK 登录后会定时拉取服务端下发的小助手消息；非睡眠守护时优先拉起小助手直接 TTS 朗读，睡眠守护中普通消息只留静默通知，紧急消息才允许全屏语音提醒。
+- 历史 DeepSeek 本机测试注入已不作为主流程；正式方向是服务端代理，禁止把任何模型 Key 复制进 APK。
 - 角色化强唤醒：强唤醒页会使用当前小助手的确认语气，但不改变检测阈值、强唤醒策略和紧急联系人升级。
 - 本地事件数据库：SQLite 保存事件、反馈、汇总。
 - 复盘摘要：昨晚记录、7 天记录、高风险计数，可作为小助手生成建议的结构化上下文。
@@ -113,8 +160,14 @@ cd D:\www\狗熊睡眠\android-app
 - 不保存整夜录音，不做疾病诊断。
 - 亲人录音使用 3GP/AMR 本机文件保存；后续可升级为更高质量 AAC 并加入音量归一化。
 - 本地歌曲通过系统文件选择器授权；如果授权被系统回收，会回退系统闹钟。
-- 小助手当前已接入 3D 角色头像、轻量动画、系统语音识别和系统 TTS，可做到打开聊天页直接说、自动回答、按钮打断；真正全双工流式语音模型尚未接入。
-- DeepSeek Key 已使用 Android Keystore 加密保存；正式发布前仍需在目标 Android 机型上验证 Keystore 迁移、清除和调试注入流程。
+- 小助手当前已接入原生分层 2D `AvatarView`、状态机动画、系统语音识别、系统 TTS、`sentence_delta` 增量回复、`AudioTrack` PCM 播放器和 Realtime 中断转发；Live 首屏默认使用原生 AvatarView 舞台，避免 WebView 首次加载阻塞实时会话。本地 8787 服务已用桌面 `guanlin-aliyun-ai.env` 的 `DASHSCOPE_API_KEY` 开启阿里 Realtime，`smoke:realtime` 已验证能建立真实 `session.created` 会话。但真实公网 Realtime 长时稳定性、回音消除和自然语音插话检测仍需真机调优。
+- 2D Avatar 当前是原生 `AvatarView` 加生成半身 PNG 的可运行方案，不是最终 Live2D SDK 资产；服务端已向 APK 发送 `emotion/intensity/gesture/safety_level/speech_text` 结构化情绪事件并驱动 `AvatarCommand`，但 Live2D 物理绑定、专业表情包和模型原生动画剧本尚未接入。详见 `docs/2d-avatar-implementation.md`。
+- 新生成的角色图已进入小助手视频聊天舞台，但还未拆成眼睛、嘴型、眉毛、手势等独立层；当前由 `AvatarView` 状态机、脸部嘴型提示和声波/状态提示驱动，避免把它伪装成完整 Live2D。
+- 实时陪伴 WebSocket 已有服务端自动化验收：能鉴权升级、接收小智式事件、接收 PCM16 音频帧并 ack、用 `input_text` 走模型/兜底回答和服务端落库，并对模型文本回复发送 `sentence_delta` 增量事件与结构化 `emotion` Avatar 事件；APK 自动化验收也已确认模拟识别文本会经 `/api/live/session` 进入服务端并以 `live_voice` 来源保存，APK 消费了 `sentence_delta`，记录 `last_live_emotion_tag_*`，同时发送实时麦克风 PCM 帧。服务端单测另用本地假阿里 Realtime 验证：PCM16 会转发为 `input_audio_buffer.append`，转写、文本增量、结构化情绪事件和二进制音频帧会映射回 APK 协议；收到 `abort` 后会转发 `response.cancel` 与 `input_audio_buffer.clear`；APK E2E 验证模型音频帧已进入 `AudioTrack` 播放路径并能触发 Live 中断。
+- 免发送语音聊天已有自动化验收：`e2e-live-voice.ps1` 会模拟一条识别结果，验证 APK 走 Live WebSocket 自动联网回答、实时回复页面状态、服务端落库、音频帧传输、模型音频播放、结构化 Avatar 情绪标签落入 APK 偏好，并触发自动 PCM 插话打断处理链路，确认 APK 记录 `last_live_auto_barge_in_count`、`last_live_auto_barge_in_speech_ms`、动态阈值和噪声底，且服务端收到 Realtime 取消事件；它不等同于真实麦克风中文识别、真实老人插话和真实扬声器回采验收。
+- `e2e-avatar-states.ps1` 会在模拟器上验证“看一眼” Camera2 返回真实 JPEG 帧并写入 `last_vision_capture_*`，以及噩梦强唤醒演练进入前台 `AlarmActivity` 并记录 `urgent_wakeup`；摄像头验收依赖模拟器或真机有可用摄像头映射。
+- 模型 Key 和阿里短信 AK 都只放服务端；正式发布前仍需验证 APK 里没有任何模型、短信或后台管理密钥。
+- 服务端导出/删除、验证码限流和审计日志已具备基础接口；正式生产仍需要 HTTPS、备份保留策略和误删恢复流程。
 - 当前调试包声明 `android:debuggable="true"`，用于本机注入测试配置；正式发行包应关闭 debuggable，并继续禁止把 Key 打进 APK。
 - Google Play 对短信/电话权限有审核风险，如上架受限可切换到系统拨号页/短信编辑页回退。
 

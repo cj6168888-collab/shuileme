@@ -158,7 +158,7 @@ function statusBar(x, y, dark = false) {
 function homeScreen(x, y, w, h) {
   rect(x, y, w, h, 'url(#nightBg)');
   statusBar(x, y, true);
-  text(x + w / 2, y + 94, '狗熊睡眠', 32, C.white, 800, 'middle');
+  text(x + w / 2, y + 94, '睡了么', 32, C.white, 800, 'middle');
   moon(x + 276, y + 142, 28);
   for (const [sx, sy] of [[100, 132], [155, 180], [220, 170], [246, 230], [128, 260]]) text(x + sx, y + sy, '✦', 20, '#FFE08A', 700, 'middle');
   rect(x + 22, y + 135, 70, 220, '#1A4380', 20);
@@ -264,7 +264,7 @@ function brandPanel() {
   circle(178, 130, 86, C.blueDeep);
   moon(210, 130, 54);
   bear(152, 132, 0.63, false);
-  text(178, 306, '狗熊睡眠', 52, C.blueDeep, 900, 'middle');
+  text(178, 306, '睡了么', 52, C.blueDeep, 900, 'middle');
   text(178, 355, '离线守护 · 晨间关怀', 28, '#4F4A45', 500, 'middle');
   iconTile(48, 420, '安心守护', 'shield', '#224D8E');
   iconTile(224, 420, '晨间关怀', 'sun', '#9F5F08');
@@ -295,7 +295,7 @@ writeFileSync(outHtml, `<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>狗熊睡眠参考图重做版</title>
+  <title>睡了么参考图重做版</title>
   <style>
     body { margin: 0; background: #f4efe6; font-family: "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif; }
     header { padding: 18px 26px; color: #16325C; background: #fff8ea; border-bottom: 1px solid #eadfca; }
@@ -307,10 +307,10 @@ writeFileSync(outHtml, `<!doctype html>
 </head>
 <body>
   <header>
-    <h1>狗熊睡眠 UI/UX 参考图重做版</h1>
+    <h1>睡了么 UI/UX 参考图重做版</h1>
     <p>按用户参考图重排：品牌区、三台手机、四角色、按钮组件条。素材后续用 gxs_* 独立绘图模型资产替换。</p>
   </header>
-  <main><img src="./gouxiong-sleep-reference-redesign.svg" alt="狗熊睡眠 UI/UX 参考图重做版"></main>
+  <main><img src="./gouxiong-sleep-reference-redesign.svg" alt="睡了么 UI/UX 参考图重做版"></main>
 </body>
 </html>
 `, 'utf8');

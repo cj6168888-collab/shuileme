@@ -1,6 +1,6 @@
-# 狗熊睡眠 Android App
+# 睡了么 Android App
 
-这是狗熊睡眠的原生 Android MVP。当前实现使用 Java 原生 View 和 Android SDK 直编脚本，不依赖 Gradle。
+这是睡了么的原生 Android MVP。当前实现使用 Java 原生 View 和 Android SDK 直编脚本，不依赖 Gradle。
 
 ## 本地构建
 

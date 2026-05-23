@@ -16,6 +16,8 @@ public final class Theme {
     public static final int RED = Color.rgb(235, 70, 52);
     public static final int WARM_WHITE = Color.rgb(255, 249, 235);
     public static final int CREAM = Color.rgb(255, 244, 220);
+    public static final int PINK = Color.rgb(255, 139, 139);
+    public static final int LILAC = Color.rgb(139, 118, 218);
     public static final int TEXT = Color.rgb(28, 45, 73);
     public static final int MUTED = Color.rgb(107, 118, 140);
 
@@ -38,7 +40,7 @@ public final class Theme {
     public static Button button(Context context, String value, int color) {
         Button button = new Button(context);
         button.setText(value);
-        button.setTextSize(22);
+        button.setTextSize(24);
         button.setTextColor(Color.WHITE);
         button.setAllCaps(false);
         button.setGravity(Gravity.CENTER);
@@ -46,12 +48,12 @@ public final class Theme {
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{lighten(color, 0.18f), color, darken(color, 0.10f)});
-        bg.setCornerRadius(dp(context, 24));
+        bg.setCornerRadius(dp(context, 28));
         bg.setStroke(dp(context, 1), darken(color, 0.18f));
         button.setBackground(bg);
         button.setPadding(dp(context, 12), dp(context, 12), dp(context, 12), dp(context, 12));
         if (android.os.Build.VERSION.SDK_INT >= 21) {
-            button.setElevation(dp(context, 3));
+            button.setElevation(dp(context, 4));
             button.setStateListAnimator(null);
         }
         return button;
@@ -62,7 +64,7 @@ public final class Theme {
         button.setTextColor(darken(color, 0.38f));
         GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{Color.WHITE, mix(color, Color.WHITE, 0.80f)});
-        bg.setCornerRadius(dp(context, 22));
+        bg.setCornerRadius(dp(context, 26));
         bg.setStroke(dp(context, 1), mix(color, Color.WHITE, 0.45f));
         button.setBackground(bg);
         return button;
@@ -76,21 +78,21 @@ public final class Theme {
     }
 
     public static GradientDrawable card(Context context) {
-        GradientDrawable bg = rounded(Color.WHITE, 24, context);
-        bg.setStroke(dp(context, 1), Color.rgb(235, 226, 208));
+        GradientDrawable bg = rounded(Color.WHITE, 28, context);
+        bg.setStroke(dp(context, 1), Color.rgb(239, 229, 206));
         return bg;
     }
 
     public static GradientDrawable tintedCard(Context context, int color) {
         GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{Color.WHITE, mix(color, Color.WHITE, 0.86f)});
-        bg.setCornerRadius(dp(context, 24));
-        bg.setStroke(dp(context, 1), mix(color, Color.WHITE, 0.56f));
+        bg.setCornerRadius(dp(context, 30));
+        bg.setStroke(dp(context, 1), mix(color, Color.WHITE, 0.58f));
         return bg;
     }
 
     public static GradientDrawable navBar(Context context) {
-        GradientDrawable bg = rounded(Color.rgb(255, 246, 226), 24, context);
+        GradientDrawable bg = rounded(Color.rgb(255, 247, 229), 28, context);
         bg.setStroke(dp(context, 1), Color.rgb(241, 225, 190));
         return bg;
     }

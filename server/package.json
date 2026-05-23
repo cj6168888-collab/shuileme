@@ -1,0 +1,17 @@
+{
+  "name": "gouxiong-sleep-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node gouxiong-server.mjs",
+    "test": "node test-server.mjs",
+    "smoke:model": "node smoke-model.mjs",
+    "smoke:realtime": "node smoke-realtime.mjs",
+    "backup": "node backup-db.mjs",
+    "ops:check": "node ops-check.mjs"
+  },
+  "engines": {
+    "node": ">=25.0.0"
+  }
+}

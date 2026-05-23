@@ -19,6 +19,7 @@ import android.os.Vibrator;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
+import android.speech.tts.TextToSpeech;
 import android.content.Intent;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -30,10 +31,15 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.gouxiong.sleep.avatar.AvatarCommand;
+import com.gouxiong.sleep.avatar.AvatarState;
+import com.gouxiong.sleep.avatar.AvatarView;
 import com.gouxiong.sleep.util.EmergencyNotifier;
+import com.gouxiong.sleep.util.AudioOutputStatus;
 import com.gouxiong.sleep.util.CompanionAssistant;
 import com.gouxiong.sleep.util.PreferenceStore;
 import com.gouxiong.sleep.util.Theme;
+import com.gouxiong.sleep.util.XiaozhiVoiceProfile;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -52,6 +58,8 @@ public class AlarmActivity extends Activity {
     private boolean drillMode;
     private String reason;
     private String assistantRole;
+    private String ownerAddress;
+    private TextToSpeech assistantTts;
 
     private final Runnable tick = new Runnable() {
         @Override
@@ -74,6 +82,9 @@ public class AlarmActivity extends Activity {
                     EmergencyNotifier.trigger(AlarmActivity.this, reason);
                 }
             }
+            if (secondsLeft == 60 || secondsLeft == 45 || secondsLeft == 30) {
+                speakWakeLine();
+            }
             if (!drillMode || !emergencySent) {
                 handler.postDelayed(this, 1000);
             }
@@ -86,7 +97,9 @@ public class AlarmActivity extends Activity {
         reason = getIntent().getStringExtra("reason");
         if (reason == null) reason = "高风险睡眠异常";
         drillMode = getIntent().getBooleanExtra("drill_mode", false);
-        assistantRole = new PreferenceStore(this).companionRole();
+        PreferenceStore store = new PreferenceStore(this);
+        assistantRole = store.companionRole();
+        ownerAddress = store.ownerAddress();
         handler = new Handler(Looper.getMainLooper());
 
         Window window = getWindow();
@@ -101,6 +114,7 @@ public class AlarmActivity extends Activity {
         acquireWakeLock();
         buildUi();
         startAlarmSound();
+        speakWakeLine();
         startSpeechStop();
         handler.post(tick);
     }
@@ -112,8 +126,12 @@ public class AlarmActivity extends Activity {
         box.setPadding(Theme.dp(this, 24), safeTopPadding(44), Theme.dp(this, 24), Theme.dp(this, 24));
         box.setBackgroundColor(Theme.WARM_WHITE);
 
-        ImageView alarm = designImage("ui_alarm_scene");
-        box.addView(alarm, new LinearLayout.LayoutParams(-1, Theme.dp(this, 280)));
+        AvatarView alarm = new AvatarView(this);
+        alarm.setRole(assistantRole);
+        alarm.applyCommand(AvatarCommand.urgentWake());
+        alarm.applyCommand(AvatarCommand.setState(AvatarState.URGENT_WAKEUP));
+        alarm.setContentDescription(assistantRole + "正在紧急叫醒");
+        box.addView(alarm, new LinearLayout.LayoutParams(-1, Theme.dp(this, 240)));
         addSpace(box, 10);
 
         TextView sub = Theme.text(this, "检测到高风险睡眠异常", 22, Theme.RED, Typeface.BOLD);
@@ -121,7 +139,7 @@ public class AlarmActivity extends Activity {
         box.addView(sub, new LinearLayout.LayoutParams(-1, -2));
         addSpace(box, 6);
 
-        TextView assistant = Theme.text(this, assistantRole + "： " + CompanionAssistant.wakeLine(assistantRole), 19, Theme.MUTED, Typeface.BOLD);
+        TextView assistant = Theme.text(this, assistantRole + "： " + CompanionAssistant.sleepWakeVoiceLine(assistantRole, ownerAddress, reason), 19, Theme.MUTED, Typeface.BOLD);
         assistant.setGravity(Gravity.CENTER);
         box.addView(assistant, new LinearLayout.LayoutParams(-1, -2));
         addSpace(box, 6);
@@ -129,6 +147,11 @@ public class AlarmActivity extends Activity {
         TextView basis = Theme.text(this, reason, 16, Theme.MUTED, Typeface.NORMAL);
         basis.setGravity(Gravity.CENTER);
         box.addView(basis, new LinearLayout.LayoutParams(-1, -2));
+        addSpace(box, 8);
+
+        TextView route = Theme.text(this, AudioOutputStatus.inspect(this).alarmLine(), 16, Theme.ORANGE, Typeface.BOLD);
+        route.setGravity(Gravity.CENTER);
+        box.addView(route, new LinearLayout.LayoutParams(-1, -2));
         addSpace(box, 8);
 
         if (drillMode) {
@@ -209,6 +232,30 @@ public class AlarmActivity extends Activity {
         } catch (Exception ignored) {
         }
         startVibration();
+    }
+
+    private void speakWakeLine() {
+        String line = CompanionAssistant.sleepWakeVoiceLine(assistantRole, ownerAddress, reason);
+        if (assistantTts == null) {
+            assistantTts = new TextToSpeech(this, status -> {
+                if (status == TextToSpeech.SUCCESS && assistantTts != null) {
+                    XiaozhiVoiceProfile.applyTo(assistantTts, assistantRole);
+                    if (Build.VERSION.SDK_INT >= 21) {
+                        assistantTts.setAudioAttributes(new AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_ALARM)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                                .build());
+                    }
+                    assistantTts.speak(line, TextToSpeech.QUEUE_FLUSH, null, "gouxiong-wake-voice");
+                }
+            });
+            return;
+        }
+        try {
+            XiaozhiVoiceProfile.applyTo(assistantTts, assistantRole);
+            assistantTts.speak(line, TextToSpeech.QUEUE_FLUSH, null, "gouxiong-wake-voice");
+        } catch (Exception ignored) {
+        }
     }
 
     private boolean startCustomAlarmSound() {
@@ -329,6 +376,14 @@ public class AlarmActivity extends Activity {
         if (speechRecognizer != null) {
             speechRecognizer.destroy();
             speechRecognizer = null;
+        }
+        if (assistantTts != null) {
+            try {
+                assistantTts.stop();
+                assistantTts.shutdown();
+            } catch (Exception ignored) {
+            }
+            assistantTts = null;
         }
         if (wakeLock != null && wakeLock.isHeld()) {
             wakeLock.release();

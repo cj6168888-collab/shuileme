@@ -5,3 +5,8 @@ android-app/*.local.properties
 local.properties
 *.keystore
 tmp/
+artifacts/
+server/data/
+server/backups/
+server/logs/
+server/.env

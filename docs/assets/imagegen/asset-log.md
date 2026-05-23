@@ -1,4 +1,4 @@
-# 狗熊睡眠独立生成资产记录
+# 睡了么独立生成资产记录
 
 ## gxs_role_gentle_woman_chat_idle
 

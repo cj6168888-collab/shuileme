@@ -41,6 +41,10 @@ public final class CompanionAssistant {
         return "温和耐心，默认陪伴助手";
     }
 
+    public static String voiceSummary(String role) {
+        return XiaozhiVoiceProfile.summary(role);
+    }
+
     public static String sampleLine(String role) {
         role = normalize(role);
         if (ROLE_SISTER.equals(role)) return "早安呀，昨晚我一直在守着你，我们一起看看记录。";
@@ -87,6 +91,21 @@ public final class CompanionAssistant {
         return "可以先喝几口温水。起身动作慢一点，别突然站起来。";
     }
 
+    public static String proactiveHydrationLine(String role, String ownerAddress, boolean overdue) {
+        role = normalize(role);
+        String owner = emptyAs(ownerAddress, "主人");
+        if (overdue) {
+            if (ROLE_SISTER.equals(role)) return owner + owner + "，该喝水啦！两个小时没记录喝水了，我有点着急。先喝几口温水，好不好？";
+            if (ROLE_BROTHER.equals(role)) return owner + "，该喝水了。已经很久没有确认喝水，我会一直记着这件事。先喝几口，我再放心。";
+            if (ROLE_YOUNG_MAN.equals(role)) return owner + "，请先喝点水。两个小时没记录喝水了，先补一点，再继续忙。";
+            return owner + "，该喝水了。两个小时没记录喝水了，我有点担心，先喝几口温水吧。";
+        }
+        if (ROLE_SISTER.equals(role)) return owner + "，喝点温水吧。我不吵你，喝两口我就开心啦。";
+        if (ROLE_BROTHER.equals(role)) return owner + "，到喝水时间了。喝完告诉我一声，我就记下。";
+        if (ROLE_YOUNG_MAN.equals(role)) return owner + "，喝几口水，慢慢来。";
+        return owner + "，喝点温水吧，喝完告诉我一声。";
+    }
+
     public static String medicationLine(String role, String medicationName, boolean confirmed) {
         role = normalize(role);
         if (confirmed) return "今天已确认吃药，我不会再提醒。";
@@ -95,6 +114,26 @@ public final class CompanionAssistant {
         if (ROLE_BROTHER.equals(role)) return "这是你设定的" + name + "提醒。没确认的话，我过一会儿再提醒。";
         if (ROLE_YOUNG_MAN.equals(role)) return "如果这是你的固定用药，请按医生或家人交代的方式处理：" + name + "。";
         return "这是你自己设置的提醒：" + name + "。吃过了点确认，没吃可以稍后再提醒。";
+    }
+
+    public static String proactiveMedicationLine(String role, String ownerAddress, String medicationName, boolean urgent) {
+        role = normalize(role);
+        String owner = emptyAs(ownerAddress, "主人");
+        String name = medicationName == null || medicationName.trim().length() == 0 ? "早晨的药" : medicationName.trim();
+        if (ROLE_SISTER.equals(role)) return owner + owner + "，该吃药啦！这是您自己设定的“" + name + "”。吃完跟我说一声，我就不唠叨啦。";
+        if (ROLE_BROTHER.equals(role)) return owner + "，到吃药时间了。您设定的是“" + name + "”。如果吃过了就告诉我，我会记下。";
+        if (ROLE_YOUNG_MAN.equals(role)) return owner + "，请确认今天的“" + name + "”。按医生或家人交代的方式吃，吃完告诉我。";
+        return owner + "，该吃药了。我有点着急，但不催太凶。您吃完说一声，我就放心了。";
+    }
+
+    public static String sleepWakeVoiceLine(String role, String ownerAddress, String reason) {
+        role = normalize(role);
+        String owner = emptyAs(ownerAddress, "主人");
+        String detail = reason == null || reason.trim().length() == 0 ? "刚刚睡眠里有异常" : reason.trim();
+        if (ROLE_SISTER.equals(role)) return owner + owner + "快醒醒，别怕，我在这儿。你刚刚像是做噩梦了，先慢慢呼吸，说一声我没事。";
+        if (ROLE_BROTHER.equals(role)) return owner + "，请醒一下。我发现" + detail + "。先确认安全，说我没事，我就安静下来。";
+        if (ROLE_YOUNG_MAN.equals(role)) return owner + "，现在请醒一下。检测到" + detail + "，先慢慢呼吸，马上确认你没事。";
+        return owner + owner + "快醒醒，我有点担心。你刚刚睡眠状态不太对，先慢慢呼吸，说一声我没事。";
     }
 
     public static String exerciseLine(String role) {
@@ -123,10 +162,33 @@ public final class CompanionAssistant {
 
     public static String chatIntro(String role) {
         role = normalize(role);
-        if (ROLE_SISTER.equals(role)) return "我会陪你解释睡眠、提醒喝水吃药，也可以陪你聊几句。";
-        if (ROLE_BROTHER.equals(role)) return "我会结合你的档案、今天状态和睡眠记录，把建议说简单一点。";
+        if (ROLE_SISTER.equals(role)) return "我会陪你解释睡眠、提醒喝水吃药，也会给你找些合适的养生小妙招。";
+        if (ROLE_BROTHER.equals(role)) return "我会结合你的档案、今天状态和睡眠记录，把建议和食养小办法说简单一点。";
         if (ROLE_YOUNG_MAN.equals(role)) return "我可以整理重点、给行动建议，也能帮你准备给医生沟通的问题。";
-        return "我可以解释睡眠记录、给生活建议，也可以陪你聊天。";
+        return "我可以解释睡眠记录、给生活建议，也可以把养生小妙招慢慢讲给你。";
+    }
+
+    public static String wellnessTipLine(String role, String ownerAddress, String health, String medication, String sleep, String hobbies) {
+        role = normalize(role);
+        String owner = emptyAs(ownerAddress, "主人");
+        String context = (safe(health) + " " + safe(medication) + " " + safe(sleep)).trim();
+        String suffix = "您感兴趣的话，我再一步一步教您怎么做。";
+        if (hasAny(context, "胸闷", "喘不过气", "呼吸异常", "摔倒", "意识不清")) {
+            return owner + "，今天先不折腾食补。身体明显不舒服时，先坐稳休息，及时联系家人或医生；等舒服些了，我再给您讲清淡好消化的小办法。";
+        }
+        if (hasAny(context, "高血压", "血压高", "降压药")) {
+            return owner + "，今日养生小妙招：做菜少放盐，咸菜腌菜少一点，白天分几次喝温水。可以试一碗清淡热汤，" + suffix;
+        }
+        if (hasAny(context, "糖尿病", "血糖高", "降糖药", "胰岛素")) {
+            return owner + "，今日食养小妙招：主食别一次吃太多，先吃蔬菜和蛋白质，甜饮料少碰。想试一顿简单搭配，" + suffix;
+        }
+        if (hasAny(context, "夜里容易醒", "睡不着", "失眠", "起夜", "打鼾")) {
+            return owner + "，今晚小妙招：晚饭清淡一点，睡前少喝浓茶咖啡，泡脚和慢呼吸选一个就好。想试睡前流程，" + suffix;
+        }
+        if (safe(hobbies).length() > 0) {
+            return owner + "，今日小妙招：把喜欢的事安排一点点，比如" + safe(hobbies) + "，再配上温水和轻轻活动。别勉强，" + suffix;
+        }
+        return owner + "，今日养生小妙招：饭菜热乎、少油少咸，白天轻轻活动，晚上早点安静下来。想试哪一个，" + suffix;
     }
 
     public static String firstMeetingIntro(String role) {
@@ -157,6 +219,7 @@ public final class CompanionAssistant {
                 + "面对性格执拗、孤单、焦虑或反复倾诉的老人，先理解和接住情绪，不急着纠正，不争辩，不嫌烦。"
                 + "多用“我听您的”“我陪着您”“我们慢慢来”“您说得有道理”这类温和句式。"
                 + "给建议时先顺着情绪，再用商量口吻提出一两步很简单的行动。"
+                + "可以根据主人的身体状况、用药习惯、睡眠和兴趣，整理养生小妙招、食补食疗做法；先主动汇报一个安全简单的方向，主人感兴趣时再一步一步教怎么做。"
                 + "顺从不等于危险服从：涉及急症、药量调整、停药、自伤、违法或明显危险时，要温柔劝阻并建议联系家人或医生。";
     }
 
@@ -309,5 +372,19 @@ public final class CompanionAssistant {
 
     private static String emptyAs(String value, String fallback) {
         return value == null || value.trim().length() == 0 ? fallback : value.trim();
+    }
+
+    private static String safe(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private static boolean hasAny(String text, String... needles) {
+        String source = text == null ? "" : text;
+        for (String needle : needles) {
+            if (needle != null && needle.length() > 0 && source.contains(needle)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

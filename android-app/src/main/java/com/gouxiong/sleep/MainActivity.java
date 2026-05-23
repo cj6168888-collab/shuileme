@@ -1,15 +1,16 @@
 package com.gouxiong.sleep;
 
 import android.Manifest;
-import android.app.AlarmManager;
 import android.app.AlertDialog;
-import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.ImageFormat;
+import android.graphics.Paint;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -41,8 +42,10 @@ import android.os.Vibrator;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Base64;
+import android.util.Log;
 import android.util.Size;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.View;
 import android.widget.Button;
@@ -53,17 +56,28 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
 
 import android.app.Activity;
 
 import com.gouxiong.sleep.data.SleepDatabase;
+import com.gouxiong.sleep.avatar.AvatarCommand;
+import com.gouxiong.sleep.avatar.AvatarState;
+import com.gouxiong.sleep.avatar.AvatarView;
+import com.gouxiong.sleep.live.LiveCompanionSession;
+import com.gouxiong.sleep.live.LivePcmPlayer;
+import com.gouxiong.sleep.live.LivePcmRecorder;
 import com.gouxiong.sleep.model.DeviceReading;
 import com.gouxiong.sleep.model.SleepEvent;
+import com.gouxiong.sleep.util.AudioOutputStatus;
 import com.gouxiong.sleep.util.CompanionAssistant;
-import com.gouxiong.sleep.util.DeepSeekClient;
 import com.gouxiong.sleep.util.PreferenceStore;
+import com.gouxiong.sleep.util.ServerApiClient;
+import com.gouxiong.sleep.util.SleepSoundPlayer;
 import com.gouxiong.sleep.util.Theme;
 import com.gouxiong.sleep.util.WavFileWriter;
+import com.gouxiong.sleep.util.XiaozhiVoiceProfile;
 
 import java.io.ByteArrayOutputStream;
 import java.util.List;
@@ -72,21 +86,60 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Locale;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.FileInputStream;
+
 public class MainActivity extends Activity {
+    private static final String TAG = "GouXiongSleep";
+    public static final String ACTION_OPEN_SERVER_MESSAGES = "com.gouxiong.sleep.action.OPEN_SERVER_MESSAGES";
+    public static final String ACTION_OPEN_COMPANION = "com.gouxiong.sleep.action.OPEN_COMPANION";
+    public static final String ACTION_DEBUG_HYDRATION_CARE = "com.gouxiong.sleep.action.DEBUG_HYDRATION_CARE";
+    public static final String ACTION_DEBUG_SERVER_MESSAGE_CARE = "com.gouxiong.sleep.action.DEBUG_SERVER_MESSAGE_CARE";
+    public static final String ACTION_DEBUG_SERVER_MESSAGE_POLL = "com.gouxiong.sleep.action.DEBUG_SERVER_MESSAGE_POLL";
+    public static final String ACTION_DEBUG_NIGHTMARE_WAKE = "com.gouxiong.sleep.action.DEBUG_NIGHTMARE_WAKE";
+    public static final String ACTION_DEBUG_VOICE_TEXT = "com.gouxiong.sleep.action.DEBUG_VOICE_TEXT";
+    public static final String ACTION_DEBUG_SLEEP_CHECK = "com.gouxiong.sleep.action.DEBUG_SLEEP_CHECK";
+    public static final String ACTION_DEBUG_SLEEP_CHECK_TIMEOUT = "com.gouxiong.sleep.action.DEBUG_SLEEP_CHECK_TIMEOUT";
+    public static final String ACTION_DEBUG_LIVE_ABORT = "com.gouxiong.sleep.action.DEBUG_LIVE_ABORT";
+    public static final String ACTION_DEBUG_LIVE_BARGE_IN = "com.gouxiong.sleep.action.DEBUG_LIVE_BARGE_IN";
+    public static final String ACTION_DEBUG_CAMERA_GLANCE = "com.gouxiong.sleep.action.DEBUG_CAMERA_GLANCE";
     private static final int REQUEST_PICK_AUDIO = 2101;
     private static final int REQUEST_CAPTURE_SCENE = 2201;
     private static final int REQUEST_CAMERA_VISION = 87;
     private static final int REQUEST_CAMERA_AUTO_VISION = 88;
     private static final int REQUEST_VOICE_CHAT = 89;
+    private static final int REQUEST_CAMERA_GLANCE = 90;
+    private static final int REQUEST_MICROPHONE_PROACTIVE = 91;
+    private static final int REQUEST_REQUIRED_PERMISSIONS = 92;
     private static final int OWNER_PROFILE_STEP_COUNT = 6;
     private static final long AUTO_VISION_MIN_INTERVAL_MS = 2L * 60L * 1000L;
     private static final int AUTO_VISION_MAX_SIDE = 960;
     private static final int VISION_MAX_JPEG_BYTES = 220 * 1024;
+    private static final int DETAIL_VISION_MAX_SIDE = 1800;
+    private static final int DETAIL_VISION_MAX_JPEG_BYTES = 900 * 1024;
+    private static final int AUDIO_ANALYSIS_MAX_BYTES = 420 * 1024;
+    private static final float LIVE_BARGE_IN_RMS_THRESHOLD = 0.040f;
+    private static final float LIVE_BARGE_IN_INITIAL_NOISE_FLOOR_RMS = 0.012f;
+    private static final float LIVE_BARGE_IN_NOISE_FLOOR_ALPHA = 0.08f;
+    private static final float LIVE_BARGE_IN_NOISE_MULTIPLIER = 3.2f;
+    private static final float LIVE_BARGE_IN_EXIT_MULTIPLIER = 1.8f;
+    private static final float LIVE_BARGE_IN_MAX_RMS_THRESHOLD = 0.140f;
+    private static final int LIVE_BARGE_IN_MIN_SPEECH_MS = 240;
+    private static final int LIVE_BARGE_IN_CONSECUTIVE_FRAMES = Math.max(3,
+            LIVE_BARGE_IN_MIN_SPEECH_MS / LivePcmRecorder.FRAME_DURATION_MS);
+    private static final long LIVE_BARGE_IN_COOLDOWN_MS = 1800L;
+    private static final long LIVE_MODEL_AUDIO_ACTIVE_WINDOW_MS = 1600L;
+    private static final int LIVE_DOT_ROW_HEIGHT_DP = 32;
+    private static final int LIVE_DOT_WIDTH_DP = 16;
+    private static final int LIVE_DOT_MAX_HEIGHT_DP = 22;
+    private static final int LIVE_VOICE_METER_HEIGHT_DP = 58;
+    private static final int LIVE_VOICE_METER_BAR_WIDTH_DP = 5;
+    private static final int LIVE_VOICE_METER_BAR_HEIGHT_DP = 42;
 
     private PreferenceStore prefs;
     private SleepDatabase db;
@@ -97,19 +150,64 @@ public class MainActivity extends Activity {
     private MediaRecorder voiceRecorder;
     private File voiceFile;
     private MediaPlayer previewPlayer;
+    private SleepSoundPlayer sleepSoundPlayer;
     private Ringtone previewRingtone;
     private TextToSpeech assistantTts;
     private boolean assistantTtsReady;
     private boolean assistantTtsListenerSet;
+    private boolean assistantTtsProfileApplied;
+    private String assistantTtsAppliedRole = "";
     private boolean assistantSpeaking;
     private SpeechRecognizer voiceRecognizer;
     private boolean realtimeVoiceEnabled;
     private boolean voiceListening;
     private boolean voiceRestartScheduled;
+    private boolean sleepCheckPending;
+    private long lastCompanionActiveAtMs;
+    private String pendingSleepContinuationText = "";
+    private boolean microphoneProactiveRequestedThisSession;
+    private boolean requiredPermissionsRequestedThisSession;
+    private boolean pendingStartLiveAfterRequiredPermissions;
     private int voiceConversationSerial;
     private int voicePageSerial;
+    private int voiceListenSerial;
+    private long voiceListenStartedAtMs;
+    private long lastVoiceCallbackAtMs;
+    private long lastVoiceSoundAtMs;
+    private float voiceInputLevel;
+    private LiveCompanionSession liveCompanionSession;
+    private LivePcmPlayer livePcmPlayer;
+    private LivePcmRecorder livePcmRecorder;
+    private volatile boolean liveCompanionConnected;
+    private volatile boolean liveCompanionConnecting;
+    private boolean liveAudioStreaming;
+    private int liveAudioFrameCount;
+    private long lastLiveAudioFrameAtMs;
+    private int liveModelAudioFrameCount;
+    private long lastLiveModelAudioFrameAtMs;
+    private int liveBargeInCandidateFrames;
+    private long lastLiveBargeInAtMs;
+    private float liveBargeInNoiseFloorRms = LIVE_BARGE_IN_INITIAL_NOISE_FLOOR_RMS;
+    private float lastLiveBargeInThresholdRms = LIVE_BARGE_IN_RMS_THRESHOLD;
+    private final StringBuilder liveStreamingReplyBuffer = new StringBuilder();
+    private final StringBuilder liveStreamingSpeechBuffer = new StringBuilder();
+    private int liveStreamingSerial;
+    private int liveStreamingTtsChunkCount;
+    private long lastLiveStreamingUiUpdateAtMs;
+    private String pendingLiveCompanionPrompt = "";
+    private String pendingLiveCompanionCleanText = "";
+    private int pendingLiveCompanionSerial;
+    private int liveCompanionReplySerial;
     private boolean firstMeetingPromptedThisSession;
     private TextView voiceStatusLabel;
+    private TextView liveStageStatusLabel;
+    private TextView liveStageSpeechLabel;
+    private AvatarView liveStageAvatar;
+    private WebView liveStageWebView;
+    private String liveStageMood = "listening";
+    private int liveStageAnimationSerial;
+    private int avatarMouthSerial;
+    private int livePcmMouthSerial;
     private String pendingVisionTask = "";
     private Bitmap latestVisionSnapshot;
     private Uri pendingVisionImageUri;
@@ -119,6 +217,55 @@ public class MainActivity extends Activity {
     private CameraCaptureSession autoVisionSession;
     private ImageReader autoVisionReader;
     private boolean autoVisionRunning;
+    private boolean manualVisionCapture;
+    private boolean activeVisionPreferFront;
+    private String activeVisionTask = "";
+    private boolean activeVisionDetailed;
+    private String activeVisionReason = "";
+
+    private static class VisionIntent {
+        final boolean matched;
+        final boolean explicitLook;
+        final String task;
+        final boolean preferFront;
+        final boolean detailed;
+        final String reason;
+
+        VisionIntent(boolean matched, boolean explicitLook, String task, boolean preferFront, boolean detailed, String reason) {
+            this.matched = matched;
+            this.explicitLook = explicitLook;
+            this.task = task == null ? "" : task;
+            this.preferFront = preferFront;
+            this.detailed = detailed;
+            this.reason = reason == null ? "" : reason;
+        }
+
+        static VisionIntent none() {
+            return new VisionIntent(false, false, "", false, false, "");
+        }
+    }
+
+    private static class SleepDashboardData {
+        long since;
+        long sessionStart;
+        long sessionEnd;
+        int totalSleepMinutes;
+        int eventCount;
+        int highRiskCount;
+        int mediumRiskCount;
+        int autoCancelCount;
+        int nocturiaCount;
+        int audioClipCount;
+        int deviceReadingCount;
+        int estimatedDeepSleepMinutes;
+        int waveformSampleCount;
+        int hiddenSimulationCount;
+        int[] waveformLevels = new int[0];
+        String qualityLabel;
+        String trendLine;
+        String evidenceGrade;
+        String evidenceLine;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -130,15 +277,30 @@ public class MainActivity extends Activity {
         if (handleDebugDeepSeekIntent(getIntent())) {
             return;
         }
+        if (handleDebugCareIntent(getIntent())) {
+            return;
+        }
+        if (!prefs.isFirstLaunch()) {
+            CareReminderScheduler.ensureCareReminders(this);
+        }
 
         if (prefs.isFirstLaunch()) {
             showOnboarding();
+            requestRequiredPermissionsProactivelySoon();
+        } else if (shouldOpenServerMessages(getIntent())) {
+            openServerMessagesFromIntent();
+            requestRequiredPermissionsProactivelySoon();
+        } else if (shouldOpenCompanion(getIntent())) {
+            openCompanionFromIntent();
+            requestRequiredPermissionsProactivelySoon();
         } else if (shouldOpenMorningCare(getIntent())) {
-            showShell("guard");
+            showShell("assistant");
             showMorningCare();
+            requestRequiredPermissionsProactivelySoon();
         } else {
             showShell("guard");
             maybeShowProactiveCare();
+            requestRequiredPermissionsProactivelySoon();
         }
     }
 
@@ -149,37 +311,155 @@ public class MainActivity extends Activity {
         if (handleDebugDeepSeekIntent(intent)) {
             return;
         }
+        if (handleDebugCareIntent(intent)) {
+            return;
+        }
         if (shouldOpenMorningCare(intent)) {
-            showShell("guard");
+            showShell("assistant");
             showMorningCare();
+            requestRequiredPermissionsProactivelySoon();
+        } else if (shouldOpenServerMessages(intent)) {
+            openServerMessagesFromIntent();
+            requestRequiredPermissionsProactivelySoon();
+        } else if (shouldOpenCompanion(intent)) {
+            openCompanionFromIntent();
+            requestRequiredPermissionsProactivelySoon();
         }
     }
 
     private boolean handleDebugDeepSeekIntent(Intent intent) {
-        if (!isDebuggableBuild() || intent == null) {
+        return false;
+    }
+
+    private boolean handleDebugCareIntent(Intent intent) {
+        if (!isDebuggableBuild() || intent == null || intent.getAction() == null) {
             return false;
         }
-        String key = intent.getStringExtra("debug_deepseek_key");
-        String model = intent.getStringExtra("debug_deepseek_model");
-        boolean injected = false;
-        if (key != null && key.startsWith("sk-")) {
-            if (prefs.setDeepSeekApiKey(key)) {
-                prefs.setAssistantOnlineEnabled(true);
-                injected = true;
-            }
-        }
-        if (model != null && model.trim().length() > 0) {
-            prefs.setDeepSeekModel(model);
-            injected = true;
-        }
-        if (injected) {
+        if (ACTION_DEBUG_HYDRATION_CARE.equals(intent.getAction())) {
             prefs.setFirstLaunchDone();
-            Toast.makeText(this, "已写入本机 DeepSeek 测试配置", Toast.LENGTH_SHORT).show();
+            Intent care = new Intent(this, ProactiveCareActivity.class);
+            care.putExtra(ProactiveCareActivity.EXTRA_TYPE, ProactiveCareActivity.TYPE_HYDRATION);
+            startActivity(care);
+            finish();
+            return true;
         }
-        if (intent.getBooleanExtra("open_deepseek_chat", false)) {
+        if (ACTION_DEBUG_SERVER_MESSAGE_CARE.equals(intent.getAction())) {
             prefs.setFirstLaunchDone();
+            Intent care = new Intent(this, ProactiveCareActivity.class);
+            care.putExtra(ProactiveCareActivity.EXTRA_TYPE, ProactiveCareActivity.TYPE_SERVER_MESSAGE);
+            care.putExtra(ProactiveCareActivity.EXTRA_MESSAGE,
+                    intent.getStringExtra(ProactiveCareActivity.EXTRA_MESSAGE) != null
+                            ? intent.getStringExtra(ProactiveCareActivity.EXTRA_MESSAGE)
+                            : "奶奶，家里人给您留了一句话：先别急，我慢慢说给您听。");
+            care.putExtra(ProactiveCareActivity.EXTRA_SERVER_MESSAGE_ID, intent.getIntExtra(ProactiveCareActivity.EXTRA_SERVER_MESSAGE_ID, 0));
+            startActivity(care);
+            finish();
+            return true;
+        }
+        if (ACTION_DEBUG_SERVER_MESSAGE_POLL.equals(intent.getAction())) {
+            prefs.setFirstLaunchDone();
+            Intent poll = new Intent(this, ServerMessageReceiver.class);
+            poll.setAction(CareReminderScheduler.ACTION_SERVER_MESSAGE_POLL);
+            sendBroadcast(poll);
             showShell("guard");
-            showCompanionChat();
+            Toast.makeText(this, "已触发服务端消息轮询", Toast.LENGTH_SHORT).show();
+            return true;
+        }
+        if (ACTION_DEBUG_NIGHTMARE_WAKE.equals(intent.getAction())) {
+            prefs.setFirstLaunchDone();
+            prefs.recordLiveVoiceState("urgent_wakeup", "debug_nightmare_wake", "urgent_wakeup");
+            startActivity(alarmDrillIntent("疑似噩梦和明显挣扎声音"));
+            finish();
+            return true;
+        }
+        if (ACTION_DEBUG_VOICE_TEXT.equals(intent.getAction())) {
+            prefs.setFirstLaunchDone();
+            String heard = intent.getStringExtra("debug_voice_text");
+            if (heard == null || heard.trim().length() == 0) {
+                heard = "I woke up twice last night and feel dizzy today. Please comfort me.";
+            }
+            prefs.recordLiveVoiceState("heard", "debug_voice_text", heard);
+            if (content == null) {
+                showShell("assistant");
+            }
+            String finalHeard = heard;
+            content.postDelayed(() -> {
+                realtimeVoiceEnabled = true;
+                stopAssistantSpeech();
+                handleRealtimeVoiceText(finalHeard);
+            }, 700);
+            return true;
+        }
+        if (ACTION_DEBUG_SLEEP_CHECK.equals(intent.getAction())) {
+            prefs.setFirstLaunchDone();
+            showShell("assistant");
+            content.postDelayed(() -> {
+                realtimeVoiceEnabled = true;
+                stopAssistantSpeech();
+                pendingSleepContinuationText = "调试：我继续陪您，轻轻讲故事或者放雨声都可以。";
+                lastCompanionActiveAtMs = System.currentTimeMillis() - 60L * 1000L;
+                maybeAskIfUserAsleep();
+            }, 500);
+            return true;
+        }
+        if (ACTION_DEBUG_SLEEP_CHECK_TIMEOUT.equals(intent.getAction())) {
+            prefs.setFirstLaunchDone();
+            showShell("assistant");
+            content.postDelayed(() -> {
+                realtimeVoiceEnabled = true;
+                stopAssistantSpeech();
+                pendingSleepContinuationText = "调试：如果没听到回应，就转入睡眠守护。";
+                lastCompanionActiveAtMs = System.currentTimeMillis() - 60L * 1000L;
+                if (maybeAskIfUserAsleep()) {
+                    content.postDelayed(() -> {
+                        if (sleepCheckPending) {
+                            enterSleepGuardFromCompanion(false);
+                        }
+                    }, 1200L);
+                }
+            }, 500);
+            return true;
+        }
+        if (ACTION_DEBUG_LIVE_ABORT.equals(intent.getAction())) {
+            prefs.setFirstLaunchDone();
+            realtimeVoiceEnabled = true;
+            if (content == null) {
+                showShell("assistant");
+            }
+            prefs.recordLiveAbortState("debug_intent", false, "debug_live_abort");
+            interruptForUserSpeech();
+            prefs.recordLiveVoiceState("interrupting", "debug_live_abort", "好，我先不说了，继续听您讲。");
+            updateVoiceStatus("好，我先不说了，继续听您讲。");
+            return true;
+        }
+        if (ACTION_DEBUG_LIVE_BARGE_IN.equals(intent.getAction())) {
+            prefs.setFirstLaunchDone();
+            realtimeVoiceEnabled = true;
+            if (content == null) {
+                showShell("assistant");
+            }
+            prefs.recordLiveVoiceState("barge_in_test", "debug_live_barge_in", "模拟用户自然插话。");
+            if (content != null) {
+                content.postDelayed(this::debugFeedAutoBargeInFrames, 260);
+            } else {
+                debugFeedAutoBargeInFrames();
+            }
+            return true;
+        }
+        if (ACTION_DEBUG_CAMERA_GLANCE.equals(intent.getAction())) {
+            prefs.setFirstLaunchDone();
+            if (content == null) {
+                showShell("assistant");
+            }
+            content.postDelayed(() -> {
+                if (!hasPermission(Manifest.permission.CAMERA)) {
+                    Toast.makeText(this, "调试抓拍需要摄像头权限", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                showCompanionVoiceWaiting("我看一眼，您别急。");
+                updateLiveStageStatus("我认真看一眼", "seeing");
+                startVisionFrameCapture("debug_camera_glance", true, false, false, "调试验收摄像头是否能打开并返回图像。");
+            }, 350);
             return true;
         }
         return false;
@@ -193,6 +473,27 @@ public class MainActivity extends Activity {
         return intent != null && intent.getBooleanExtra("open_morning_care", false);
     }
 
+    private boolean shouldOpenServerMessages(Intent intent) {
+        return intent != null && (intent.hasExtra("open_server_messages") || ACTION_OPEN_SERVER_MESSAGES.equals(intent.getAction()));
+    }
+
+    private boolean shouldOpenCompanion(Intent intent) {
+        return intent != null && ACTION_OPEN_COMPANION.equals(intent.getAction());
+    }
+
+    private void openCompanionFromIntent() {
+        prefs.setFirstLaunchDone();
+        CareReminderScheduler.ensureCareReminders(this);
+        showShell("assistant");
+    }
+
+    private void openServerMessagesFromIntent() {
+        prefs.setFirstLaunchDone();
+        CareReminderScheduler.ensureCareReminders(this);
+        showShell("assistant");
+        content.postDelayed(this::fetchServerMessagesForReading, 700);
+    }
+
     private void showOnboarding() {
         ScrollView scroll = new ScrollView(this);
         LinearLayout box = new LinearLayout(this);
@@ -204,7 +505,7 @@ public class MainActivity extends Activity {
         ImageView logo = designImage("ui_brand_logo", 250, ImageView.ScaleType.FIT_CENTER);
         box.addView(logo, imageLp(250));
 
-        TextView title = Theme.text(this, "狗熊睡眠", 34, Theme.TEXT, Typeface.BOLD);
+        TextView title = Theme.text(this, "睡了么", 34, Theme.TEXT, Typeface.BOLD);
         title.setGravity(Gravity.CENTER);
         box.addView(title, matchWrap());
         addSpace(box, 8);
@@ -216,6 +517,7 @@ public class MainActivity extends Activity {
         Button direct = Theme.button(this, "直接开始", Theme.BLUE);
         direct.setOnClickListener(v -> {
             prefs.setFirstLaunchDone();
+            CareReminderScheduler.ensureCareReminders(this);
             showShell("guard");
             requestEssentialPermissions();
         });
@@ -278,6 +580,7 @@ public class MainActivity extends Activity {
 
     private void finishSimpleSetup(boolean emergency) {
         prefs.setFirstLaunchDone();
+        CareReminderScheduler.ensureCareReminders(this);
         showShell("guard");
         requestEssentialPermissions();
         if (emergency) {
@@ -309,25 +612,25 @@ public class MainActivity extends Activity {
         ScrollView scroll = new ScrollView(this);
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(Theme.dp(this, 20), safeTopPadding(20), Theme.dp(this, 20), Theme.dp(this, 8));
+        content.setPadding(Theme.dp(this, 18), safeTopPadding(16), Theme.dp(this, 18), Theme.dp(this, 8));
         scroll.addView(content);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
 
         LinearLayout nav = new LinearLayout(this);
         navBar = nav;
         nav.setGravity(Gravity.CENTER);
-        nav.setPadding(Theme.dp(this, 14), Theme.dp(this, 10), Theme.dp(this, 14), Theme.dp(this, 14));
+        nav.setPadding(Theme.dp(this, 12), Theme.dp(this, 7), Theme.dp(this, 12), Theme.dp(this, 9));
         nav.setBackground(Theme.navBar(this));
-        addNav(nav, "守护", () -> showShell("guard"), tab.equals("guard"));
-        addNav(nav, "早安", () -> showShell("morning"), tab.equals("morning"));
-        addNav(nav, "我的", () -> showShell("settings"), tab.equals("settings"));
+        addNav(nav, "睡眠守护", () -> showShell("guard"), tab.equals("guard"));
+        addNav(nav, "小助理", () -> showShell("assistant"), tab.equals("assistant") || tab.equals("morning"));
+        addNav(nav, "设置", () -> showShell("settings"), tab.equals("settings"));
         root.addView(nav, new LinearLayout.LayoutParams(-1, -2));
 
         setContentView(root);
         if ("records".equals(tab)) {
             showRecords();
-        } else if ("morning".equals(tab)) {
-            showMorningCare();
+        } else if ("assistant".equals(tab) || "morning".equals(tab)) {
+            showCompanionChat();
         } else if ("settings".equals(tab)) {
             showSettings();
         } else {
@@ -338,12 +641,13 @@ public class MainActivity extends Activity {
     private void showHome() {
         content.removeAllViews();
         boolean monitoring = prefs.isMonitoring();
-        addHomeHero(monitoring);
-        addStatusPill(monitoring ? "守护进行中" : "守护已就绪", Theme.GREEN);
+        int integrity = guardIntegrityScore();
+        addHomeHero(monitoring, integrity);
+        addSleepDashboardCard(monitoring);
 
         Button primary = Theme.button(this, monitoring ? "停止守护" : "▶  开始守护", monitoring ? Theme.RED : Theme.BLUE);
-        primary.setTextSize(26);
-        primary.setMinHeight(Theme.dp(this, 86));
+        primary.setTextSize(28);
+        primary.setMinHeight(Theme.dp(this, 82));
         primary.setOnClickListener(v -> {
             if (prefs.isMonitoring()) {
                 stopMonitoring();
@@ -352,57 +656,574 @@ public class MainActivity extends Activity {
             }
         });
         content.addView(primary, matchWrap());
-        addSpace(content, 14);
-        addReadinessChips();
-        addSpace(content, 14);
-        addHomeTileGrid();
         addSpace(content, 12);
-        addAssistantHero("我的小助手", CompanionAssistant.homeLine(prefs.companionRole(), monitoring), true);
-        addSpace(content, 8);
-
-        addSectionTitle("睡眠情况", "详细记录和可信度放在这里，不打扰开始守护。");
-        addCard("今晚检查", checkText(), guardIntegrityScore() >= 80 ? Theme.GREEN : Theme.ORANGE);
-        addCard("昨晚摘要", db.localReportText(), Theme.BLUE);
-        addCard("守护完整性", guardIntegrityText(), guardIntegrityScore() >= 80 ? Theme.GREEN : Theme.ORANGE);
-        addCard("检测可信度", detectionConfidenceText(), Theme.ORANGE);
+        addHomeTileGrid();
     }
 
-    private void addHomeHero(boolean monitoring) {
+    private void addHomeHero(boolean monitoring, int integrity) {
         LinearLayout hero = cardContainer();
         hero.setGravity(Gravity.CENTER_HORIZONTAL);
+        hero.setPadding(Theme.dp(this, 14), Theme.dp(this, 14), Theme.dp(this, 14), Theme.dp(this, 16));
         hero.setBackground(Theme.tintedCard(this, Theme.BLUE));
-        ImageView logo = designImage("ui_brand_logo", 170, ImageView.ScaleType.FIT_CENTER);
-        logo.setContentDescription("狗熊睡眠");
-        hero.addView(logo, new LinearLayout.LayoutParams(-1, Theme.dp(this, 170)));
+        ImageView scene = designImage("ui_sleep_scene_v2", 205, ImageView.ScaleType.CENTER_CROP);
+        scene.setContentDescription("睡了么守护场景");
+        hero.addView(scene, new LinearLayout.LayoutParams(-1, Theme.dp(this, 205)));
         addSpace(hero, 8);
-        TextView title = Theme.text(this, monitoring ? "正在静静守着" : "今晚安心入睡", 28, Theme.TEXT, Typeface.BOLD);
+        TextView title = Theme.text(this, monitoring ? "睡眠守护中" : "睡眠守护", 34, Theme.TEXT, Typeface.BOLD);
         title.setGravity(Gravity.CENTER);
         hero.addView(title, matchWrap());
         addSpace(hero, 4);
-        TextView subtitle = Theme.text(this, monitoring ? "没有异常时保持安静，有风险时再温和干预。" : "不用注册、不收费，打开就能守护。", 18, Theme.MUTED, Typeface.NORMAL);
+        TextView subtitle = Theme.text(this, monitoring ? "没有异常时保持安静，有风险时再温和干预。" : "安静守护 · 异常唤醒 · 睡眠记录", 18, Theme.MUTED, Typeface.NORMAL);
         subtitle.setGravity(Gravity.CENTER);
         hero.addView(subtitle, matchWrap());
+        addSpace(hero, 10);
+        addHomeReadyBadge(hero, monitoring, integrity);
         content.addView(hero, matchWrap());
-        addSpace(content, 14);
+        addSpace(content, 12);
+    }
+
+    private void addHomeReadyBadge(LinearLayout hero, boolean monitoring, int integrity) {
+        int color = integrity >= 80 ? Theme.GREEN : Theme.ORANGE;
+        LinearLayout badge = new LinearLayout(this);
+        badge.setGravity(Gravity.CENTER);
+        badge.setPadding(Theme.dp(this, 16), Theme.dp(this, 10), Theme.dp(this, 16), Theme.dp(this, 10));
+        badge.setBackground(Theme.rounded(Theme.mix(color, Theme.WARM_WHITE, 0.88f), 28, this));
+        String state = monitoring ? "守护进行中" : (integrity >= 80 ? "守护已就绪" : "先补齐守护");
+        TextView label = Theme.text(this, "✓  " + state + " · 完整性 " + integrity + " 分", 21, Theme.darken(color, 0.28f), Typeface.BOLD);
+        label.setGravity(Gravity.CENTER);
+        badge.addView(label, matchWrap());
+        hero.addView(badge, matchWrap());
     }
 
     private void addReadinessChips() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        addMiniChip(row, "麦克风", hasPermission(Manifest.permission.RECORD_AUDIO), Theme.GREEN, () -> requestEssentialPermissions());
-        addMiniChip(row, "音量/蓝牙", true, Theme.BLUE, () -> startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS)));
-        addMiniChip(row, "联系人", prefs.emergencyEnabled(), Theme.ORANGE, this::showEmergencyDialog);
+        addMiniChip(row, hasPermission(Manifest.permission.RECORD_AUDIO) ? "安心守护" : "开麦克风", hasPermission(Manifest.permission.RECORD_AUDIO), Theme.GREEN, () -> requestEssentialPermissions());
+        addMiniChip(row, prefs.emergencyEnabled() ? "家人已设" : "设家人电话", prefs.emergencyEnabled(), Theme.ORANGE, this::showEmergencyDialog);
         content.addView(row, matchWrap());
     }
 
     private void addMiniChip(LinearLayout row, String label, boolean ok, int color, Runnable action) {
         Button chip = Theme.softButton(this, (ok ? "✓ " : "! ") + label, ok ? color : Theme.ORANGE);
-        chip.setTextSize(16);
-        chip.setMinHeight(Theme.dp(this, 54));
+        chip.setTextSize(18);
+        chip.setMinHeight(Theme.dp(this, 64));
         chip.setOnClickListener(v -> action.run());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
         lp.setMargins(Theme.dp(this, 3), 0, Theme.dp(this, 3), 0);
         row.addView(chip, lp);
+    }
+
+    private void addSleepDashboardCard(boolean monitoring) {
+        SleepDashboardData data = buildSleepDashboardData();
+        LinearLayout card = cardContainer();
+        card.setPadding(Theme.dp(this, 16), Theme.dp(this, 14), Theme.dp(this, 16), Theme.dp(this, 14));
+        card.setBackground(Theme.tintedCard(this, monitoring ? Theme.BLUE : Theme.GREEN));
+        card.setOnClickListener(v -> showSleepReport());
+
+        TextView title = Theme.text(this, monitoring ? "实时守护波形" : "昨晚守护记录", 24, Theme.TEXT, Typeface.BOLD);
+        title.setGravity(Gravity.CENTER);
+        card.addView(title, matchWrap());
+        addSpace(card, 4);
+
+        TextView subtitle = Theme.text(this, monitoring ? "正在静音守护，只在异常时出声。" : data.trendLine, 16, Theme.MUTED, Typeface.NORMAL);
+        subtitle.setGravity(Gravity.CENTER);
+        card.addView(subtitle, matchWrap());
+        addSpace(card, 8);
+
+        SleepWaveformView wave = new SleepWaveformView(this);
+        wave.setDashboardData(data, monitoring);
+        card.addView(wave, new LinearLayout.LayoutParams(-1, Theme.dp(this, 78)));
+        addSpace(card, 10);
+
+        LinearLayout row1 = new LinearLayout(this);
+        row1.setOrientation(LinearLayout.HORIZONTAL);
+        addSleepMetric(row1, "熟睡粗估", sleepDurationText(data.estimatedDeepSleepMinutes), Theme.GREEN);
+        addSleepMetric(row1, "异常", data.eventCount + " 次", data.highRiskCount > 0 ? Theme.RED : Theme.ORANGE);
+        card.addView(row1, matchWrap());
+        addSpace(card, 8);
+
+        LinearLayout row2 = new LinearLayout(this);
+        row2.setOrientation(LinearLayout.HORIZONTAL);
+        addSleepMetric(row2, "起夜", data.nocturiaCount + " 次", Theme.BLUE);
+        addSleepMetric(row2, "录音/设备记录", data.audioClipCount + "/" + data.deviceReadingCount, Theme.ORANGE);
+        card.addView(row2, matchWrap());
+        addSpace(card, 10);
+
+        Button report = Theme.softButton(this, "查看睡眠报告", Theme.BLUE);
+        report.setTextSize(18);
+        report.setMinHeight(Theme.dp(this, 54));
+        report.setOnClickListener(v -> showSleepReport());
+        card.addView(report, matchWrap());
+
+        content.addView(card, matchWrap());
+        addSpace(content, 12);
+    }
+
+    private void addSleepMetric(LinearLayout row, String label, String value, int color) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER);
+        box.setPadding(Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8));
+        box.setBackground(Theme.rounded(Theme.mix(color, Theme.WARM_WHITE, 0.88f), 22, this));
+        TextView top = Theme.text(this, label, 15, Theme.MUTED, Typeface.NORMAL);
+        top.setGravity(Gravity.CENTER);
+        box.addView(top, matchWrap());
+        TextView bottom = Theme.text(this, value, 22, Theme.darken(color, 0.28f), Typeface.BOLD);
+        bottom.setGravity(Gravity.CENTER);
+        box.addView(bottom, matchWrap());
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
+        lp.setMargins(Theme.dp(this, 4), 0, Theme.dp(this, 4), 0);
+        row.addView(box, lp);
+    }
+
+    private SleepDashboardData buildSleepDashboardData() {
+        SleepDashboardData data = new SleepDashboardData();
+        data.since = lastNightStartMillis();
+        data.sessionStart = db.latestSummaryStartSince(data.since);
+        data.sessionEnd = db.latestSummaryEndSince(data.since);
+        data.autoCancelCount = db.latestSummaryAutoCancelSince(data.since);
+        data.deviceReadingCount = db.countDeviceReadingsSince(data.since);
+        data.waveformSampleCount = db.countSignalSamplesSince(data.since);
+        data.waveformLevels = toSignalArray(db.getRecentSignalLevelsSince(data.since, 36));
+
+        List<SleepEvent> events = db.getRecentEvents(80);
+        for (SleepEvent event : events) {
+            if (event.timestamp < data.since) {
+                continue;
+            }
+            if (!isFormalSleepEvent(event)) {
+                data.hiddenSimulationCount++;
+                continue;
+            }
+            data.eventCount++;
+            if ("high".equals(event.risk)) {
+                data.highRiskCount++;
+            } else if ("medium".equals(event.risk)) {
+                data.mediumRiskCount++;
+            }
+            if (event.audioPath != null && event.audioPath.length() > 0) {
+                data.audioClipCount++;
+            }
+            if (isNocturiaEvent(event)) {
+                data.nocturiaCount++;
+            }
+        }
+
+        if (data.sessionStart > 0 && data.sessionEnd > data.sessionStart) {
+            data.totalSleepMinutes = (int) Math.max(0L, (data.sessionEnd - data.sessionStart) / 60000L);
+        } else if (prefs.isMonitoring()) {
+            long estimatedStart = Math.max(data.since, System.currentTimeMillis() - 8L * 60L * 60L * 1000L);
+            data.sessionStart = estimatedStart;
+            data.sessionEnd = System.currentTimeMillis();
+            data.totalSleepMinutes = (int) Math.max(0L, (data.sessionEnd - data.sessionStart) / 60000L);
+        }
+
+        int disruptionMinutes = data.eventCount * 8 + data.nocturiaCount * 15 + data.highRiskCount * 20;
+        int stableMinutes = Math.max(0, data.totalSleepMinutes - disruptionMinutes);
+        data.estimatedDeepSleepMinutes = data.totalSleepMinutes <= 0 ? 0 : Math.max(0, Math.round(stableMinutes * 0.58f));
+
+        if (data.totalSleepMinutes <= 0 && data.eventCount == 0) {
+            data.qualityLabel = "待记录";
+            data.trendLine = data.waveformSampleCount > 0 ? "已采集真实波形，今晚结束后生成复盘。" : "今晚守护后，明早生成守护复盘。";
+        } else if (data.highRiskCount > 0) {
+            data.qualityLabel = "需复盘";
+            data.trendLine = "有 " + data.highRiskCount + " 次高风险提醒，建议点报告听录音复盘。";
+        } else if (data.eventCount > 0) {
+            data.qualityLabel = "有波动";
+            data.trendLine = "昨晚记录 " + data.eventCount + " 次疑似波动，可查看证据。";
+        } else {
+            data.qualityLabel = "较平稳";
+            data.trendLine = "昨晚记录较平稳，继续保持睡前准备。";
+        }
+        data.evidenceGrade = evidenceGradeFor(data);
+        data.evidenceLine = evidenceLineFor(data);
+        return data;
+    }
+
+    private boolean isFormalSleepEvent(SleepEvent event) {
+        return !"simulation".equals(event.evidenceLevel) && !"manual_test".equals(event.evidenceLevel);
+    }
+
+    private int[] toSignalArray(List<Integer> levels) {
+        if (levels == null || levels.isEmpty()) {
+            return new int[0];
+        }
+        int[] values = new int[levels.size()];
+        for (int i = 0; i < levels.size(); i++) {
+            values[i] = Math.max(0, Math.min(100, levels.get(i)));
+        }
+        return values;
+    }
+
+    private String evidenceGradeFor(SleepDashboardData data) {
+        if (data.waveformSampleCount <= 0) {
+            return "待采样";
+        }
+        if (data.audioClipCount > 0 && data.deviceReadingCount > 0) {
+            return "较强";
+        }
+        if (data.audioClipCount > 0 || data.deviceReadingCount > 0) {
+            return "中等";
+        }
+        return "手机基础";
+    }
+
+    private String evidenceLineFor(SleepDashboardData data) {
+        StringBuilder b = new StringBuilder();
+        b.append("证据等级：").append(data.evidenceGrade).append("。");
+        if (data.waveformSampleCount > 0) {
+            b.append("本页波形来自守护服务真实采样，共 ").append(data.waveformSampleCount).append(" 个声音/动作采样点。");
+        } else {
+            b.append("还没有真实采样点，不画假波形；开始守护后每 3 秒记录一次声音和动作摘要。");
+        }
+        if (data.audioClipCount > 0) {
+            b.append(" 有 ").append(data.audioClipCount).append(" 条异常录音可复盘。");
+        }
+        if (data.deviceReadingCount > 0) {
+            b.append(" 有 ").append(data.deviceReadingCount).append(" 条手动或外部设备记录。");
+        } else {
+            b.append(" 暂未自动接入手表、血氧仪或 Health Connect。");
+        }
+        if (data.hiddenSimulationCount > 0) {
+            b.append(" 已隐藏 ").append(data.hiddenSimulationCount).append(" 条演练记录，未计入正式报告。");
+        }
+        return b.toString();
+    }
+
+    private boolean isNocturiaEvent(SleepEvent event) {
+        String text = (event.type + " " + event.action + " " + event.basis).toLowerCase(Locale.ROOT);
+        return containsAny(text, "起夜", "夜尿", "厕所", "尿", "下床", "起床", "走动", "离床", "夜醒");
+    }
+
+    private long lastNightStartMillis() {
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, 18);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        if (System.currentTimeMillis() < calendar.getTimeInMillis()) {
+            calendar.add(Calendar.DAY_OF_YEAR, -1);
+        }
+        return calendar.getTimeInMillis();
+    }
+
+    private String sleepDurationText(int minutes) {
+        if (minutes <= 0) {
+            return "待生成";
+        }
+        int hours = minutes / 60;
+        int rest = minutes % 60;
+        if (hours <= 0) {
+            return rest + "分";
+        }
+        if (rest == 0) {
+            return hours + "小时";
+        }
+        return hours + "小时" + rest + "分";
+    }
+
+    private void showSleepReport() {
+        content.removeAllViews();
+        SleepDashboardData data = buildSleepDashboardData();
+        content.addView(Theme.text(this, "睡眠守护报告", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 6);
+        content.addView(Theme.text(this, "本页是手机守护记录复盘，不做医学诊断，也不是专业睡眠分期。", 18, Theme.MUTED, Typeface.NORMAL), matchWrap());
+        addSpace(content, 12);
+
+        LinearLayout summary = cardContainer();
+        summary.setBackground(Theme.tintedCard(this, data.highRiskCount > 0 ? Theme.RED : Theme.BLUE));
+        TextView quality = Theme.text(this, data.qualityLabel, 28, data.highRiskCount > 0 ? Theme.RED : Theme.BLUE, Typeface.BOLD);
+        quality.setGravity(Gravity.CENTER);
+        summary.addView(quality, matchWrap());
+        addSpace(summary, 8);
+        SleepWaveformView wave = new SleepWaveformView(this);
+        wave.setDashboardData(data, false);
+        summary.addView(wave, new LinearLayout.LayoutParams(-1, Theme.dp(this, 96)));
+        addSpace(summary, 12);
+
+        LinearLayout row1 = new LinearLayout(this);
+        row1.setOrientation(LinearLayout.HORIZONTAL);
+        addSleepMetric(row1, "睡眠时长", sleepDurationText(data.totalSleepMinutes), Theme.BLUE);
+        addSleepMetric(row1, "熟睡粗估", sleepDurationText(data.estimatedDeepSleepMinutes), Theme.GREEN);
+        summary.addView(row1, matchWrap());
+        addSpace(summary, 8);
+
+        LinearLayout row2 = new LinearLayout(this);
+        row2.setOrientation(LinearLayout.HORIZONTAL);
+        addSleepMetric(row2, "异常", data.eventCount + " 次", data.highRiskCount > 0 ? Theme.RED : Theme.ORANGE);
+        addSleepMetric(row2, "起夜", data.nocturiaCount + " 次", Theme.BLUE);
+        summary.addView(row2, matchWrap());
+        addSpace(summary, 8);
+
+        LinearLayout row3 = new LinearLayout(this);
+        row3.setOrientation(LinearLayout.HORIZONTAL);
+        addSleepMetric(row3, "自动取消", data.autoCancelCount + " 次", Theme.GREEN);
+        addSleepMetric(row3, "录音/设备记录", data.audioClipCount + "/" + data.deviceReadingCount, Theme.ORANGE);
+        summary.addView(row3, matchWrap());
+        addSpace(summary, 8);
+
+        LinearLayout row4 = new LinearLayout(this);
+        row4.setOrientation(LinearLayout.HORIZONTAL);
+        addSleepMetric(row4, "真实波形", data.waveformSampleCount + " 点", data.waveformSampleCount > 0 ? Theme.GREEN : Theme.ORANGE);
+        addSleepMetric(row4, "证据等级", data.evidenceGrade, Theme.BLUE);
+        summary.addView(row4, matchWrap());
+        content.addView(summary, matchWrap());
+        addSpace(content, 12);
+
+        addCard("证据可信度", data.evidenceLine, data.waveformSampleCount > 0 ? Theme.GREEN : Theme.ORANGE);
+        addCard("综合分析", sleepReportAnalysis(data), data.highRiskCount > 0 ? Theme.RED : Theme.GREEN);
+        addSleepReportAssistantButton(data);
+        addSleepEvidenceSection(data);
+        addSleepDeviceSection(data);
+        addSettingButton("返回睡眠守护", () -> showShell("guard"));
+    }
+
+    private void addSleepReportAssistantButton(SleepDashboardData data) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+
+        Button read = Theme.button(this, "读报告", CompanionAssistant.roleColor(prefs.companionRole()));
+        read.setTextSize(20);
+        read.setMinHeight(Theme.dp(this, 62));
+        read.setOnClickListener(v -> showCompanionVoiceReply("睡眠报告", sleepReportVoiceText(data)));
+        LinearLayout.LayoutParams readLp = new LinearLayout.LayoutParams(0, -2, 1);
+        readLp.setMargins(0, 0, Theme.dp(this, 6), 0);
+        row.addView(read, readLp);
+
+        Button ai = Theme.button(this, "AI分析声波", Theme.BLUE);
+        ai.setTextSize(20);
+        ai.setMinHeight(Theme.dp(this, 62));
+        ai.setOnClickListener(v -> askAssistantSleepAudioAnalysis(data));
+        LinearLayout.LayoutParams aiLp = new LinearLayout.LayoutParams(0, -2, 1);
+        aiLp.setMargins(Theme.dp(this, 6), 0, 0, 0);
+        row.addView(ai, aiLp);
+
+        content.addView(row, matchWrap());
+        addSpace(content, 12);
+    }
+
+    private void askAssistantSleepAudioAnalysis(SleepDashboardData data) {
+        if (!prefs.serverRegistered()) {
+            showCompanionVoiceReply("先登录一下",
+                    prefs.ownerAddress() + "，声波分析要连到服务端阿里多模态模型。先用手机号登录，模型 Key 不会放进 App。");
+            return;
+        }
+        showCompanionVoiceWaiting(prefs.ownerAddress() + "，您别急，我正在结合昨晚波形、异常记录和设备摘要想一想。");
+        new Thread(() -> {
+            try {
+                String audioBase64 = sleepEvidenceAudioBase64(data);
+                String answer = ServerApiClient.audio(
+                        prefs.serverBaseUrl(),
+                        prefs.serverAuthToken(),
+                        deepSeekSystemPrompt(),
+                        sleepAudioAnalysisPrompt(data),
+                        "sleep_waveform_summary",
+                        sleepWaveformModelSummary(data),
+                        audioBase64,
+                        "wav",
+                        prefs.deepSeekModel());
+                maybeSyncCompanionInsight("睡眠声波分析：\n" + answer, "sleep_audio");
+                runOnUiThread(() -> showCompanionVoiceReply("声波分析", answer + "\n\n说明：这是生活提醒，不是医学诊断。"));
+            } catch (Exception ex) {
+                runOnUiThread(() -> showCompanionVoiceReply("声波分析没连上",
+                        "这次声波分析没成功：" + ex.getMessage()
+                                + "\n\n本机守护、强唤醒和紧急联系人仍会继续工作。"));
+            }
+        }, "GouXiongSleepAudioAnalysis").start();
+    }
+
+    private String sleepEvidenceAudioBase64(SleepDashboardData data) {
+        File file = firstFormalEvidenceAudioFile(data);
+        if (file == null || !file.exists() || file.length() <= 0 || file.length() > AUDIO_ANALYSIS_MAX_BYTES) {
+            return "";
+        }
+        byte[] bytes = readLimitedFile(file, AUDIO_ANALYSIS_MAX_BYTES);
+        if (bytes.length == 0) return "";
+        return Base64.encodeToString(bytes, Base64.NO_WRAP);
+    }
+
+    private File firstFormalEvidenceAudioFile(SleepDashboardData data) {
+        List<SleepEvent> events = db.getRecentEvents(24);
+        File fallback = null;
+        for (SleepEvent event : events) {
+            if (event.timestamp < data.since || !isFormalSleepEvent(event) || event.audioPath == null || event.audioPath.length() == 0) {
+                continue;
+            }
+            File file = new File(event.audioPath);
+            if (!file.exists() || file.length() <= 0 || file.length() > AUDIO_ANALYSIS_MAX_BYTES) {
+                continue;
+            }
+            if ("high".equals(event.risk)) {
+                return file;
+            }
+            if (fallback == null) {
+                fallback = file;
+            }
+        }
+        return fallback;
+    }
+
+    private byte[] readLimitedFile(File file, int maxBytes) {
+        if (file == null || !file.exists() || file.length() <= 0 || file.length() > maxBytes) {
+            return new byte[0];
+        }
+        ByteArrayOutputStream out = new ByteArrayOutputStream((int) file.length());
+        byte[] buffer = new byte[8192];
+        int total = 0;
+        try (FileInputStream in = new FileInputStream(file)) {
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                total += read;
+                if (total > maxBytes) return new byte[0];
+                out.write(buffer, 0, read);
+            }
+            return out.toByteArray();
+        } catch (IOException ex) {
+            return new byte[0];
+        }
+    }
+
+    private void addSleepEvidenceSection(SleepDashboardData data) {
+        addSectionTitle("异常证据", "只显示真实守护事件；开发者演练记录不计入正式报告。");
+        List<SleepEvent> events = db.getRecentEvents(30);
+        int shown = 0;
+        for (SleepEvent event : events) {
+            if (event.timestamp < data.since) {
+                continue;
+            }
+            if (!isFormalSleepEvent(event)) {
+                continue;
+            }
+            String body = SleepDatabase.formatTime(event.timestamp) + "\n" +
+                    event.risk + " · " + event.action + " · 可信度 " + Math.round(event.confidence * 100) + "%\n" +
+                    event.basis + "\n" +
+                    evidenceText(event) + "\n反馈：" + event.feedback;
+            addEventCard(event, body);
+            shown++;
+            if (shown >= 8) {
+                break;
+            }
+        }
+        if (shown == 0) {
+            addCard("暂无异常记录", "最近一晚没有保存疑似异常事件。没有记录不代表没有健康问题，只说明本机没有捕捉到触发条件。", Theme.GREEN);
+        }
+        if (data.hiddenSimulationCount > 0) {
+            addCard("演练记录已隐藏", data.hiddenSimulationCount + " 条模拟/手动测试记录未计入正式报告，避免误导家人和医生。", Theme.ORANGE);
+        }
+    }
+
+    private void addSleepDeviceSection(SleepDashboardData data) {
+        addSectionTitle("设备记录", "当前只展示手动录入或外部摘要；自动 Health Connect/蓝牙读取未接入。");
+        List<DeviceReading> readings = db.getRecentDeviceReadings(8);
+        int shown = 0;
+        for (DeviceReading reading : readings) {
+            if (reading.timestamp < data.since) {
+                continue;
+            }
+            addCard("设备读数", db.formatDeviceReading(reading), Theme.BLUE);
+            shown++;
+        }
+        if (shown == 0) {
+            addCard("未找到昨晚设备记录", "现在还没有自动接入手表、血氧仪或 Health Connect。可以先手动录入设备摘要；自动读取完成前不会标成“已接入”。", Theme.ORANGE);
+        }
+    }
+
+    private String sleepReportAnalysis(SleepDashboardData data) {
+        StringBuilder b = new StringBuilder();
+        if (data.totalSleepMinutes <= 0 && data.eventCount == 0) {
+            b.append("今晚开始守护后，明早会生成手机采样波形、守护时长、熟睡粗估、异常证据、起夜线索和设备记录摘要。");
+        } else {
+            b.append("本次守护估算睡眠 ").append(sleepDurationText(data.totalSleepMinutes))
+                    .append("，熟睡粗估约 ").append(sleepDurationText(data.estimatedDeepSleepMinutes)).append("。");
+            b.append("\n疑似异常 ").append(data.eventCount).append(" 次");
+            if (data.highRiskCount > 0) {
+                b.append("，其中高风险 ").append(data.highRiskCount).append(" 次");
+            }
+            if (data.mediumRiskCount > 0) {
+                b.append("，中风险 ").append(data.mediumRiskCount).append(" 次");
+            }
+            b.append("；起夜/离床线索 ").append(data.nocturiaCount).append(" 次。");
+            b.append("\n真实波形采样 ").append(data.waveformSampleCount).append(" 点，现场录音 ").append(data.audioClipCount)
+                    .append(" 条，设备记录 ").append(data.deviceReadingCount).append(" 条。");
+        }
+        if (data.highRiskCount > 0) {
+            b.append("\n建议今天让家人一起听录音、看设备读数；如果多晚重复，或伴随憋醒、胸闷、白天困倦，请带记录咨询医生。");
+        } else if (data.eventCount > 0) {
+            b.append("\n建议重点看异常发生时间，睡前少饮水、保持侧睡和规律作息，观察是否连续多晚出现。");
+        } else {
+            b.append("\n建议继续保持固定入睡时间，睡前减少刺激性声音和强光。");
+        }
+        b.append("\n说明：熟睡粗估来自手机传感器和事件记录，不是专业睡眠分期；设备自动接入前，设备记录只作为人工复盘材料。");
+        return b.toString();
+    }
+
+    private String sleepReportVoiceText(SleepDashboardData data) {
+        return prefs.ownerAddress() + "，我给您读一下昨晚睡眠。"
+                + sleepReportAnalysis(data)
+                + "\n我会继续守着您，发现明显不对会叫醒您，也会把记录留下来。";
+    }
+
+    private String sleepAudioAnalysisPrompt(SleepDashboardData data) {
+        return "请分析昨晚手机守护声波/动作摘要，给中老年主人一段能直接朗读的复盘。"
+                + "\n要求：先安抚，再说可能的睡眠波动点，再给今天生活建议；不能诊断疾病，不能说已经确认呼吸暂停。"
+                + "\n如果出现多次高风险、憋醒、胸闷、喘息、持续鼾声或白天困倦，要建议带记录问医生或让家人一起看。"
+                + "\n用户称呼：" + prefs.ownerAddress()
+                + "\n小助手身份：" + prefs.assistantPersonaSummary()
+                + "\n主人档案：\n" + prefs.ownerProfileSummary()
+                + "\n今天状态：\n" + prefs.assistantCheckInSummary()
+                + "\n基础报告：\n" + sleepReportAnalysis(data);
+    }
+
+    private String sleepWaveformModelSummary(SleepDashboardData data) {
+        StringBuilder b = new StringBuilder();
+        b.append("守护时间：").append(sleepDurationText(data.totalSleepMinutes))
+                .append("；熟睡粗估：").append(sleepDurationText(data.estimatedDeepSleepMinutes))
+                .append("；疑似异常：").append(data.eventCount).append(" 次")
+                .append("；高风险：").append(data.highRiskCount).append(" 次")
+                .append("；中风险：").append(data.mediumRiskCount).append(" 次")
+                .append("；起夜/离床线索：").append(data.nocturiaCount).append(" 次")
+                .append("；自动取消：").append(data.autoCancelCount).append(" 次")
+                .append("；现场录音：").append(data.audioClipCount).append(" 条")
+                .append("；设备记录：").append(data.deviceReadingCount).append(" 条")
+                .append("；证据等级：").append(data.evidenceGrade).append("。\n");
+        b.append("手机真实采样统计：\n").append(db.signalSummarySince(data.since, 48)).append("\n");
+        File audioFile = firstFormalEvidenceAudioFile(data);
+        if (audioFile != null) {
+            b.append("随请求附带一段正式异常现场 WAV 录音，大小 ").append(audioFile.length() / 1024).append("KB，用于辅助分析。\n");
+        } else if (data.audioClipCount > 0) {
+            b.append("本晚有录音记录，但没有找到可上传的正式 WAV 片段，或片段超过大小限制。\n");
+        } else {
+            b.append("本次没有可上传现场录音，仅使用波形和事件摘要。\n");
+        }
+        b.append("异常事件摘要：\n").append(sleepEventModelSummary(data));
+        return b.toString();
+    }
+
+    private String sleepEventModelSummary(SleepDashboardData data) {
+        StringBuilder b = new StringBuilder();
+        List<SleepEvent> events = db.getRecentEvents(16);
+        int shown = 0;
+        for (SleepEvent event : events) {
+            if (event.timestamp < data.since || !isFormalSleepEvent(event)) continue;
+            if (shown > 0) b.append("\n");
+            b.append(SleepDatabase.formatTime(event.timestamp))
+                    .append("，风险 ").append(event.risk)
+                    .append("，可信度 ").append(Math.round(event.confidence * 100)).append("%")
+                    .append("，动作：").append(event.action)
+                    .append("，依据：").append(event.basis);
+            if (event.audioSummary != null && event.audioSummary.length() > 0) {
+                b.append("，录音摘要：").append(event.audioSummary);
+            }
+            if (event.motionSummary != null && event.motionSummary.length() > 0) {
+                b.append("，动作摘要：").append(event.motionSummary);
+            }
+            if (event.deviceSummary != null && event.deviceSummary.length() > 0) {
+                b.append("，设备摘要：").append(event.deviceSummary);
+            }
+            shown++;
+        }
+        if (shown == 0) return "昨晚没有正式异常事件。";
+        return b.toString();
     }
 
     private void addSectionTitle(String title, String subtitle) {
@@ -422,7 +1243,7 @@ public class MainActivity extends Activity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
 
-        ImageView avatar = designImage(roleAvatarAssetName(role), 104, ImageView.ScaleType.CENTER_CROP);
+        ImageView avatar = designImage(roleAvatarAssetName(role), 104, ImageView.ScaleType.FIT_CENTER);
         avatar.setContentDescription(role);
         startAssistantMotion(avatar);
         LinearLayout.LayoutParams avatarLp = new LinearLayout.LayoutParams(Theme.dp(this, 104), Theme.dp(this, 104));
@@ -482,12 +1303,8 @@ public class MainActivity extends Activity {
                 return;
             }
             prefs.markAssistantCarePromptedToday();
-            new AlertDialog.Builder(this)
-                    .setTitle(prefs.companionRole() + "关心你")
-                    .setMessage(proactiveCareText())
-                    .setPositiveButton("和我聊聊", (d, w) -> showCompanionChat())
-                    .setNegativeButton("稍后", null)
-                    .show();
+            showShell("assistant");
+            showCompanionVoiceReply(prefs.companionRole() + "关心你", proactiveCareText());
         }, 800);
     }
 
@@ -606,28 +1423,126 @@ public class MainActivity extends Activity {
 
     private void showSettings() {
         content.removeAllViews();
-        content.addView(Theme.text(this, "设置", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
-        addSpace(content, 12);
-        addModeButton("标准模式");
-        addModeButton("安静模式");
-        addModeButton("敏感模式");
-        addSpace(content, 12);
+        content.addView(Theme.text(this, "设置", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        content.addView(Theme.text(this, "所有配置只放在这里，睡眠守护和小助理页不再重复出现。", 19, Theme.MUTED, Typeface.NORMAL), matchWrap());
+        addSpace(content, 14);
 
+        addSettingsCategoryGrid();
         addCard("紧急联系人",
                 prefs.emergencySummary() + "\n" + prefs.emergencyActionSummary(),
                 prefs.emergencyEnabled() ? Theme.GREEN : Theme.ORANGE);
-        addSettingButton("紧急联系人电话/短信", this::showEmergencyDialog);
-        addSettingButton("唤醒声音：亲人录音/本地歌曲", this::showSoundSettings);
-        addSettingButton("异常证据：录音/外部设备", this::showEvidenceSettings);
+    }
+
+    private void addSettingsCategoryGrid() {
+        LinearLayout row1 = new LinearLayout(this);
+        row1.setOrientation(LinearLayout.HORIZONTAL);
+        addSmallTile(row1, "🛡\n守护调校", Theme.BLUE, this::showGuardianSettings);
+        addSmallTile(row1, "☎\n家人电话", prefs.emergencyEnabled() ? Theme.GREEN : Theme.ORANGE, this::showEmergencyDialog);
+        content.addView(row1, matchWrap());
+        addSpace(content, 10);
+
+        LinearLayout row2 = new LinearLayout(this);
+        row2.setOrientation(LinearLayout.HORIZONTAL);
+        addSmallTile(row2, "♪\n唤醒声音", Theme.BLUE, this::showSoundSettings);
+        AudioOutputStatus.Snapshot audio = AudioOutputStatus.inspect(this);
+        addSmallTile(row2, "🔊\n" + (audio.isBluetooth() ? "蓝牙已连" : "蓝牙未连"), audio.isBluetooth() ? Theme.GREEN : Theme.ORANGE, this::showAudioOutputSettings);
+        content.addView(row2, matchWrap());
+        addSpace(content, 10);
+
+        LinearLayout row3 = new LinearLayout(this);
+        row3.setOrientation(LinearLayout.HORIZONTAL);
+        addSmallTile(row3, "▮\n数据管理", Theme.GREEN, this::showDataSettings);
+        addSmallTile(row3, "☁\n账号服务", prefs.serverRegistered() ? Theme.GREEN : Theme.ORANGE, this::showServerAccountSettings);
+        content.addView(row3, matchWrap());
+        addSpace(content, 10);
+
+        LinearLayout row4 = new LinearLayout(this);
+        row4.setOrientation(LinearLayout.HORIZONTAL);
+        addSmallTile(row4, "✓\n必要权限", Theme.ORANGE, this::requestEssentialPermissions);
+        addSmallTile(row4, "♡\n小助手", CompanionAssistant.roleColor(prefs.companionRole()), this::showCompanionSettings);
+        content.addView(row4, matchWrap());
+        addSpace(content, 14);
+    }
+
+    private void showGuardianSettings() {
+        content.removeAllViews();
+        content.addView(Theme.text(this, "守护调校", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        addCard("当前模式", prefs.mode() + "\n" + guardIntegrityText(), guardIntegrityScore() >= 80 ? Theme.GREEN : Theme.ORANGE);
+        addModeButton("标准模式");
+        addModeButton("安静模式");
+        addModeButton("敏感模式");
+        if (isDebuggableBuild()) {
+            addSettingButton("开发者演练测试", this::showDetectionTest);
+        }
+        addSettingButton("关闭电池优化", this::requestIgnoreBatteryOptimization);
+        addSettingButton("异常证据", this::showEvidenceSettings);
+        addSettingButton("返回设置", this::showSettings);
+    }
+
+    private void showCareSettings() {
+        content.removeAllViews();
+        content.addView(Theme.text(this, "晨间关怀", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        addCard("早安提醒", "起床后优先确认喝水和用药，睡眠汇报只保留重点。", Theme.ORANGE);
         addSettingButton("早晨吃药提醒", this::showMedicationDialog);
-        addSettingButton("我的小助手", this::showCompanionSettings);
         addSettingButton("主人档案", this::showOwnerProfileSettings);
-        addSettingButton("睡前自检", this::showPreSleepCheck);
-        addSettingButton("检测测试", this::showDetectionTest);
-        addSettingButton("打开系统蓝牙设置", () -> startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS)));
+        addSettingButton("记录今天状态", this::showAssistantCheckIn);
+        addSettingButton("打开早安页", this::showMorningCare);
+        addSettingButton("返回设置", this::showSettings);
+    }
+
+    private void showDataSettings() {
+        content.removeAllViews();
+        content.addView(Theme.text(this, "记录数据", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        addCard("本地数据", "异常证据、物品记忆和主人档案保存在本机。睡眠记录只在“睡眠守护”页查看。", Theme.GREEN);
         addSettingButton("导出证据摘要", this::shareReport);
         addSettingButton("删除全部本地数据", this::confirmDelete);
         addSettingButton("重新查看引导", this::showOnboarding);
+        addSettingButton("返回设置", this::showSettings);
+    }
+
+    private void addSettingsSafetyButtons() {
+        LinearLayout row1 = new LinearLayout(this);
+        row1.setOrientation(LinearLayout.HORIZONTAL);
+        addSmallTile(row1, "☎\n家人电话", prefs.emergencyEnabled() ? Theme.GREEN : Theme.ORANGE, this::showEmergencyDialog);
+        addSmallTile(row1, "♪\n唤醒声音", Theme.BLUE, this::showSoundSettings);
+        content.addView(row1, matchWrap());
+        addSpace(content, 10);
+
+        LinearLayout row2 = new LinearLayout(this);
+        row2.setOrientation(LinearLayout.HORIZONTAL);
+        AudioOutputStatus.Snapshot audio = AudioOutputStatus.inspect(this);
+        addSmallTile(row2, "🔊\n" + (audio.isBluetooth() ? "蓝牙已连" : "蓝牙未连"), audio.isBluetooth() ? Theme.GREEN : Theme.ORANGE, this::showAudioOutputSettings);
+        addSmallTile(row2, "♡\n小助手", CompanionAssistant.roleColor(prefs.companionRole()), this::showCompanionSettings);
+        content.addView(row2, matchWrap());
+        addSpace(content, 14);
+    }
+
+    private void showAudioOutputSettings() {
+        content.removeAllViews();
+        content.addView(Theme.text(this, "唤醒输出", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        AudioOutputStatus.Snapshot audio = AudioOutputStatus.inspect(this);
+        addCard(audio.isBluetooth() ? "蓝牙音箱已检测" : "蓝牙音箱未检测到",
+                audio.routeLine(),
+                audio.isBluetooth() ? Theme.GREEN : Theme.ORANGE);
+        addSettingButton("播放测试音", this::playAudioOutputTest);
+        addSettingButton("刷新输出检测", this::showAudioOutputSettings);
+        addSettingButton("打开系统蓝牙设置", () -> startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS)));
+        addCard("真实边界", "这里读取的是 Android 当前音频输出路由。App 不负责配对蓝牙设备；连接或断开后请回到本页刷新。强唤醒会跟随系统音频路由，蓝牙断连时回退手机扬声器和震动。", Theme.BLUE);
+        addSettingButton("返回设置", this::showSettings);
+    }
+
+    private void playAudioOutputTest() {
+        try {
+            AudioOutputStatus.playAlarmTestTone();
+            Toast.makeText(this, "已播放闹钟通道测试音", Toast.LENGTH_SHORT).show();
+        } catch (Exception ex) {
+            Toast.makeText(this, "测试音播放失败，请检查系统音量", Toast.LENGTH_LONG).show();
+        }
     }
 
     private void addModeButton(String mode) {
@@ -643,7 +1558,8 @@ public class MainActivity extends Activity {
 
     private void addSettingButton(String text, Runnable action) {
         Button button = Theme.button(this, text, Theme.BLUE);
-        button.setTextSize(20);
+        button.setTextSize(21);
+        button.setMinHeight(Theme.dp(this, 78));
         button.setOnClickListener(v -> action.run());
         content.addView(button, matchWrap());
         addSpace(content, 10);
@@ -721,9 +1637,9 @@ public class MainActivity extends Activity {
             prefs.setSaveAudioClips(!prefs.saveAudioClips());
             showEvidenceSettings();
         });
-        addCard("手表/外部设备数据", prefs.externalDeviceEvidence(), prefs.externalDeviceEnabled() ? Theme.GREEN : Theme.ORANGE);
-        addSettingButton("填写外部设备摘要", this::showExternalDeviceDialog);
-        addSettingButton("添加心率/血氧/呼吸率读数", this::showDeviceReadingDialog);
+        addCard("设备记录状态", externalDeviceTruthText(), prefs.externalDeviceEnabled() ? Theme.ORANGE : Theme.BLUE);
+        addSettingButton("手动填写设备摘要", this::showExternalDeviceDialog);
+        addSettingButton("手动添加心率/血氧/呼吸率", this::showDeviceReadingDialog);
         addCard("最近设备读数", deviceReadingsText(), db.getRecentDeviceReadings(3).isEmpty() ? Theme.ORANGE : Theme.GREEN);
         if (prefs.externalDeviceEnabled()) {
             addSettingButton("清除外部设备摘要", () -> {
@@ -764,6 +1680,18 @@ public class MainActivity extends Activity {
                 })
                 .setNegativeButton("取消", null)
                 .show();
+    }
+
+    private String externalDeviceTruthText() {
+        StringBuilder b = new StringBuilder();
+        b.append("自动读取：未接入。当前 APK 尚未读取 Health Connect、手表、血氧仪或蓝牙设备原始数据。\n");
+        if (prefs.externalDeviceEnabled()) {
+            b.append("手动摘要：").append(prefs.externalDeviceEvidence()).append("\n");
+        } else {
+            b.append("手动摘要：未填写。\n");
+        }
+        b.append("说明：这里的设备记录只用于和异常时间线一起复盘，不能标成自动设备接入。");
+        return b.toString();
     }
 
     private void showDeviceReadingDialog() {
@@ -860,66 +1788,86 @@ public class MainActivity extends Activity {
         addCard("守护状态", preSleepStatusText(), Theme.GREEN);
         addCard("守护完整性", guardIntegrityText(), guardIntegrityScore() >= 80 ? Theme.GREEN : Theme.ORANGE);
         addCard("检测可信度", detectionConfidenceText(), Theme.ORANGE);
+        addCard("唤醒输出", AudioOutputStatus.inspect(this).routeLine(), AudioOutputStatus.inspect(this).isBluetooth() ? Theme.GREEN : Theme.ORANGE);
         addSettingButton("申请必要权限", this::requestEssentialPermissions);
         addSettingButton("关闭电池优化", this::requestIgnoreBatteryOptimization);
         addSettingButton("测试轻提醒震动", this::testGentleReminder);
         addSettingButton("测试强唤醒", () -> startActivity(alarmDrillIntent("睡前自检")));
-        addSettingButton("打开系统蓝牙设置", () -> startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS)));
+        addSettingButton("唤醒输出检测", this::showAudioOutputSettings);
         addSettingButton("返回首页", () -> showShell("guard"));
     }
 
     private void showMorningCare() {
-        content.removeAllViews();
         if (prefs.isMonitoring()) {
             stopMonitoring();
         }
-        addMorningHero();
-        addAssistantHero("早安", CompanionAssistant.morningGreeting(prefs.companionRole()), true);
-        addMorningTiles();
-        addCard("睡眠汇报", db.localReportText() + "\n\n" + guardIntegrityText(), Theme.BLUE);
-        addCard("喝水提醒", CompanionAssistant.waterLine(prefs.companionRole()), Theme.GREEN);
-        if (prefs.medicationEnabled()) {
-            addCard("吃药提醒",
-                    CompanionAssistant.medicationLine(prefs.companionRole(), prefs.medicationName(), prefs.medicationConfirmedToday())
-                            + "\n这不是医疗建议，只提醒你自己设定的事项。",
-                    prefs.medicationConfirmedToday() ? Theme.GREEN : Theme.ORANGE);
-            if (!prefs.medicationConfirmedToday()) {
-                addSettingButton("已吃药", () -> {
-                    prefs.confirmMedicationNow();
-                    Toast.makeText(this, "已记录今天已吃药", Toast.LENGTH_SHORT).show();
-                    showMorningCare();
-                });
-                addSettingButton("稍后再提醒", () -> {
-                    scheduleMedicationReminder(prefs.medicationRepeatMinutes());
-                    Toast.makeText(this, prefs.medicationRepeatMinutes() + " 分钟后再次提醒", Toast.LENGTH_SHORT).show();
-                    showMorningCare();
-                });
-            }
-        } else {
-            addCard("吃药提醒", "尚未设置。需要的话可以在设置里添加早晨用药提醒。", Theme.ORANGE);
+        if (!prefs.serverRegistered()) {
+            showCompanionVoiceReply("晨间简报", morningBriefText());
+            return;
         }
-        addCard("晨练小贴士", CompanionAssistant.exerciseLine(prefs.companionRole()), Theme.GREEN);
-        addCard("生活小贴士", "小助手可结合睡眠、今天状态和主人档案给晨间建议；出门天气仍以手机天气为准。", Theme.BLUE);
-        addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
-        addSettingButton("记录今天状态", this::showAssistantCheckIn);
-        addCard("今天关怀", proactiveCareText(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
-        addCard("小助手边界", CompanionAssistant.chatPrivacy(prefs.companionRole(), prefs.assistantOnlineEnabled()), Theme.ORANGE);
-        addSettingButton("和我聊聊", this::showCompanionChat);
-        addSettingButton("填写主人档案", this::showOwnerProfileSettings);
-        addSettingButton("选择小助手", this::showCompanionSettings);
-        addSettingButton("设置吃药提醒", this::showMedicationDialog);
-        addSettingButton("返回首页", () -> showShell("guard"));
+        showCompanionVoiceWaiting(prefs.ownerAddress() + "，我整理一下昨晚睡眠、喝水和吃药，马上说给您听。");
+        new Thread(() -> {
+            try {
+                String answer = askAssistantModel(deepSeekUserPrompt(
+                        "请你扮演我的小助手，生成今天早上的语音晨间简报。"
+                                + "要有温度，像家人在身边，不要像报表。"
+                                + "请结合昨晚睡眠摘要、用药习惯、身体状况、今天状态，提醒喝水、吃药、必要时建议把睡眠情况跟医生说。"
+                                + "三到五句话，短句，适合直接朗读。"));
+                runOnUiThread(() -> showCompanionVoiceReply("晨间简报", answer));
+            } catch (Exception ex) {
+                runOnUiThread(() -> showCompanionVoiceReply("晨间简报", morningBriefText()));
+            }
+        }, "GouXiongMorningBrief").start();
+    }
+
+    private String morningBriefText() {
+        String owner = prefs.ownerAddress();
+        StringBuilder b = new StringBuilder();
+        b.append(owner).append("，早安。我把昨晚和今天要注意的事整理好了。");
+        b.append("\n\n昨晚睡眠：").append(db.localReportText());
+        if (prefs.medicationEnabled()) {
+            b.append("\n\n吃药：").append(CompanionAssistant.medicationLine(prefs.companionRole(), prefs.medicationName(), prefs.medicationConfirmedToday()));
+        } else {
+            b.append("\n\n吃药：您还没告诉我要提醒什么药。等会儿直接说“帮我记一下每天早上吃什么药”，我会慢慢问清楚。");
+        }
+        b.append("\n\n喝水：白天我会直接叫您喝水，不让您自己找按钮。");
+        if (prefs.healthProfile().length() > 0) {
+            b.append("\n\n身体情况我记着：").append(prefs.healthProfile()).append("。睡眠里反复憋醒、胸闷或明显不舒服时，请跟家人或医生说。");
+        }
+        b.append("\n\n这不是诊断，是我帮您整理的生活提醒。");
+        return b.toString();
+    }
+
+    private void addMorningActionGrid() {
+        addSectionTitle("接下来", null);
+        LinearLayout row1 = new LinearLayout(this);
+        row1.setOrientation(LinearLayout.HORIZONTAL);
+        addSmallTile(row1, "♡\n聊几句", CompanionAssistant.roleColor(prefs.companionRole()), this::showCompanionChat);
+        addSmallTile(row1, "☑\n今天状态", Theme.GREEN, this::showAssistantCheckIn);
+        content.addView(row1, matchWrap());
+        addSpace(content, 10);
+
+        LinearLayout row2 = new LinearLayout(this);
+        row2.setOrientation(LinearLayout.HORIZONTAL);
+        addSmallTile(row2, "💊\n吃药设置", Theme.ORANGE, this::showMedicationDialog);
+        addSmallTile(row2, "▮\n睡眠记录", Theme.BLUE, this::showRecords);
+        content.addView(row2, matchWrap());
+        addSpace(content, 14);
     }
 
     private void addMorningHero() {
         LinearLayout hero = cardContainer();
         hero.setGravity(Gravity.CENTER_HORIZONTAL);
         hero.setBackground(Theme.tintedCard(this, Theme.ORANGE));
-        TextView title = Theme.text(this, "☀  早安护理", 30, Theme.ORANGE, Typeface.BOLD);
+        ImageView scene = designImage("ui_morning_scene_v2", 230, ImageView.ScaleType.CENTER_CROP);
+        scene.setContentDescription("早安护理场景");
+        hero.addView(scene, new LinearLayout.LayoutParams(-1, Theme.dp(this, 230)));
+        addSpace(hero, 8);
+        TextView title = Theme.text(this, "☀  早安护理", 32, Theme.ORANGE, Typeface.BOLD);
         title.setGravity(Gravity.CENTER);
         hero.addView(title, matchWrap());
         addSpace(hero, 8);
-        TextView subtitle = Theme.text(this, "先喝水、确认吃药，再慢慢看昨晚报告。", 18, Theme.MUTED, Typeface.NORMAL);
+        TextView subtitle = Theme.text(this, "先喝水、确认吃药，再慢慢看昨晚报告。", 20, Theme.MUTED, Typeface.NORMAL);
         subtitle.setGravity(Gravity.CENTER);
         hero.addView(subtitle, matchWrap());
         content.addView(hero, matchWrap());
@@ -931,28 +1879,85 @@ public class MainActivity extends Activity {
         content.addView(Theme.text(this, "我的小助手", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
         addAssistantHero("当前角色", CompanionAssistant.styleSummary(prefs.companionRole()), false);
-        addCard("安全说明", "四个小助手只改变头像、语气和陪伴方式。\n检测阈值、强唤醒、电话短信升级规则完全一致。", Theme.BLUE);
-        for (String role : CompanionAssistant.ROLES) {
-            addCompanionChoice(role, CompanionAssistant.styleSummary(role));
-        }
-        addCard("联网陪伴",
-                prefs.assistantOnlineEnabled()
-                        ? "已开启。DeepSeek Key " + (prefs.deepSeekKeyConfigured() ? "已配置" : "未配置") + "。小助手会结合问题、档案摘要、今天状态和睡眠摘要。"
-                        : "已暂停。基础守护仍可用，但聊天和复盘会变简单。",
-                prefs.assistantOnlineEnabled() ? Theme.GREEN : Theme.ORANGE);
-        addCard("小助手身份", prefs.assistantPersonaSummary(), prefs.assistantPersonaConfigured() ? Theme.GREEN : Theme.ORANGE);
-        addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
-        addCard("主人档案", prefs.ownerProfileSummary(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
-        addSettingButton(prefs.assistantPersonaConfigured() ? "打开聊天改称呼" : "打开聊天自动认识", this::showCompanionChat);
-        addSettingButton("记录今天状态", this::showAssistantCheckIn);
-        addSettingButton("填写主人档案", this::showOwnerProfileSettings);
-        addSettingButton(prefs.assistantOnlineEnabled() ? "暂停联网陪伴" : "开启联网陪伴", () -> {
-            prefs.setAssistantOnlineEnabled(!prefs.assistantOnlineEnabled());
+        addCompanionRoleGrid();
+        addSettingButton(prefs.assistantPersonaConfigured() ? "打开聊天" : "打开聊天自动认识", this::showCompanionChat);
+        addCard("我记住了", compactAssistantMemory(), prefs.assistantPersonaConfigured() ? Theme.GREEN : Theme.ORANGE);
+        addSettingButton(prefs.serverRegistered() ? "联网账号已登录" : "手机号登录", this::showServerAccountSettings);
+        addSettingButton("主人档案", this::showOwnerProfileSettings);
+        addSettingButton("返回设置", this::showSettings);
+    }
+
+    private void addCompanionRoleGrid() {
+        addSectionTitle("选择形象", "点一下就换，守护规则不变");
+        LinearLayout row1 = new LinearLayout(this);
+        row1.setOrientation(LinearLayout.HORIZONTAL);
+        addCompanionRoleTile(row1, CompanionAssistant.ROLES[0]);
+        addCompanionRoleTile(row1, CompanionAssistant.ROLES[1]);
+        content.addView(row1, matchWrap());
+        addSpace(content, 10);
+
+        LinearLayout row2 = new LinearLayout(this);
+        row2.setOrientation(LinearLayout.HORIZONTAL);
+        addCompanionRoleTile(row2, CompanionAssistant.ROLES[2]);
+        addCompanionRoleTile(row2, CompanionAssistant.ROLES[3]);
+        content.addView(row2, matchWrap());
+        addSpace(content, 14);
+    }
+
+    private void addCompanionRoleTile(LinearLayout row, String role) {
+        boolean selected = prefs.companionRole().equals(role);
+        int color = selected ? Theme.GREEN : CompanionAssistant.roleColor(role);
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.CENTER);
+        card.setPadding(Theme.dp(this, 8), Theme.dp(this, 10), Theme.dp(this, 8), Theme.dp(this, 10));
+        card.setBackground(Theme.tintedCard(this, color));
+        card.setOnClickListener(v -> {
+            prefs.setCompanionRole(role);
+            Toast.makeText(this, "已选择" + role, Toast.LENGTH_SHORT).show();
             showCompanionSettings();
         });
-        addSettingButton("设置联网 Key / 模型", this::showDeepSeekSettings);
-        addSettingButton("进入小助手聊天", this::showCompanionChat);
-        addSettingButton("返回设置", this::showSettings);
+
+        ImageView avatar = designImage(roleAvatarAssetName(role), 78, ImageView.ScaleType.FIT_CENTER);
+        avatar.setContentDescription(role);
+        LinearLayout.LayoutParams imageLp = new LinearLayout.LayoutParams(-1, Theme.dp(this, 78));
+        imageLp.setMargins(Theme.dp(this, 4), 0, Theme.dp(this, 4), Theme.dp(this, 8));
+        card.addView(avatar, imageLp);
+
+        TextView label = Theme.text(this, role, 19, Theme.darken(color, 0.30f), Typeface.BOLD);
+        label.setGravity(Gravity.CENTER);
+        card.addView(label, matchWrap());
+        if (selected) {
+            TextView selectedText = Theme.text(this, "已选", 16, Theme.GREEN, Typeface.BOLD);
+            selectedText.setGravity(Gravity.CENTER);
+            card.addView(selectedText, matchWrap());
+        }
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
+        lp.setMargins(Theme.dp(this, 4), 0, Theme.dp(this, 4), 0);
+        row.addView(card, lp);
+    }
+
+    private String compactAssistantMemory() {
+        StringBuilder b = new StringBuilder();
+        if (prefs.assistantPersonaConfigured()) {
+            b.append("名字：").append(prefs.assistantName())
+                    .append("；称呼您：").append(prefs.ownerAddress());
+        } else {
+            b.append("第一次聊天时，我会问名字和怎么称呼您。");
+        }
+        if (prefs.assistantCheckInToday()) {
+            b.append("\n今天：").append(prefs.assistantCheckInSummary().replace("\n", "；"));
+        }
+        if (prefs.ownerProfileStarted()) {
+            b.append("\n档案：已开始");
+        }
+        b.append("\n联网：必需");
+        if (prefs.serverRegistered()) {
+            b.append("，手机号已注册；真实模型状态由服务端返回");
+        } else {
+            b.append("，等待手机号注册");
+        }
+        return b.toString();
     }
 
     private void showAssistantCheckIn() {
@@ -972,6 +1977,7 @@ public class MainActivity extends Activity {
 
     private void saveAssistantCheckIn(String mood, String energy, String note) {
         prefs.setAssistantCheckIn(mood, energy, note);
+        maybeSyncCompanionInsight("今天状态：" + mood + "；精力：" + energy + "；补充：" + note, "daily_checkin");
         showCompanionReply("我记下了",
                 CompanionAssistant.checkInReply(prefs.companionRole(), mood, energy, note));
     }
@@ -1109,6 +2115,7 @@ public class MainActivity extends Activity {
     private void saveAssistantPersona(String name, String identity, String ownerAddress) {
         prefs.setAssistantPersona(name, identity, ownerAddress);
         firstMeetingPromptedThisSession = true;
+        syncOwnerProfileQuiet("persona");
         showCompanionVoiceReply("认识好了",
                 CompanionAssistant.firstMeetingDone(prefs.assistantName(), prefs.assistantIdentity(), prefs.ownerAddress()));
     }
@@ -1119,7 +2126,7 @@ public class MainActivity extends Activity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
 
-        ImageView avatar = designImage(roleAssetName(role), 92, ImageView.ScaleType.CENTER_CROP);
+        ImageView avatar = designImage(roleAssetName(role), 92, ImageView.ScaleType.FIT_CENTER);
         LinearLayout.LayoutParams avatarLp = new LinearLayout.LayoutParams(Theme.dp(this, 112), Theme.dp(this, 92));
         avatarLp.setMargins(0, 0, Theme.dp(this, 12), 0);
         row.addView(avatar, avatarLp);
@@ -1128,7 +2135,7 @@ public class MainActivity extends Activity {
         words.setOrientation(LinearLayout.VERTICAL);
         words.addView(Theme.text(this, (prefs.companionRole().equals(role) ? "当前 · " : "") + role, 21, CompanionAssistant.roleColor(role), Typeface.BOLD), matchWrap());
         addSpace(words, 4);
-        words.addView(Theme.text(this, desc + "\n示例：" + CompanionAssistant.sampleLine(role), 17, Theme.MUTED, Typeface.NORMAL), matchWrap());
+        words.addView(Theme.text(this, desc + "\n声音：" + CompanionAssistant.voiceSummary(role), 17, Theme.MUTED, Typeface.NORMAL), matchWrap());
         row.addView(words, new LinearLayout.LayoutParams(0, -2, 1));
         card.addView(row, matchWrap());
         addSpace(card, 10);
@@ -1147,7 +2154,7 @@ public class MainActivity extends Activity {
         Button sample = Theme.button(this, "听一句", CompanionAssistant.roleColor(role));
         sample.setTextSize(18);
         sample.setMinHeight(Theme.dp(this, 52));
-        sample.setOnClickListener(v -> speakAssistantText(CompanionAssistant.sampleLine(role)));
+        sample.setOnClickListener(v -> speakAssistantTextForRole(CompanionAssistant.sampleLine(role), role));
         card.addView(sample, matchWrap());
 
         content.addView(card, matchWrap());
@@ -1280,6 +2287,7 @@ public class MainActivity extends Activity {
         else if (step == 4) hobbies = value;
         else care = value;
         prefs.setOwnerProfile(health, medication, sleep, family, hobbies, care);
+        syncOwnerProfileQuiet("profile_wizard");
         Toast.makeText(this, "已保存" + ownerProfileStepTitle(step), Toast.LENGTH_SHORT).show();
     }
 
@@ -1324,6 +2332,7 @@ public class MainActivity extends Activity {
                             family.getText().toString(),
                             hobbies.getText().toString(),
                             care.getText().toString());
+                    syncOwnerProfileQuiet("profile_edit");
                     Toast.makeText(this, "已保存主人档案", Toast.LENGTH_SHORT).show();
                     showOwnerProfileSettings();
                 })
@@ -1351,56 +2360,135 @@ public class MainActivity extends Activity {
                 ? CompanionAssistant.chatIntro(prefs.companionRole())
                 : CompanionAssistant.firstMeetingIntro(prefs.companionRole());
         addLiveCompanionStage("我在这里，您直接说", opening, "listening");
-        addRealtimeVoicePanel();
-        addLiveMemoryStrip();
-        addLiveCompanionShortcuts();
-        content.postDelayed(() -> {
-            if (pageSerial == voicePageSerial) startRealtimeVoiceChat();
-        }, 350);
-        content.postDelayed(this::maybeStartAutoVisionScan, 500);
+        if (requestRequiredPermissionsForLiveChatIfNeeded()) {
+            return;
+        }
+        if (!prefs.debugCompanionUiTestMode()) {
+            content.postDelayed(() -> {
+                if (pageSerial == voicePageSerial) startRealtimeVoiceChat();
+            }, 350);
+            content.postDelayed(this::maybeStartAutoVisionScan, 500);
+            content.postDelayed(this::fetchServerMessagesForReadingSilently, 900);
+        }
     }
 
     private void hideBottomNavForLiveCompanion() {
         if (navBar != null) {
-            navBar.setVisibility(View.GONE);
+            navBar.setVisibility(View.VISIBLE);
         }
     }
 
     private void addLiveCompanionStage(String status, String speech, String mood) {
         String role = prefs.companionRole();
         String name = assistantDisplayName();
+        boolean videoMode = prefs.assistantVideoChatMode();
+        liveStageMood = mood == null ? "listening" : mood;
+        liveStageStatusLabel = null;
+        liveStageSpeechLabel = null;
+        voiceStatusLabel = null;
+        liveStageAvatar = null;
+        int animationSerial = ++liveStageAnimationSerial;
         LinearLayout stage = cardContainer();
-        stage.setPadding(Theme.dp(this, 18), Theme.dp(this, 18), Theme.dp(this, 18), Theme.dp(this, 18));
+        stage.setPadding(Theme.dp(this, 16), Theme.dp(this, 14), Theme.dp(this, 16), Theme.dp(this, 16));
         stage.setBackground(Theme.tintedCard(this, CompanionAssistant.roleColor(role)));
         stage.setOnClickListener(v -> interruptForUserSpeech());
 
-        TextView nameView = Theme.text(this, name, 30, Theme.TEXT, Typeface.BOLD);
-        nameView.setGravity(Gravity.CENTER);
-        stage.addView(nameView, matchWrap());
-        addSpace(stage, 4);
-        TextView statusView = Theme.text(this, status, 18, CompanionAssistant.roleColor(role), Typeface.BOLD);
-        statusView.setGravity(Gravity.CENTER);
-        stage.addView(statusView, matchWrap());
-        addSpace(stage, 14);
+        addAssistantChatModeSwitch(stage, videoMode, name);
+        addLiveStateDots(stage, CompanionAssistant.roleColor(role), animationSerial);
+        addSpace(stage, 8);
 
-        ImageView avatar = designImage(roleLiveAssetName(role), 238, ImageView.ScaleType.FIT_CENTER);
-        avatar.setContentDescription(name + "，" + liveMoodText(mood));
-        avatar.setOnClickListener(v -> interruptForUserSpeech());
-        startAssistantMotion(avatar);
-        stage.addView(avatar, imageLp(238));
-        addSpace(stage, 16);
+        if (videoMode) {
+            View avatarStage = createLiveAvatarStage(role, name, liveStageMood, animationSerial);
+            stage.addView(avatarStage, imageLp(390));
+            addSpace(stage, 8);
+        } else {
+            liveStageStatusLabel = Theme.text(this, status, 19, CompanionAssistant.roleColor(role), Typeface.BOLD);
+            liveStageStatusLabel.setGravity(Gravity.CENTER);
+            liveStageStatusLabel.setMinHeight(Theme.dp(this, 28));
+            stage.addView(liveStageStatusLabel, matchWrap());
+            addSpace(stage, 8);
 
-        LinearLayout bubble = new LinearLayout(this);
-        bubble.setOrientation(LinearLayout.VERTICAL);
-        bubble.setPadding(Theme.dp(this, 18), Theme.dp(this, 14), Theme.dp(this, 18), Theme.dp(this, 14));
-        bubble.setBackground(Theme.rounded(Theme.mix(CompanionAssistant.roleColor(role), Theme.WARM_WHITE, 0.86f), 22, this));
-        TextView line = Theme.text(this, speech, 21, Theme.TEXT, Typeface.BOLD);
-        line.setGravity(Gravity.CENTER);
-        bubble.addView(line, matchWrap());
-        stage.addView(bubble, matchWrap());
+            LinearLayout bubble = new LinearLayout(this);
+            bubble.setOrientation(LinearLayout.VERTICAL);
+            bubble.setPadding(Theme.dp(this, 16), Theme.dp(this, 12), Theme.dp(this, 16), Theme.dp(this, 12));
+            bubble.setBackground(Theme.rounded(Theme.mix(CompanionAssistant.roleColor(role), Theme.WARM_WHITE, 0.86f), 22, this));
+            TextView line = Theme.text(this, speech, 20, Theme.TEXT, Typeface.BOLD);
+            line.setGravity(Gravity.CENTER);
+            line.setMinHeight(Theme.dp(this, 86));
+            liveStageSpeechLabel = line;
+            bubble.addView(line, matchWrap());
+            stage.addView(bubble, matchWrap());
+            addSpace(stage, 10);
+
+            voiceStatusLabel = Theme.text(this, "我在听您说话，不用按发送。", 17, Theme.MUTED, Typeface.NORMAL);
+            voiceStatusLabel.setGravity(Gravity.CENTER);
+            voiceStatusLabel.setMinHeight(Theme.dp(this, 28));
+            stage.addView(voiceStatusLabel, matchWrap());
+            addSpace(stage, 8);
+        }
+        addXiaozhiVoiceMeter(stage, CompanionAssistant.roleColor(role));
+        addSpace(stage, 10);
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        addLiveActionButton(actions, "暂停", Theme.ORANGE, () -> {
+            stopRealtimeVoiceChat(true);
+            stopAssistantSpeech();
+            updateVoiceStatus("我先安静等您。要继续时点小助手。");
+            updateLiveStageStatus("我先安静等您", "comforting");
+        }, false);
+        addLiveActionButton(actions, "看一眼", Theme.GREEN, this::startQuickVisionGlance, false);
+        addLiveActionButton(actions, "设置", Theme.BLUE, this::showCompanionSettings, false);
+        stage.addView(actions, matchWrap());
+
+        LinearLayout careActions = new LinearLayout(this);
+        careActions.setOrientation(LinearLayout.HORIZONTAL);
+        addLiveActionButton(careActions, "故事", Theme.BLUE, this::askBedtimeStory, false);
+        addLiveActionButton(careActions, "助眠音", Theme.GREEN, this::toggleSleepSound, false);
+        addLiveActionButton(careActions, "新闻", Theme.ORANGE, this::showNewsCapabilityStatus, false);
+        stage.addView(careActions, matchWrap());
 
         content.addView(stage, matchWrap());
-        addSpace(content, 14);
+        addSpace(content, 10);
+    }
+
+    private void addAssistantChatModeSwitch(LinearLayout stage, boolean videoMode, String name) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        Button mode = Theme.softButton(this, videoMode ? "文" : "视频", videoMode ? Theme.BLUE : CompanionAssistant.roleColor(prefs.companionRole()));
+        mode.setTextSize(videoMode ? 22 : 18);
+        mode.setMinHeight(Theme.dp(this, 50));
+        mode.setContentDescription(videoMode ? "切换到文字聊天" : "切换到视频聊天");
+        mode.setOnClickListener(v -> toggleAssistantChatMode());
+        mode.setOnTouchListener((v, event) -> {
+            if (event.getAction() == MotionEvent.ACTION_UP) {
+                toggleAssistantChatMode();
+                return true;
+            }
+            return event.getAction() == MotionEvent.ACTION_DOWN;
+        });
+        if (videoMode) {
+            row.setGravity(Gravity.RIGHT);
+            LinearLayout.LayoutParams modeLp = new LinearLayout.LayoutParams(Theme.dp(this, 76), -2);
+            row.addView(mode, modeLp);
+        } else {
+            TextView nameView = Theme.text(this, name, 30, Theme.TEXT, Typeface.BOLD);
+            nameView.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams nameLp = new LinearLayout.LayoutParams(0, -2, 1);
+            row.addView(nameView, nameLp);
+            LinearLayout.LayoutParams modeLp = new LinearLayout.LayoutParams(Theme.dp(this, 132), -2);
+            modeLp.setMargins(Theme.dp(this, 10), 0, 0, 0);
+            row.addView(mode, modeLp);
+        }
+        stage.addView(row, matchWrap());
+        addSpace(stage, 8);
+    }
+
+    private void toggleAssistantChatMode() {
+        prefs.setAssistantVideoChatMode(!prefs.assistantVideoChatMode());
+        stopAssistantSpeech();
+        showCompanionChat();
     }
 
     private String assistantDisplayName() {
@@ -1411,10 +2499,282 @@ public class MainActivity extends Activity {
     }
 
     private String liveMoodText(String mood) {
+        if ("idle".equals(mood)) return "安静陪着您";
         if ("thinking".equals(mood)) return "正在想一想";
         if ("speaking".equals(mood)) return "正在慢慢说";
+        if ("interrupted".equals(mood)) return "刚刚停下来听您";
+        if ("user_speaking".equals(mood)) return "正在认真听您说";
         if ("seeing".equals(mood)) return "正在看一眼";
+        if ("reading".equals(mood)) return "正在认真读";
+        if ("finding".equals(mood)) return "正在帮您找";
+        if ("comforting".equals(mood)) return "正在安抚您";
+        if ("happy".equals(mood)) return "正在开心陪您";
+        if ("worried".equals(mood)) return "有点担心您";
+        if ("urgent_wakeup".equals(mood)) return "正在紧急叫醒";
         return "正在听您说";
+    }
+
+    private void updateLiveStageStatus(String status, String mood) {
+        liveStageMood = mood == null ? "listening" : mood;
+        if (liveStageStatusLabel != null) {
+            liveStageStatusLabel.setText(status == null ? "" : status);
+        }
+        applyLiveAvatarState(liveStageMood);
+        sendLiveStageMoodToWeb(liveStageMood);
+        if (liveStageAvatar != null) {
+            liveStageAvatar.setContentDescription(assistantDisplayName() + "，" + liveMoodText(liveStageMood));
+        }
+    }
+
+    private void updateLiveStageSpeech(String speech) {
+        if (liveStageSpeechLabel != null) {
+            liveStageSpeechLabel.setText(speech == null ? "" : speech);
+        }
+    }
+
+    private View createLiveAvatarStage(String role, String name, String mood, int serial) {
+        destroyLiveStageWebView();
+        liveStageWebView = null;
+        liveStageAvatar = new AvatarView(this);
+        liveStageAvatar.setRole(role);
+        liveStageAvatar.setCharacterResource(roleAvatarResourceId(role));
+        liveStageAvatar.setCharacterBitmapMode(prefs.assistantVideoChatMode());
+        liveStageAvatar.setAnimationEnabled(!prefs.debugCompanionUiTestMode());
+        liveStageAvatar.applyCommand(AvatarCommand.setState(avatarStateForMood(mood)));
+        liveStageAvatar.setContentDescription(name + "，" + liveMoodText(mood));
+        liveStageAvatar.setOnClickListener(v -> interruptForUserSpeech());
+        return liveStageAvatar;
+    }
+
+    private AvatarState avatarStateForMood(String mood) {
+        return AvatarState.fromMood(mood);
+    }
+
+    private void applyLiveAvatarState(String mood) {
+        if (liveStageAvatar == null) return;
+        liveStageAvatar.applyCommand(AvatarCommand.setState(avatarStateForMood(mood)));
+    }
+
+    private void startAvatarSpeaking() {
+        if (liveStageAvatar == null) return;
+        liveStageAvatar.applyCommand(AvatarCommand.startSpeaking());
+        int serial = ++avatarMouthSerial;
+        liveStageAvatar.postDelayed(() -> driveTtsMouth(serial, 0), 60L);
+    }
+
+    private void driveTtsMouth(int serial, int tick) {
+        if (serial != avatarMouthSerial || liveStageAvatar == null || !assistantSpeaking) {
+            return;
+        }
+        float wave = (float) Math.abs(Math.sin((System.currentTimeMillis() + tick * 47L) / 96d));
+        liveStageAvatar.applyCommand(AvatarCommand.mouthLevel(0.18f + wave * 0.54f));
+        liveStageAvatar.postDelayed(() -> driveTtsMouth(serial, tick + 1), 82L);
+    }
+
+    private void stopAvatarSpeaking() {
+        avatarMouthSerial++;
+        if (liveStageAvatar == null) return;
+        liveStageAvatar.applyCommand(AvatarCommand.stopSpeaking());
+        liveStageAvatar.applyCommand(AvatarCommand.mouthLevel(0f));
+    }
+
+    private void updateAvatarMouthFromPcm(byte[] pcmFrame) {
+        if (liveStageAvatar == null || pcmFrame == null || pcmFrame.length < 2) return;
+        liveStageAvatar.applyCommand(AvatarCommand.startSpeaking());
+        liveStageAvatar.applyCommand(AvatarCommand.mouthLevel(pcm16Level(pcmFrame)));
+        int serial = ++livePcmMouthSerial;
+        liveStageAvatar.postDelayed(() -> {
+            if (serial == livePcmMouthSerial && liveStageAvatar != null
+                    && System.currentTimeMillis() - lastLiveModelAudioFrameAtMs > 320L
+                    && !assistantSpeaking) {
+                liveStageAvatar.applyCommand(AvatarCommand.stopSpeaking());
+                liveStageAvatar.applyCommand(AvatarCommand.setState(avatarStateForMood(liveStageMood)));
+            }
+        }, 380L);
+    }
+
+    private float pcm16Level(byte[] pcmFrame) {
+        if (pcmFrame == null || pcmFrame.length < 2) return 0f;
+        long sum = 0L;
+        int count = 0;
+        for (int i = 0; i + 1 < pcmFrame.length; i += 2) {
+            int low = pcmFrame[i] & 0xff;
+            int high = pcmFrame[i + 1];
+            short sample = (short) ((high << 8) | low);
+            sum += (long) sample * (long) sample;
+            count++;
+        }
+        if (count == 0) return 0f;
+        double rms = Math.sqrt(sum / (double) count) / 32768d;
+        return Math.max(0f, Math.min(1f, (float) (rms * 5.2d)));
+    }
+
+    private void destroyLiveStageWebView() {
+        if (liveStageWebView == null) {
+            return;
+        }
+        try {
+            liveStageWebView.stopLoading();
+            liveStageWebView.loadUrl("about:blank");
+            liveStageWebView.destroy();
+        } catch (Exception ignored) {
+        }
+        liveStageWebView = null;
+    }
+
+    private String liveAvatarHtml(String role, String mood) {
+        int color = CompanionAssistant.roleColor(role);
+        String avatar = drawableDataUri(roleLiveAssetName(role));
+        String accent = cssColor(color);
+        String soft = cssColor(Theme.mix(color, Theme.WARM_WHITE, 0.78f));
+        String safeMood = safeMood(mood);
+        return "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1'>"
+                + "<style>"
+                + "html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;}"
+                + "body{display:flex;align-items:center;justify-content:center;font-family:sans-serif;}"
+                + ".stage{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;perspective:900px;}"
+                + ".halo{position:absolute;width:74%;height:74%;border-radius:50%;background:radial-gradient(circle," + soft + " 0%,rgba(255,255,255,.18) 54%,rgba(255,255,255,0) 72%);filter:blur(1px);animation:halo 2.6s ease-in-out infinite;}"
+                + ".ring{position:absolute;width:64%;height:64%;border:3px solid " + accent + ";border-radius:50%;opacity:.18;animation:ring 2.4s ease-in-out infinite;}"
+                + ".avatar{position:relative;z-index:2;max-width:92%;max-height:95%;object-fit:contain;filter:drop-shadow(0 12px 18px rgba(40,35,25,.16));transform-origin:50% 72%;}"
+                + ".shine{position:absolute;z-index:3;left:20%;top:5%;width:18%;height:16%;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.75),rgba(255,255,255,0) 70%);animation:shine 3.4s ease-in-out infinite;}"
+                + ".dots{position:absolute;z-index:4;right:12%;bottom:10%;display:flex;gap:7px;padding:8px 10px;border-radius:999px;background:rgba(255,255,255,.72);box-shadow:0 5px 14px rgba(0,0,0,.08);}"
+                + ".dots i{display:block;width:10px;height:10px;border-radius:999px;background:" + accent + ";animation:dot 1s ease-in-out infinite;}"
+                + ".dots i:nth-child(2){animation-delay:.14s}.dots i:nth-child(3){animation-delay:.28s}"
+                + "body.listening .avatar{animation:breathe 1.8s ease-in-out infinite;}"
+                + "body.speaking .avatar{animation:speak .34s ease-in-out infinite;} body.speaking .ring{animation-duration:1.1s;opacity:.3}"
+                + "body.thinking .avatar{animation:think 1.1s ease-in-out infinite;} body.thinking .dots i{animation-duration:.72s}"
+                + "body.seeing .avatar{animation:look 1.05s ease-in-out infinite;} body.comforting .avatar{animation:comfort 1.7s ease-in-out infinite;}"
+                + "@keyframes breathe{0%,100%{transform:translateY(0) scale(1) rotateY(0)}50%{transform:translateY(-4px) scale(1.025) rotateY(2deg)}}"
+                + "@keyframes speak{0%,100%{transform:translateY(0) scale(1.012) rotateZ(-.4deg)}50%{transform:translateY(-8px) scale(1.055) rotateZ(.7deg)}}"
+                + "@keyframes think{0%,100%{transform:translateY(5px) rotateZ(-1.3deg) scale(1.01)}55%{transform:translateY(0) rotateZ(.8deg) scale(1.025)}}"
+                + "@keyframes look{0%,100%{transform:translateX(-8px) rotateZ(-1.2deg)}50%{transform:translateX(8px) rotateZ(1.2deg)}}"
+                + "@keyframes comfort{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.018)}}"
+                + "@keyframes ring{0%{transform:scale(.9);opacity:.18}70%{transform:scale(1.18);opacity:.03}100%{transform:scale(.9);opacity:.18}}"
+                + "@keyframes halo{0%,100%{transform:scale(.96);opacity:.65}50%{transform:scale(1.04);opacity:.95}}"
+                + "@keyframes dot{0%,100%{transform:scale(.74);opacity:.5}50%{transform:scale(1.25);opacity:1}}"
+                + "@keyframes shine{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:.85;transform:translateY(7px)}}"
+                + "</style></head><body class='" + safeMood + "'>"
+                + "<div class='stage'><div class='halo'></div><div class='ring'></div><img class='avatar' src='" + avatar + "'/>"
+                + "<div class='shine'></div><div class='dots'><i></i><i></i><i></i></div></div>"
+                + "<script>window.setMood=function(m){document.body.className=(m||'listening').replace(/[^a-z_]/g,'')};</script>"
+                + "</body></html>";
+    }
+
+    private void sendLiveStageMoodToWeb(String mood) {
+        if (liveStageWebView == null) {
+            return;
+        }
+        String script = "window.setMood&&window.setMood('" + escapeJs(safeMood(mood)) + "')";
+        liveStageWebView.post(() -> {
+            try {
+                liveStageWebView.evaluateJavascript(script, null);
+            } catch (Exception ignored) {
+            }
+        });
+    }
+
+    private String safeMood(String mood) {
+        if ("thinking".equals(mood) || "speaking".equals(mood) || "seeing".equals(mood) || "comforting".equals(mood)) {
+            return mood;
+        }
+        return "listening";
+    }
+
+    private String cssColor(int color) {
+        return String.format(Locale.US, "#%06X", 0xFFFFFF & color);
+    }
+
+    private String escapeJs(String text) {
+        return (text == null ? "" : text).replace("\\", "\\\\").replace("'", "\\'");
+    }
+
+    private String drawableDataUri(String drawableName) {
+        int id = getResources().getIdentifier(drawableName, "drawable", getPackageName());
+        if (id == 0) {
+            id = getResources().getIdentifier("ic_launcher", "drawable", getPackageName());
+        }
+        try (InputStream in = getResources().openRawResource(id);
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+            return "data:image/png;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP);
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    private void addLiveStateDots(LinearLayout stage, int color, int serial) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        row.setMinimumHeight(Theme.dp(this, LIVE_DOT_ROW_HEIGHT_DP));
+        for (int i = 0; i < 3; i++) {
+            View dot = new View(this);
+            dot.setBackground(Theme.rounded(Theme.mix(color, Theme.WARM_WHITE, 0.25f), 12, this));
+            dot.setPivotY(Theme.dp(this, LIVE_DOT_MAX_HEIGHT_DP));
+            dot.setScaleY(0.58f);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    Theme.dp(this, LIVE_DOT_WIDTH_DP),
+                    Theme.dp(this, LIVE_DOT_MAX_HEIGHT_DP));
+            lp.setMargins(Theme.dp(this, 5), 0, Theme.dp(this, 5), 0);
+            row.addView(dot, lp);
+        }
+        stage.addView(row, new LinearLayout.LayoutParams(-1, Theme.dp(this, LIVE_DOT_ROW_HEIGHT_DP)));
+        if (!prefs.debugCompanionUiTestMode()) {
+            row.postDelayed(() -> animateLiveStateDots(row, color, serial, 0), 60);
+        }
+    }
+
+    private void animateLiveStateDots(LinearLayout row, int color, int serial, int tick) {
+        if (row.getWindowToken() == null || serial != liveStageAnimationSerial) {
+            return;
+        }
+        String mood = liveStageMood == null ? "listening" : liveStageMood;
+        int childCount = row.getChildCount();
+        for (int i = 0; i < childCount; i++) {
+            View dot = row.getChildAt(i);
+            boolean speaking = "speaking".equals(mood);
+            boolean thinking = "thinking".equals(mood);
+            int phase = (tick + i) % childCount;
+            float scale = speaking
+                    ? 0.58f + phase * 0.18f
+                    : (thinking ? 0.5f + (2 - phase) * 0.16f : 0.56f + (phase == 0 ? 0.22f : 0.0f));
+            dot.setScaleY(Math.min(1.0f, scale));
+            dot.setAlpha(0.42f + phase * 0.22f);
+            dot.setBackground(Theme.rounded(Theme.mix(color, Theme.WARM_WHITE, phase / 4f), 12, this));
+        }
+        row.postDelayed(() -> animateLiveStateDots(row, color, serial, tick + 1),
+                "speaking".equals(mood) ? 170 : ("thinking".equals(mood) ? 260 : 520));
+    }
+
+    private void startLiveAvatarMotion(View avatar, int serial) {
+        avatar.postDelayed(() -> animateLiveAvatar(avatar, serial, 0), 180);
+    }
+
+    private void animateLiveAvatar(View avatar, int serial, int tick) {
+        if (avatar.getWindowToken() == null || serial != liveStageAnimationSerial) {
+            return;
+        }
+        String mood = liveStageMood == null ? "listening" : liveStageMood;
+        boolean speaking = "speaking".equals(mood);
+        boolean thinking = "thinking".equals(mood);
+        boolean seeing = "seeing".equals(mood);
+        float wave = (float) Math.sin(tick * 0.85d);
+        float scale = speaking ? 1.02f + Math.abs(wave) * 0.035f : (thinking ? 1.02f : 1.0f + Math.abs(wave) * 0.025f);
+        float rotation = seeing ? wave * 2.4f : (thinking ? -1.6f + wave * 0.8f : wave * 1.2f);
+        float translationY = speaking ? -Math.abs(wave) * Theme.dp(this, 5) : (thinking ? Theme.dp(this, 4) : -Math.abs(wave) * Theme.dp(this, 3));
+        avatar.animate()
+                .scaleX(scale)
+                .scaleY(scale)
+                .rotation(rotation)
+                .translationY(translationY)
+                .alpha(thinking ? 0.96f : 1.0f)
+                .setDuration(speaking ? 210 : (thinking ? 420 : 820))
+                .withEndAction(() -> animateLiveAvatar(avatar, serial, tick + 1))
+                .start();
     }
 
     private String liveBubbleText(String text) {
@@ -1429,42 +2789,118 @@ public class MainActivity extends Activity {
         LinearLayout card = cardContainer();
         int roleColor = CompanionAssistant.roleColor(prefs.companionRole());
         card.setBackground(Theme.tintedCard(this, roleColor));
-        card.addView(Theme.text(this, "实时陪伴", 24, roleColor, Typeface.BOLD), matchWrap());
-        addSpace(card, 8);
-        voiceStatusLabel = Theme.text(this, "我在准备麦克风，您不用找发送按钮。", 19, Theme.MUTED, Typeface.NORMAL);
+        card.setPadding(Theme.dp(this, 16), Theme.dp(this, 14), Theme.dp(this, 16), Theme.dp(this, 16));
+        card.addView(Theme.text(this, "实时陪伴", 21, roleColor, Typeface.BOLD), matchWrap());
+        addSpace(card, 4);
+        voiceStatusLabel = Theme.text(this, "我在听您说话，不用按发送。", 18, Theme.MUTED, Typeface.NORMAL);
+        voiceStatusLabel.setMinHeight(Theme.dp(this, 30));
         card.addView(voiceStatusLabel, matchWrap());
-        addSpace(card, 12);
+        addSpace(card, 8);
+        addXiaozhiVoiceMeter(card, roleColor);
+        addSpace(card, 10);
 
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
-        addLiveActionButton(actions, "我来说", Theme.BLUE, this::interruptForUserSpeech, true);
         addLiveActionButton(actions, "暂停", Theme.ORANGE, () -> {
             stopRealtimeVoiceChat(true);
             stopAssistantSpeech();
-            updateVoiceStatus("我先安静等您。要继续时点“我来说”。");
+            updateVoiceStatus("我先安静等您。要继续时点小助手。");
         }, false);
-        addLiveActionButton(actions, "看一眼", Theme.GREEN, this::showCompanionVision, false);
+        addLiveActionButton(actions, "看一眼", Theme.GREEN, this::startQuickVisionGlance, false);
+        addLiveActionButton(actions, "简报", Theme.BLUE, this::showMorningCare, false);
         card.addView(actions, matchWrap());
 
         content.addView(card, matchWrap());
-        addSpace(content, 14);
+        addSpace(content, 10);
     }
 
     private void addLiveActionButton(LinearLayout row, String text, int color, Runnable action, boolean primary) {
         Button button = primary ? Theme.button(this, text, color) : Theme.softButton(this, text, color);
         button.setTextSize(18);
-        button.setMinHeight(Theme.dp(this, 64));
+        button.setMinHeight(Theme.dp(this, 56));
         button.setOnClickListener(v -> action.run());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
         lp.setMargins(Theme.dp(this, 3), 0, Theme.dp(this, 3), 0);
         row.addView(button, lp);
     }
 
+    private void startQuickVisionGlance() {
+        pendingVisionTask = "quick_glance";
+        activeVisionTask = "quick_glance";
+        activeVisionPreferFront = true;
+        activeVisionDetailed = false;
+        activeVisionReason = "用户点了聊天页的看一眼，希望小助手快速观察主人和周围。";
+        if (!hasPermission(Manifest.permission.CAMERA)) {
+            updateVoiceStatus("需要允许摄像头，小助手才能看一眼。");
+            updateLiveStageStatus("需要摄像头权限", "comforting");
+            requestPermissions(new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_GLANCE);
+            return;
+        }
+        if (!prefs.deepSeekKeyConfigured()) {
+            showCompanionVoiceReply("我还不能看",
+                    "奶奶，摄像头已经准备好了，但视觉模型服务还没连上。先完成手机号注册或服务端配置，我再帮您看。");
+            return;
+        }
+        showCompanionVoiceWaiting("我看一眼，您别急。");
+        updateLiveStageStatus("我认真看一眼", "seeing");
+        startVisionFrameCapture("quick_glance", true, false, true, activeVisionReason);
+    }
+
+    private void addXiaozhiVoiceMeter(LinearLayout parent, int color) {
+        LinearLayout meter = new LinearLayout(this);
+        meter.setOrientation(LinearLayout.HORIZONTAL);
+        meter.setGravity(Gravity.CENTER);
+        meter.setPadding(Theme.dp(this, 8), Theme.dp(this, 6), Theme.dp(this, 8), Theme.dp(this, 6));
+        meter.setBackground(Theme.rounded(Theme.mix(color, Theme.WARM_WHITE, 0.88f), 18, this));
+        meter.setMinimumHeight(Theme.dp(this, LIVE_VOICE_METER_HEIGHT_DP));
+        for (int i = 0; i < 18; i++) {
+            View bar = new View(this);
+            bar.setBackground(Theme.rounded(Theme.mix(color, Theme.BLUE, i / 24f), 4, this));
+            bar.setPivotY(Theme.dp(this, LIVE_VOICE_METER_BAR_HEIGHT_DP));
+            bar.setScaleY(0.28f);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    Theme.dp(this, LIVE_VOICE_METER_BAR_WIDTH_DP),
+                    Theme.dp(this, LIVE_VOICE_METER_BAR_HEIGHT_DP));
+            lp.setMargins(Theme.dp(this, 2), 0, Theme.dp(this, 2), 0);
+            meter.addView(bar, lp);
+        }
+        parent.addView(meter, new LinearLayout.LayoutParams(-1, Theme.dp(this, LIVE_VOICE_METER_HEIGHT_DP)));
+        int serial = voicePageSerial;
+        if (!prefs.debugCompanionUiTestMode()) {
+            meter.postDelayed(() -> animateXiaozhiVoiceMeter(meter, color, serial, 0), 80);
+        }
+    }
+
+    private void animateXiaozhiVoiceMeter(LinearLayout meter, int color, int serial, int tick) {
+        if (meter.getWindowToken() == null || serial != voicePageSerial) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        boolean recentMicSound = voiceListening && now - lastVoiceSoundAtMs < 900;
+        boolean active = realtimeVoiceEnabled || assistantSpeaking || voiceListening;
+        float inputLevel = recentMicSound ? voiceInputLevel : (assistantSpeaking ? 0.55f : 0.06f);
+        int childCount = meter.getChildCount();
+        for (int i = 0; i < childCount; i++) {
+            View bar = meter.getChildAt(i);
+            int wave = (int) (Math.abs(Math.sin((tick + i) * 0.58d)) * (14 + inputLevel * 30));
+            int heightDp = active ? 10 + Math.round(inputLevel * 24) + wave / 2 : 10 + (i % 4) * 3;
+            float scale = Math.max(0.2f, Math.min(1.0f, Math.min(LIVE_VOICE_METER_BAR_HEIGHT_DP, heightDp) / (float) LIVE_VOICE_METER_BAR_HEIGHT_DP));
+            bar.setScaleY(scale);
+            bar.setAlpha(recentMicSound ? 1.0f : (active ? 0.62f : 0.38f));
+        }
+        meter.postDelayed(() -> animateXiaozhiVoiceMeter(meter, color, serial, tick + 1), 120);
+    }
+
     private void interruptForUserSpeech() {
         realtimeVoiceEnabled = true;
         voiceConversationSerial++;
         stopAssistantSpeech();
+        abortLiveCompanionSpeech();
         updateVoiceStatus("我在听，您直接说。");
+        updateLiveStageStatus("我先停下，听您说", "interrupted");
+        if (content != null) {
+            content.postDelayed(() -> updateLiveStageStatus("我在听，您直接说", "listening"), 180L);
+        }
         restartRealtimeListeningSoon(120);
     }
 
@@ -1502,12 +2938,99 @@ public class MainActivity extends Activity {
     }
 
     private void askLiveShortcut(String label, String question) {
-        if (prefs.assistantOnlineEnabled() && prefs.deepSeekKeyConfigured()) {
+        if (prefs.deepSeekKeyConfigured()) {
             realtimeVoiceEnabled = true;
             handleRealtimeVoiceText(question);
         } else {
             showCompanionVoiceReply(label, localVoiceFallback(question));
         }
+    }
+
+    private void askBedtimeStory() {
+        String prompt = "请给我讲一个适合中老年人睡前听的温柔小故事。"
+                + "要求：不要惊吓，不要复杂剧情，不讲医疗诊断；分成很短的段落，语气慢一点。"
+                + "结尾不要催我立刻睡，只轻轻陪着我安静下来。";
+        if (prefs.deepSeekKeyConfigured()) {
+            realtimeVoiceEnabled = true;
+            startCompanionModelAnswer("睡前小故事", prompt, "story");
+        } else {
+            showCompanionVoiceReply("睡前小故事", localBedtimeStory());
+        }
+    }
+
+    private String localBedtimeStory() {
+        return prefs.ownerAddress() + "，我先给您讲一个很轻的小故事。\n\n"
+                + "从前有个小院子，院里有一盏暖灯。每天晚上，灯都会慢慢亮起来，照着窗边的花，也照着回家的人。\n\n"
+                + "有一天，院子里的老人坐在藤椅上，听见风把树叶吹得沙沙响。那声音不急，也不吵，像有人轻轻说：今天已经很好了，剩下的事明天再想。\n\n"
+                + "老人把杯子放稳，把肩膀放松，慢慢吸一口气，又慢慢呼出来。暖灯还在，院子也安静。故事就停在这里，我陪您慢慢安静下来。";
+    }
+
+    private void toggleSleepSound() {
+        ensureSleepSoundPlayer();
+        if (sleepSoundPlayer.isRunning()) {
+            stopSleepSound();
+            return;
+        }
+        startSleepSound();
+    }
+
+    private void startSleepSound() {
+        ensureSleepSoundPlayer();
+        if (sleepSoundPlayer.isRunning()) {
+            showCompanionVoiceReply("本地助眠音",
+                    "本地轻雨声已经在很轻地放着。我会在问“您睡了么？”前先把声音压低，不会吵您。");
+            return;
+        }
+        stopAssistantSpeech();
+        sleepSoundPlayer.startRain();
+        pendingSleepContinuationText = "我给您放着本地轻雨声，音量会保持很轻。您如果困了，我会轻轻问“"
+                + prefs.ownerAddress() + "，您睡了么？”，没回应就慢慢转入睡眠守护。";
+        showCompanionVoiceReply("本地助眠音",
+                pendingSleepContinuationText + "\n\n这是手机本地生成的声音，不联网、不下载音乐，也不冒充版权歌曲。");
+    }
+
+    private void stopSleepSound() {
+        ensureSleepSoundPlayer();
+        if (!sleepSoundPlayer.isRunning()) {
+            showCompanionVoiceReply("助眠音未播放",
+                    "现在没有助眠音在播放。您想听的时候，说“放点轻雨声”就行。");
+            return;
+        }
+        sleepSoundPlayer.fadeOutAndStop(1200L);
+        showCompanionVoiceReply("助眠音已淡出",
+                "我把本地轻雨声慢慢收起来了。当前只是离线合成助眠音，不是版权音乐平台。");
+    }
+
+    private void ensureSleepSoundPlayer() {
+        if (sleepSoundPlayer == null) {
+            sleepSoundPlayer = new SleepSoundPlayer();
+        }
+    }
+
+    private void showNewsCapabilityStatus() {
+        if (!prefs.serverRegistered()) {
+            showCompanionVoiceReply("新闻源还没接入",
+                    "我记着您想听新闻。当前还没有登录服务端，也没有接入真实新闻源，所以我不能凭空编今天的新闻。");
+            return;
+        }
+        showCompanionVoiceWaiting("我先看新闻源有没有接上，没接上就不编。");
+        new Thread(() -> {
+            try {
+                ServerApiClient.NewsBriefResult result = ServerApiClient.newsBrief(prefs.serverBaseUrl(), prefs.serverAuthToken());
+                runOnUiThread(() -> {
+                    if (!result.configured) {
+                        showCompanionVoiceReply("新闻源还没接入",
+                                "我查过服务端了，新闻源还没接入，所以我不能凭空编今天的新闻。\n\n"
+                                        + "等服务端配置了带来源和发布时间的新闻源，我再给您读简报。");
+                    } else {
+                        showCompanionVoiceReply("新闻简报", result.body);
+                    }
+                });
+            } catch (Exception ex) {
+                runOnUiThread(() -> showCompanionVoiceReply("新闻源检查失败",
+                        "这次没查到新闻源状态：" + ex.getMessage() + "\n\n我不会编新闻，等服务端连上真实来源后再读给您听。"));
+            }
+        }, "ShuilemeNewsBrief").start();
     }
 
     private String autoVisionStatusText() {
@@ -1521,8 +3044,8 @@ public class MainActivity extends Activity {
         b.append("\n只在聊天页运行，不在夜间守护和后台偷拍。");
         if (!hasPermission(Manifest.permission.CAMERA)) {
             b.append("\n需要先允许摄像头。");
-        } else if (!prefs.assistantOnlineEnabled() || !prefs.deepSeekKeyConfigured()) {
-            b.append("\n联网模型未配置时，只保留本机手动记忆。");
+        } else if (!prefs.deepSeekKeyConfigured()) {
+            b.append("\n视觉模型服务未配置时，只保留本机手动记忆。");
         } else {
             b.append("\n最近物品记忆：\n").append(db.objectMemorySummary());
         }
@@ -1531,19 +3054,16 @@ public class MainActivity extends Activity {
 
     private void showCompanionVision() {
         content.removeAllViews();
-        content.addView(Theme.text(this, "小助手看看", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
+        content.addView(Theme.text(this, "小助手看看", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
         addAssistantHero("我陪你看", CompanionAssistant.visionIntro(prefs.companionRole()), false);
-        addCard("怎么用", "点下面的大按钮，我会打开摄像头。可以看脸色、药盒、外面环境、说明书，也可以帮你记东西放在哪里。\n"
-                + CompanionAssistant.visionPrivacy(prefs.assistantOnlineEnabled()), Theme.GREEN);
-        addCard("我记得的位置", db.objectMemorySummary() + "\n\n手动备注：\n" + prefs.visualMemorySummary(), Theme.GREEN);
-        addCard("吃药看见记录", prefs.medicationVisionSummary(), prefs.medicationSeenAt() > 0 ? Theme.GREEN : Theme.ORANGE);
-        addSettingButton("看我气色", () -> requestCameraForVision("face"));
-        addSettingButton("看看药吃了吗", () -> requestCameraForVision("medication"));
-        addSettingButton("帮我找东西", this::showFindObjectDialog);
-        addSettingButton("记住东西放哪里", this::showObjectMemoryDialog);
-        addSettingButton("帮我读书/说明书", () -> requestCameraForVision("read"));
-        addSettingButton("看看外面", () -> requestCameraForVision("outside"));
+        addVisionPrimaryButton("看我气色", Theme.GREEN, () -> requestCameraForVision("face"));
+        addVisionPrimaryButton("帮我找东西", Theme.ORANGE, this::showFindObjectDialog);
+        addVisionActionGrid();
+        String memory = db.objectMemorySummary() + "\n" + prefs.visualMemorySummary();
+        if (memory.trim().length() > 0 && !memory.startsWith("还没有")) {
+            addCard("我记得", memory.trim(), Theme.GREEN);
+        }
         addSettingButton("清除位置记忆", () -> {
             prefs.clearVisualMemory();
             db.clearObjectMemory();
@@ -1554,6 +3074,32 @@ public class MainActivity extends Activity {
         addSettingButton("返回首页", () -> showShell("guard"));
     }
 
+    private void addVisionActionGrid() {
+        addSectionTitle("更多看看", null);
+        LinearLayout row1 = new LinearLayout(this);
+        row1.setOrientation(LinearLayout.HORIZONTAL);
+        addSmallTile(row1, "💊\n看药瓶", Theme.ORANGE, () -> requestCameraForVision("medicine_text"));
+        addSmallTile(row1, "字\n读给我听", Theme.BLUE, () -> requestCameraForVision("read"));
+        content.addView(row1, matchWrap());
+        addSpace(content, 10);
+
+        LinearLayout row2 = new LinearLayout(this);
+        row2.setOrientation(LinearLayout.HORIZONTAL);
+        addSmallTile(row2, "报告\n帮我看", Theme.GREEN, () -> requestCameraForVision("report"));
+        addSmallTile(row2, "钥\n找东西", Theme.ORANGE, () -> requestCameraForVision("find"));
+        content.addView(row2, matchWrap());
+        addSpace(content, 14);
+    }
+
+    private void addVisionPrimaryButton(String text, int color, Runnable action) {
+        Button button = Theme.button(this, text, color);
+        button.setTextSize(26);
+        button.setMinHeight(Theme.dp(this, 96));
+        button.setOnClickListener(v -> action.run());
+        content.addView(button, matchWrap());
+        addSpace(content, 12);
+    }
+
     private void requestCameraForVision(String task) {
         pendingVisionTask = task == null ? "" : task;
         if (!hasPermission(Manifest.permission.CAMERA)) {
@@ -1561,7 +3107,15 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "请允许摄像头，小助手才能看一眼", Toast.LENGTH_LONG).show();
             return;
         }
-        launchVisionCamera();
+        if (!prefs.deepSeekKeyConfigured()) {
+            showCompanionVoiceReply("我还不能细看",
+                    "奶奶，摄像头已经准备好了，但药瓶小字、报告和物品识别要视觉模型服务。先完成手机号注册或服务端配置，我再帮您看。");
+            return;
+        }
+        String reason = visionReasonForTask(pendingVisionTask);
+        showCompanionVoiceWaiting(reason.length() > 0 ? reason : "您别急，我仔细看。");
+        updateLiveStageStatus(reason.length() > 0 ? reason : "我认真看", avatarMoodForVisionTask(pendingVisionTask));
+        startVisionFrameCapture(pendingVisionTask, preferFrontForVisionTask(pendingVisionTask), true, true, reason);
     }
 
     private void launchVisionCamera() {
@@ -1579,58 +3133,52 @@ public class MainActivity extends Activity {
     private void handleVisionSnapshot(Bitmap bitmap) {
         latestVisionSnapshot = bitmap;
         String task = pendingVisionTask == null ? "" : pendingVisionTask;
-        content.removeAllViews();
-        content.addView(Theme.text(this, visionTaskTitle(task), 30, Theme.TEXT, Typeface.BOLD), matchWrap());
-        addSpace(content, 8);
-        addAssistantHero("我看到了", CompanionAssistant.visionLocalReply(task), false);
-
-        if (bitmap != null) {
-            ImageView preview = new ImageView(this);
-            preview.setImageBitmap(bitmap);
-            preview.setAdjustViewBounds(true);
-            preview.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, Theme.dp(this, 220));
-            lp.setMargins(0, 0, 0, Theme.dp(this, 14));
-            content.addView(preview, lp);
+        if (!prefs.deepSeekKeyConfigured()) {
+            showCompanionVoiceReply("我还不能细看",
+                    "奶奶，这张照片需要视觉模型服务才能仔细分析。先完成手机号注册或服务端配置，我再帮您看。");
+            return;
         }
-
-        addCard("边界提醒", "我可以帮你观察、提醒和记录，但不做诊断，不判断药量，也不替代医生和家人。明显不舒服时先联系家人或医生。", Theme.ORANGE);
-        if ("medication".equals(task)) {
-            addSettingButton("确认今天已吃药", () -> {
-                prefs.confirmMedicationNow();
-                prefs.markMedicationSeen("主人拍照后主动确认今天已吃药");
-                Toast.makeText(this, "已记录今天已吃药", Toast.LENGTH_SHORT).show();
-                showCompanionVision();
-            });
-            addSettingButton("稍后再提醒我", () -> {
-                scheduleMedicationReminder(prefs.medicationRepeatMinutes());
-                prefs.markMedicationSeen("拍照记录了吃药相关场景，主人选择稍后确认");
-                Toast.makeText(this, prefs.medicationRepeatMinutes() + " 分钟后再次提醒", Toast.LENGTH_SHORT).show();
-                showCompanionVision();
-            });
-        }
-        if ("find".equals(task) || "outside".equals(task) || "medication".equals(task)) {
-            addSettingButton("记住东西放哪里", this::showObjectMemoryDialog);
-        }
-        if (prefs.assistantOnlineEnabled() && prefs.deepSeekKeyConfigured()) {
-            addSettingButton("请小助手看看这张", () -> askDeepSeekVision(task, latestVisionSnapshot));
-        } else {
-            addSettingButton("开启联网后再细看", () -> {
-                prefs.setAssistantOnlineEnabled(true);
-                showDeepSeekSettings();
-            });
-        }
-        addSettingButton("重新拍一张", () -> requestCameraForVision(task));
-        addSettingButton("返回小助手看看", this::showCompanionVision);
+        askDeepSeekIntentVision(task, bitmap, true, visionReasonForTask(task));
     }
 
     private String visionTaskTitle(String task) {
+        if ("quick_glance".equals(task)) return "快速看一眼";
         if ("face".equals(task)) return "看看气色";
+        if ("medicine_text".equals(task)) return "看药瓶小字";
         if ("medication".equals(task)) return "看看吃药";
+        if ("report".equals(task)) return "看体检报告";
+        if ("finance".equals(task)) return "看投资理财";
+        if ("object".equals(task)) return "识别东西";
         if ("read".equals(task)) return "帮我读字";
         if ("find".equals(task)) return "帮我找东西";
         if ("outside".equals(task)) return "看看外面";
         return "小助手看看";
+    }
+
+    private boolean preferFrontForVisionTask(String task) {
+        return "face".equals(task) || "quick_glance".equals(task);
+    }
+
+    private String avatarMoodForVisionTask(String task) {
+        if ("read".equals(task) || "report".equals(task) || "medicine_text".equals(task) || "medication".equals(task)) {
+            return "reading";
+        }
+        if ("find".equals(task)) {
+            return "finding";
+        }
+        return "seeing";
+    }
+
+    private String visionReasonForTask(String task) {
+        if ("face".equals(task)) return "我看看您的气色，您别急。";
+        if ("medicine_text".equals(task) || "medication".equals(task)) return "我仔细看看药瓶小字，按医嘱的事我不乱说。";
+        if ("report".equals(task)) return "我仔细看看报告，先帮您读清楚重点。";
+        if ("finance".equals(task)) return "我帮您看看这是不是理财、投资或转账风险。";
+        if ("read".equals(task)) return "我仔细看看上面的字，读给您听。";
+        if ("find".equals(task)) return "您别急，我帮您看看周围。";
+        if ("object".equals(task)) return "我仔细看看这个东西。";
+        if ("outside".equals(task)) return "我帮您看看外面。";
+        return "我看一眼，您别急。";
     }
 
     private void showObjectMemoryDialog() {
@@ -1700,38 +3248,84 @@ public class MainActivity extends Activity {
     }
 
     private void askDeepSeekVision(String task, Bitmap bitmap) {
+        askDeepSeekIntentVision(task, bitmap, true, visionReasonForTask(task));
+    }
+
+    private String askAssistantModel(String userPrompt) throws Exception {
+        if (prefs.serverRegistered()) {
+            return ServerApiClient.chat(
+                    prefs.serverBaseUrl(),
+                    prefs.serverAuthToken(),
+                    deepSeekSystemPrompt(),
+                    userPrompt,
+                    prefs.deepSeekModel());
+        }
+        throw new IllegalStateException("请先手机号登录，登录后我才能通过服务端联网回答。");
+    }
+
+    private String askAssistantVisionModel(String task, String prompt, String jpegBase64) throws Exception {
+        if (prefs.serverRegistered()) {
+            return ServerApiClient.vision(
+                    prefs.serverBaseUrl(),
+                    prefs.serverAuthToken(),
+                    deepSeekSystemPrompt(),
+                    prompt,
+                    task,
+                    jpegBase64,
+                    prefs.deepSeekModel());
+        }
+        throw new IllegalStateException("请先手机号登录，登录后我才能通过服务端帮您看东西。");
+    }
+
+    private void askDeepSeekIntentVision(String task, Bitmap bitmap, boolean detailed, String userIntent) {
         if (bitmap == null) {
             Toast.makeText(this, "没有可分析的照片", Toast.LENGTH_SHORT).show();
             return;
         }
-        showCompanionWaiting("小助手在看",
-                CompanionAssistant.thinkingComfortLine(prefs.companionRole(), "vision")
-                        + "\n\n照片只用于这次主动请求；请不要拍身份证、银行卡等敏感信息。");
+        showCompanionVoiceWaiting(CompanionAssistant.thinkingComfortLine(prefs.companionRole(), "vision"));
+        updateLiveStageStatus(detailed ? visionReasonForTask(task) : "我认真看一眼", avatarMoodForVisionTask(task));
         new Thread(() -> {
             try {
-                String answer = DeepSeekClient.chatWithImage(
-                        prefs.deepSeekApiKey(),
-                        prefs.deepSeekModel(),
-                        deepSeekSystemPrompt(),
-                        deepSeekVisionPrompt(task),
-                        bitmapToJpegBase64(bitmap));
-                runOnUiThread(() -> showCompanionReply("小助手看完了", answer + "\n\n说明：这是生活提醒，不是医学诊断。"));
+                String prompt = deepSeekVisionPrompt(task, userIntent, detailed);
+                String answer = askAssistantVisionModel(task, prompt, detailed ? bitmapToDetailedJpegBase64(bitmap) : bitmapToJpegBase64(bitmap));
+                maybeSyncCompanionInsight(prompt + "\n\n看图回答：" + answer, "vision");
+                runOnUiThread(() -> {
+                    int saved = storeAutoVisionMemory(answer);
+                    String clean = stripVisionMemoryJson(answer);
+                    if (saved > 0) {
+                        clean = clean + "\n\n我也帮您记住了 " + saved + " 个常用东西的位置。";
+                    }
+                    showCompanionVoiceReply("我看完了", clean + "\n\n说明：这是生活提醒，不是医学诊断，也不替代医生和家人。");
+                });
             } catch (Exception ex) {
-                runOnUiThread(() -> showCompanionReply("这次没看清",
-                        "联网看图没成功：" + ex.getMessage()
-                                + "\n\n我已经保留本地兜底：可以帮你记东西位置、确认吃药提醒，也能重新拍一张。"));
+                runOnUiThread(() -> showCompanionVoiceReply("这次没看清",
+                        "奶奶，这次看图没成功：" + ex.getMessage()
+                                + "\n\n您别急，可以把手机拿稳一点再说“你帮我看看这个”。"));
             }
-        }, "GouXiongDeepSeekVision").start();
+        }, detailed ? "GouXiongDeepSeekDetailedVision" : "GouXiongDeepSeekGlanceVision").start();
     }
 
     private String deepSeekVisionPrompt(String task) {
+        return deepSeekVisionPrompt(task, visionReasonForTask(task), true);
+    }
+
+    private String deepSeekVisionPrompt(String task, String userIntent, boolean detailed) {
         return "视觉任务：" + visionTaskTitle(task)
+                + "\n用户让你看的原意/场景：" + (userIntent == null ? "" : userIntent)
+                + "\n清晰度：" + (detailed ? "高清仔细看，适合药瓶小字、文字、报告、物品识别。" : "低清快速看，只做粗略观察，不能细读小字。")
                 + "\n请用适合中老年人听的短句回答。"
+                + "\n你的口吻要像懂事、耐心、亲近的孩子或家人，先安抚，再说明你看到了什么，再给下一步建议。"
+                + "\n先判断主人让你看的用意：是想读字、找东西、看身体状态、看药品/保健品、看体检报告，还是想让你判断投资理财风险。"
                 + "\n如果是脸色，只能说“看起来可能有些疲惫/精神不错/光线不够看不清”等生活观察，不能诊断疾病。"
-                + "\n如果是药盒或吃药，只能提醒按医嘱/家人交代，不能判断药量、换药或停药。"
-                + "\n如果是读书或说明书，请尽量把能看清的文字读出来，并用简单话解释。"
-                + "\n如果是找东西或看外面，请指出明显位置、安全风险或下一步寻找建议。"
+                + "\n如果是药品、保健品、药瓶小字或吃药，请结合主人身体情况和用药习惯做生活提醒，但不能判断药量、换药、停药或替代医嘱；看不清就明确说看不清。"
+                + "\n如果是体检报告，请先读出能看清的项目、数值、上下箭头或异常标记，再用简单话提醒带报告问医生；不能下诊断。"
+                + "\n如果是读信、说明书、合同或纸面文字，请尽量逐句读出可见文字，并解释其中重要提醒。"
+                + "\n如果是找东西或识别物品，请指出明显位置、下一步寻找建议，并安抚主人不要着急。"
+                + "\n如果出现投资、理财、保险、养老项目、转账、贷款、扫码付款、陌生人收益承诺等内容，要判断是否不适合老人或有诈骗风险；请温和但明确劝阻：先别转账、别给验证码、别签字，找家人核实。"
+                + "\n如果看到了钥匙、手机、药盒/药瓶、眼镜、钱包、证件/医保卡、遥控器、拐杖、水杯等常忘物品，请在回答最后另起一行追加：MEMORY_JSON:{\"objects\":[{\"item\":\"钥匙\",\"place\":\"冰箱门上的挂钩\",\"confidence\":\"中\",\"note\":\"可选\"}]}。看不清就 objects 为空。"
+                + "\n不要把 MEMORY_JSON 解释给用户听。"
                 + "\n\n小助手身份：\n" + prefs.assistantPersonaSummary()
+                + "\n\n你称呼用户为：" + prefs.ownerAddress()
                 + "\n\n主人档案：\n" + prefs.ownerProfileSummary()
                 + "\n\n今天状态：\n" + prefs.assistantCheckInSummary()
                 + "\n\n自动位置记忆：\n" + db.objectMemorySummary()
@@ -1740,6 +3334,10 @@ public class MainActivity extends Activity {
 
     private String bitmapToJpegBase64(Bitmap bitmap) {
         return Base64.encodeToString(bitmapToLimitedJpeg(bitmap), Base64.NO_WRAP);
+    }
+
+    private String bitmapToDetailedJpegBase64(Bitmap bitmap) {
+        return Base64.encodeToString(bitmapToLimitedJpeg(bitmap, DETAIL_VISION_MAX_SIDE, DETAIL_VISION_MAX_JPEG_BYTES, 84, 55), Base64.NO_WRAP);
     }
 
     private void maybeStartAutoVisionScan() {
@@ -1756,29 +3354,45 @@ public class MainActivity extends Activity {
         if (!hasPermission(Manifest.permission.CAMERA)) {
             return;
         }
-        if (!prefs.assistantOnlineEnabled() || !prefs.deepSeekKeyConfigured()) {
+        if (!prefs.deepSeekKeyConfigured()) {
             return;
         }
         startAutoVisionCapture();
     }
 
     private void startAutoVisionCapture() {
-        if (autoVisionRunning) return;
+        startVisionFrameCapture("auto_glance", true, false, false, "聊天页自动低清看一眼，只保存重要物品位置和轻微关怀。");
+    }
+
+    private void startVisionFrameCapture(String task, boolean preferFront, boolean detailed, boolean manual, String reason) {
+        if (autoVisionRunning) {
+            if (manual) {
+                showCompanionVoiceReply("我正在看", "奶奶，我正在处理上一张画面。您别急，等我说完再让我看下一样东西。");
+            }
+            return;
+        }
+        activeVisionTask = task == null ? "" : task;
+        activeVisionPreferFront = preferFront;
+        activeVisionDetailed = detailed;
+        activeVisionReason = reason == null ? "" : reason;
+        manualVisionCapture = manual;
         autoVisionRunning = true;
         ensureVisionThread();
         try {
             CameraManager manager = (CameraManager) getSystemService(CAMERA_SERVICE);
             if (manager == null) {
                 autoVisionRunning = false;
+                handleVisionCaptureFailure(manual);
                 return;
             }
-            String cameraId = findAutoVisionCameraId(manager);
+            String cameraId = findVisionCameraId(manager, preferFront);
             if (cameraId.length() == 0) {
                 autoVisionRunning = false;
+                handleVisionCaptureFailure(manual);
                 return;
             }
             CameraCharacteristics characteristics = manager.getCameraCharacteristics(cameraId);
-            Size size = chooseVisionSize(characteristics);
+            Size size = chooseVisionSize(characteristics, detailed ? DETAIL_VISION_MAX_SIDE : AUTO_VISION_MAX_SIDE);
             autoVisionReader = ImageReader.newInstance(size.getWidth(), size.getHeight(), ImageFormat.JPEG, 1);
             autoVisionReader.setOnImageAvailableListener(reader -> {
                 Image image = null;
@@ -1808,12 +3422,24 @@ public class MainActivity extends Activity {
 
                 @Override
                 public void onError(CameraDevice camera, int error) {
+                    boolean wasManual = manualVisionCapture;
                     closeAutoVisionCamera();
+                    handleVisionCaptureFailure(wasManual);
                 }
             }, visionHandler);
         } catch (Exception ex) {
+            boolean wasManual = manualVisionCapture;
             closeAutoVisionCamera();
+            handleVisionCaptureFailure(wasManual);
         }
+    }
+
+    private void handleVisionCaptureFailure(boolean manual) {
+        if (!manual || isFinishing()) {
+            return;
+        }
+        runOnUiThread(() -> showCompanionVoiceReply("这次没打开镜头",
+                "奶奶，这次摄像头没打开成功。您别急，确认没有别的 App 正在用摄像头，再说“你帮我看看这个”。"));
     }
 
     private void captureAutoVisionFrame() {
@@ -1849,17 +3475,36 @@ public class MainActivity extends Activity {
     }
 
     private void processAutoVisionJpeg(byte[] jpeg) {
+        boolean wasManual = manualVisionCapture;
+        boolean wasDetailed = activeVisionDetailed;
+        String task = activeVisionTask;
+        String reason = activeVisionReason;
         closeAutoVisionCamera();
+        manualVisionCapture = false;
+        activeVisionDetailed = false;
+        activeVisionTask = "";
+        activeVisionReason = "";
         if (jpeg == null || jpeg.length == 0 || isFinishing()) {
+            if (wasManual) {
+                showCompanionVoiceReply("这次没看清", "奶奶，这次没有拍到画面。您别急，把手机拿稳一点，再说“你帮我看看这个”。");
+            }
             return;
         }
         Bitmap bitmap = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.length);
         if (bitmap == null) {
+            if (wasManual) {
+                showCompanionVoiceReply("这次没看清", "奶奶，这次照片没有解出来。您别急，再试一次就行。");
+            }
             return;
         }
+        prefs.recordVisionCaptureState(task, jpeg.length, bitmap.getWidth(), bitmap.getHeight());
         prefs.markAssistantAutoVisionNow();
         latestVisionSnapshot = bitmap;
-        askDeepSeekAutoVision(bitmap);
+        if (wasManual) {
+            askDeepSeekIntentVision(task, bitmap, wasDetailed, reason);
+        } else {
+            askDeepSeekAutoVision(bitmap);
+        }
     }
 
     private boolean autoVisionForegroundReady() {
@@ -1870,12 +3515,8 @@ public class MainActivity extends Activity {
     private void askDeepSeekAutoVision(Bitmap bitmap) {
         new Thread(() -> {
             try {
-                String answer = DeepSeekClient.chatWithImage(
-                        prefs.deepSeekApiKey(),
-                        prefs.deepSeekModel(),
-                        deepSeekSystemPrompt(),
-                        deepSeekAutoVisionPrompt(),
-                        bitmapToJpegBase64(bitmap));
+                String answer = askAssistantVisionModel("auto_glance", deepSeekAutoVisionPrompt(), bitmapToJpegBase64(bitmap));
+                maybeSyncCompanionInsight("自动低清看一眼：" + answer, "auto_vision");
                 runOnUiThread(() -> handleAutoVisionAnswer(answer));
             } catch (Exception ignored) {
                 runOnUiThread(() -> Toast.makeText(this, "小助手这次没有看清", Toast.LENGTH_SHORT).show());
@@ -1888,6 +3529,7 @@ public class MainActivity extends Activity {
                 + "\n请只返回 JSON，不要写解释，不要 Markdown。格式："
                 + "{\"scene_note\":\"一句很短的生活观察\",\"objects\":[{\"item\":\"钥匙\",\"place\":\"冰箱门上的挂钩\",\"confidence\":\"中\",\"note\":\"可选\"}],\"care\":\"可选的一句关心\"}"
                 + "\n重点识别并记录老人常忘的东西：钥匙、手机、药盒/药瓶、眼镜、钱包、证件/医保卡、遥控器、拐杖、水杯。"
+                + "\n如果能看到主人，只做温和生活观察，例如光线不足、看起来有些累、精神还不错；不要诊断疾病。"
                 + "\nplace 要尽量具体，例如“冰箱门上挂钩”“床头柜第二层抽屉”“沙发左边扶手旁”。"
                 + "\n如果看不清，不要编造位置，objects 返回空数组。"
                 + "\n脸色只能做生活观察，不做诊断；看到药品只能记录位置，不判断吃没吃、药量、换药或停药。";
@@ -1895,14 +3537,32 @@ public class MainActivity extends Activity {
 
     private void handleAutoVisionAnswer(String answer) {
         int saved = storeAutoVisionMemory(answer);
-        if (saved > 0) {
-            Toast.makeText(this, "我帮您记住了 " + saved + " 个东西的位置", Toast.LENGTH_SHORT).show();
+        String care = autoVisionCareText(answer);
+        if (saved > 0 || care.length() > 0) {
+            String status = care.length() > 0 ? care : "我帮您记住了 " + saved + " 个东西的位置。";
+            if (saved > 0 && care.length() > 0) {
+                status = status + " 我也记住了 " + saved + " 个东西的位置。";
+            }
+            updateVoiceStatus(status);
+        }
+    }
+
+    private String autoVisionCareText(String answer) {
+        try {
+            String json = extractVisionMemoryJson(answer);
+            if (json.length() == 0) return "";
+            JSONObject root = new JSONObject(json);
+            String care = root.optString("care", "").trim();
+            if (care.length() > 0) return care;
+            return root.optString("scene_note", "").trim();
+        } catch (Exception ex) {
+            return "";
         }
     }
 
     private int storeAutoVisionMemory(String answer) {
         try {
-            String json = extractJsonObject(answer);
+            String json = extractVisionMemoryJson(answer);
             if (json.length() == 0) return 0;
             JSONObject root = new JSONObject(json);
             JSONArray objects = root.optJSONArray("objects");
@@ -1928,6 +3588,27 @@ public class MainActivity extends Activity {
         }
     }
 
+    private String extractVisionMemoryJson(String answer) {
+        if (answer == null) return "";
+        int marker = answer.indexOf("MEMORY_JSON:");
+        if (marker >= 0) {
+            return extractJsonObject(answer.substring(marker + "MEMORY_JSON:".length()));
+        }
+        return extractJsonObject(answer);
+    }
+
+    private String stripVisionMemoryJson(String answer) {
+        if (answer == null) return "";
+        int marker = answer.indexOf("MEMORY_JSON:");
+        String clean = marker >= 0 ? answer.substring(0, marker) : answer;
+        clean = clean.trim();
+        if (clean.startsWith("{") && clean.endsWith("}")) {
+            String care = autoVisionCareText(clean);
+            return care.length() > 0 ? care : "我看到了，但需要您再靠近一点，我才能说得更准。";
+        }
+        return clean;
+    }
+
     private String extractJsonObject(String answer) {
         if (answer == null) return "";
         int start = answer.indexOf('{');
@@ -1946,12 +3627,17 @@ public class MainActivity extends Activity {
     }
 
     private String findAutoVisionCameraId(CameraManager manager) throws CameraAccessException {
+        return findVisionCameraId(manager, false);
+    }
+
+    private String findVisionCameraId(CameraManager manager, boolean preferFront) throws CameraAccessException {
         String fallback = "";
+        int preferredFacing = preferFront ? CameraCharacteristics.LENS_FACING_FRONT : CameraCharacteristics.LENS_FACING_BACK;
         for (String id : manager.getCameraIdList()) {
             CameraCharacteristics c = manager.getCameraCharacteristics(id);
             Integer facing = c.get(CameraCharacteristics.LENS_FACING);
             if (fallback.length() == 0) fallback = id;
-            if (facing != null && facing == CameraCharacteristics.LENS_FACING_BACK) {
+            if (facing != null && facing == preferredFacing) {
                 return id;
             }
         }
@@ -1959,6 +3645,10 @@ public class MainActivity extends Activity {
     }
 
     private Size chooseVisionSize(CameraCharacteristics characteristics) {
+        return chooseVisionSize(characteristics, AUTO_VISION_MAX_SIDE);
+    }
+
+    private Size chooseVisionSize(CameraCharacteristics characteristics, int maxSideLimit) {
         StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
         Size fallback = new Size(640, 480);
         if (map == null) return fallback;
@@ -1968,7 +3658,7 @@ public class MainActivity extends Activity {
         Size best = sizes[0];
         for (Size size : sizes) {
             int max = Math.max(size.getWidth(), size.getHeight());
-            if (max <= AUTO_VISION_MAX_SIDE) {
+            if (max <= maxSideLimit) {
                 best = size;
             }
         }
@@ -1983,10 +3673,14 @@ public class MainActivity extends Activity {
     }
 
     private byte[] bitmapToLimitedJpeg(Bitmap bitmap) {
-        Bitmap scaled = scaleBitmapForVision(bitmap);
-        int quality = 72;
+        return bitmapToLimitedJpeg(bitmap, AUTO_VISION_MAX_SIDE, VISION_MAX_JPEG_BYTES, 72, 45);
+    }
+
+    private byte[] bitmapToLimitedJpeg(Bitmap bitmap, int maxSide, int maxBytes, int initialQuality, int minQuality) {
+        Bitmap scaled = scaleBitmapForVision(bitmap, maxSide);
+        int quality = initialQuality;
         byte[] bytes = compressJpeg(scaled, quality);
-        while (bytes.length > VISION_MAX_JPEG_BYTES && quality > 45) {
+        while (bytes.length > maxBytes && quality > minQuality) {
             quality -= 7;
             bytes = compressJpeg(scaled, quality);
         }
@@ -1994,13 +3688,17 @@ public class MainActivity extends Activity {
     }
 
     private Bitmap scaleBitmapForVision(Bitmap bitmap) {
+        return scaleBitmapForVision(bitmap, AUTO_VISION_MAX_SIDE);
+    }
+
+    private Bitmap scaleBitmapForVision(Bitmap bitmap, int maxSideLimit) {
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();
         int max = Math.max(width, height);
-        if (max <= AUTO_VISION_MAX_SIDE) {
+        if (max <= maxSideLimit) {
             return bitmap;
         }
-        float ratio = AUTO_VISION_MAX_SIDE / (float) max;
+        float ratio = maxSideLimit / (float) max;
         int targetWidth = Math.max(1, Math.round(width * ratio));
         int targetHeight = Math.max(1, Math.round(height * ratio));
         return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true);
@@ -2050,6 +3748,15 @@ public class MainActivity extends Activity {
             if (prefs.sleepSituation().length() > 0) {
                 b.append("睡眠情况：").append(prefs.sleepSituation()).append("。今晚继续观察记录，不把 App 记录当诊断。\n");
             }
+            b.append("\n今日小妙招：")
+                    .append(CompanionAssistant.wellnessTipLine(
+                            prefs.companionRole(),
+                            prefs.ownerAddress(),
+                            prefs.healthProfile(),
+                            prefs.medicationHabits(),
+                            prefs.sleepSituation(),
+                            prefs.hobbies()))
+                    .append("\n");
             if (prefs.familySituation().length() > 0) {
                 b.append("家庭关怀：").append(prefs.familySituation()).append("。如果高风险无确认，会按你设置的联系人策略处理。\n");
             }
@@ -2065,52 +3772,428 @@ public class MainActivity extends Activity {
         return b.toString();
     }
 
-    private void showDeepSeekSettings() {
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8));
+    private void showWellnessTip() {
+        if (!prefs.ownerProfileStarted()) {
+            showCompanionVoiceReply("今日小妙招",
+                    CompanionAssistant.wellnessTipLine(prefs.companionRole(), prefs.ownerAddress(), "", "", "", "")
+                            + "\n\n您先补一点主人档案，我以后就能按身体状况、用药和睡眠来找更合适的小妙招。");
+            return;
+        }
+        String fallback = CompanionAssistant.wellnessTipLine(
+                prefs.companionRole(),
+                prefs.ownerAddress(),
+                prefs.healthProfile(),
+                prefs.medicationHabits(),
+                prefs.sleepSituation(),
+                prefs.hobbies());
+        if (!prefs.serverRegistered()) {
+            showCompanionVoiceReply("今日小妙招", fallback + "\n\n这是本机生活建议，不是医学诊断。");
+            return;
+        }
+        showCompanionVoiceWaiting(prefs.ownerAddress() + "，我根据您的身体状况找一个今天能试的小妙招，马上说给您听。");
+        new Thread(() -> {
+            try {
+                JSONObject context = new JSONObject()
+                        .put("owner_address", prefs.ownerAddress())
+                        .put("assistant_role", prefs.companionRole())
+                        .put("owner_profile", prefs.ownerProfileSummary())
+                        .put("today_check_in", prefs.assistantCheckInSummary())
+                        .put("sleep_summary", db.localReportText())
+                        .put("wellness_topic", "根据主人身体状况，自动整理安全的养生小妙招、食补食疗方向；先主动汇报一个，主人感兴趣时再详细教怎么做。");
+                ServerApiClient.CareBriefResult result = ServerApiClient.careBrief(
+                        prefs.serverBaseUrl(),
+                        prefs.serverAuthToken(),
+                        "wellness_tip",
+                        context,
+                        false,
+                        prefs.deepSeekModel());
+                String answer = result.body == null ? "" : result.body.trim();
+                runOnUiThread(() -> showCompanionVoiceReply("今日小妙招",
+                        (answer.length() > 0 ? answer : fallback) + "\n\n说明：这是生活建议，不是医学诊断，也不替代医嘱。"));
+            } catch (Exception ex) {
+                runOnUiThread(() -> showCompanionVoiceReply("今日小妙招",
+                        fallback + "\n\n这次联网搜集没成功，我先按本机档案给您一个稳妥建议。"));
+            }
+        }, "GouXiongWellnessTip").start();
+    }
 
-        TextView note = Theme.text(this,
-                "联网陪伴需要 Key。不要把开发者固定 Key 打进 APK；用户 Key 加密保存，可随时清除。",
-                17, Theme.MUTED, Typeface.NORMAL);
-        box.addView(note, matchWrap());
+    private void showServerAccountSettings() {
+        content.removeAllViews();
+        content.addView(Theme.text(this, "联网账号", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        addAssistantHero("我会越来越懂你",
+                "登录后，我会自动记住健康、用药、睡眠和家里的重要提醒。您不用管同步，我会自己照顾好这些事。",
+                false);
+        addCard("账号状态", prefs.serverAccountSummary(), prefs.serverRegistered() ? Theme.GREEN : Theme.ORANGE);
+        addSettingButton("检查服务能力", this::showServerCapabilityCheck);
+        if (prefs.serverRegistered()) {
+            content.postDelayed(this::syncOwnerProfileQuietAfterAccountOpen, 450);
+            addSettingButton("导出服务端资料", this::exportServerAccountData);
+            addSettingButton("删除服务端账号", this::confirmDeleteServerAccount);
+            addSettingButton("重新登录", this::showPhoneLoginDialog);
+            addSettingButton("退出登录", () -> {
+                prefs.clearServerAuth();
+                CareReminderScheduler.ensureCareReminders(this);
+                Toast.makeText(this, "已退出服务端账号", Toast.LENGTH_SHORT).show();
+                showServerAccountSettings();
+            });
+        } else {
+            addSettingButton("手机号验证码登录", this::showPhoneLoginDialog);
+            addSettingButton("连接服务设置", this::showServerUrlDialog);
+        }
+        addSettingButton("返回设置", this::showSettings);
+    }
 
-        EditText key = new EditText(this);
-        key.setHint(prefs.deepSeekKeyConfigured() ? "已配置，留空则保持不变" : "粘贴 DeepSeek API Key");
-        key.setTextSize(18);
-        key.setSingleLine(true);
-        key.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        box.addView(key, matchWrap());
+    private void exportServerAccountData() {
+        if (!prefs.serverRegistered()) {
+            Toast.makeText(this, "请先手机号注册", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Toast.makeText(this, "正在导出服务端资料", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                JSONObject data = ServerApiClient.exportMe(prefs.serverBaseUrl(), prefs.serverAuthToken());
+                String exported = data.toString(2);
+                runOnUiThread(() -> {
+                    Intent share = new Intent(Intent.ACTION_SEND);
+                    share.setType("application/json");
+                    share.putExtra(Intent.EXTRA_SUBJECT, "睡了么服务端资料导出");
+                    share.putExtra(Intent.EXTRA_TEXT, exported);
+                    startActivity(Intent.createChooser(share, "导出服务端资料"));
+                });
+            } catch (Exception ex) {
+                runOnUiThread(() -> showCompanionReply("导出没成功",
+                        "服务端资料暂时没导出来：" + ex.getMessage() + "\n\n您别急，本机睡眠记录还在手机里。"));
+            }
+        }, "GouXiongServerAccountExport").start();
+    }
 
-        EditText model = new EditText(this);
-        model.setHint("模型，例如 deepseek-v4-flash");
-        model.setText(prefs.deepSeekModel());
-        model.setTextSize(18);
-        model.setSingleLine(true);
-        box.addView(model, matchWrap());
-
+    private void confirmDeleteServerAccount() {
+        if (!prefs.serverRegistered()) {
+            Toast.makeText(this, "请先手机号注册", Toast.LENGTH_SHORT).show();
+            return;
+        }
         new AlertDialog.Builder(this)
-                .setTitle("联网 Key / 模型")
-                .setMessage("配置后，小助手可联网生成睡眠复盘、生活建议和聊天回复。夜间强唤醒仍有本地兜底。")
-                .setView(box)
+                .setTitle("删除服务端账号？")
+                .setMessage("会删除服务端手机号账号、健康档案、长期记忆、聊天记录和待读消息。本机睡眠记录不会被删除。")
+                .setPositiveButton("删除服务端资料", (d, w) -> deleteServerAccountData())
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
+    private void deleteServerAccountData() {
+        Toast.makeText(this, "正在删除服务端资料", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                ServerApiClient.deleteMe(prefs.serverBaseUrl(), prefs.serverAuthToken());
+                runOnUiThread(() -> {
+                    prefs.clearServerAuth();
+                    CareReminderScheduler.ensureCareReminders(this);
+                    Toast.makeText(this, "服务端账号已删除，本机记录仍保留", Toast.LENGTH_LONG).show();
+                    showServerAccountSettings();
+                });
+            } catch (Exception ex) {
+                runOnUiThread(() -> showCompanionReply("删除没成功",
+                        "服务端账号暂时没有删掉：" + ex.getMessage() + "\n\n请稍后再试，或让家人检查服务端是否在线。"));
+            }
+        }, "GouXiongServerAccountDelete").start();
+    }
+
+    private void showServerCapabilityCheck() {
+        content.removeAllViews();
+        content.addView(Theme.text(this, "服务能力自检", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        addCard("正在检查", "我正在连接 " + prefs.serverBaseUrl() + "，确认短信、阿里多模态和数字人服务是不是真的可用。", Theme.BLUE);
+        addSettingButton("返回账号", this::showServerAccountSettings);
+        new Thread(() -> {
+            try {
+                ServerApiClient.ServerHealth status = ServerApiClient.health(prefs.serverBaseUrl());
+                runOnUiThread(() -> showServerCapabilityResult(status));
+            } catch (Exception ex) {
+                runOnUiThread(() -> showServerCapabilityError(ex.getMessage()));
+            }
+        }, "GouXiongServerCapabilityCheck").start();
+    }
+
+    private void showServerCapabilityResult(ServerApiClient.ServerHealth status) {
+        content.removeAllViews();
+        content.addView(Theme.text(this, "服务能力自检", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        addCard("服务端", status.ok ? "已连接：" + status.service : "服务端响应异常", status.ok ? Theme.GREEN : Theme.RED);
+        addCard("短信验证码", status.smsLine(), status.smsAliyunConfigured && !status.smsDevMode ? Theme.GREEN : Theme.ORANGE);
+        addCard("阿里多模态", status.modelLine(), status.modelReady() ? Theme.GREEN : Theme.ORANGE);
+        addCard("实时陪伴", status.liveLine(), status.websocketLiveSession ? Theme.GREEN : Theme.ORANGE);
+        addCard("2D小助手", status.avatarLine(), status.local2dAvatarView && status.avatarStateMachine && status.mouthLevelProtocol ? Theme.GREEN : Theme.ORANGE);
+        addCard("陪伴能力", status.companionLine(), status.bedtimeStory && status.possibleAsleepConfirm && status.musicPlayback && !status.newsBriefing ? Theme.GREEN : Theme.ORANGE);
+        addCard("安全边界", "模型 Key、短信 AK 和管理令牌都应只放服务端。APK 只保存登录态，夜间强唤醒和紧急联系人继续由本机兜底。", Theme.BLUE);
+        addSettingButton("重新检查", this::showServerCapabilityCheck);
+        addSettingButton("返回账号", this::showServerAccountSettings);
+    }
+
+    private void showServerCapabilityError(String message) {
+        content.removeAllViews();
+        content.addView(Theme.text(this, "服务能力自检", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        addCard("连接失败", "服务端没有连上：" + message + "\n请检查地址、电脑服务端和模拟器网络。", Theme.RED);
+        addSettingButton("连接服务设置", this::showServerUrlDialog);
+        addSettingButton("重新检查", this::showServerCapabilityCheck);
+        addSettingButton("返回账号", this::showServerAccountSettings);
+    }
+
+    private void syncOwnerProfileQuietAfterAccountOpen() {
+        syncOwnerProfileQuiet("account_open");
+    }
+
+    private void showServerUrlDialog() {
+        EditText input = new EditText(this);
+        input.setText(prefs.serverBaseUrl());
+        input.setHint("例如 http://10.0.2.2:8787");
+        input.setTextSize(18);
+        input.setSingleLine(true);
+        new AlertDialog.Builder(this)
+                .setTitle("服务端地址")
+                .setMessage("模拟器访问电脑本机用 http://10.0.2.2:8787；真机要填局域网或公网 HTTPS 地址。")
+                .setView(input)
                 .setPositiveButton("保存", (d, w) -> {
-                    String entered = key.getText().toString().trim();
-                    boolean keySaved = true;
-                    if (entered.length() > 0) {
-                        keySaved = prefs.setDeepSeekApiKey(entered);
-                    }
-                    prefs.setDeepSeekModel(model.getText().toString());
-                    prefs.setAssistantOnlineEnabled(true);
-                    Toast.makeText(this, keySaved ? "已加密保存联网设置" : "Key 加密保存失败，请重试", Toast.LENGTH_SHORT).show();
-                    showCompanionSettings();
+                    prefs.setServerBaseUrl(input.getText().toString());
+                    Toast.makeText(this, "已保存服务端地址", Toast.LENGTH_SHORT).show();
+                    showServerAccountSettings();
                 })
                 .setNegativeButton("取消", null)
-                .setNeutralButton("清除Key", (d, w) -> {
-                    prefs.clearDeepSeekApiKey();
-                    Toast.makeText(this, "已清除 DeepSeek Key", Toast.LENGTH_SHORT).show();
-                    showCompanionSettings();
-                })
                 .show();
+    }
+
+    private void showPhoneLoginDialog() {
+        EditText phone = new EditText(this);
+        phone.setHint("输入手机号");
+        phone.setText(prefs.serverPhone());
+        phone.setTextSize(22);
+        phone.setSingleLine(true);
+        phone.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
+        new AlertDialog.Builder(this)
+                .setTitle("手机号注册")
+                .setMessage("我们会向这个手机号发送验证码，用于绑定您的健康档案和小助手长期记忆。")
+                .setView(phone)
+                .setPositiveButton("获取验证码", (d, w) -> requestServerCode(phone.getText().toString()))
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
+    private void requestServerCode(String phone) {
+        String cleanPhone = phone == null ? "" : phone.trim();
+        if (cleanPhone.length() < 6) {
+            Toast.makeText(this, "手机号不正确", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Toast.makeText(this, "正在获取验证码", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                ServerApiClient.CodeResult result = ServerApiClient.requestCode(prefs.serverBaseUrl(), cleanPhone);
+                runOnUiThread(() -> showPhoneVerifyDialog(cleanPhone, result.devCode, result.smsProvider));
+            } catch (Exception ex) {
+                runOnUiThread(() -> showCompanionReply("注册没成功",
+                        "服务端验证码请求失败：" + ex.getMessage() + "\n\n请检查服务端地址是否可访问。"));
+            }
+        }, "GouXiongRequestCode").start();
+    }
+
+    private void showPhoneVerifyDialog(String phone, String devCode, String smsProvider) {
+        EditText code = new EditText(this);
+        boolean devMode = devCode != null && devCode.length() > 0;
+        code.setHint(devMode ? "测试验证码：" + devCode : "输入短信验证码");
+        code.setText(devMode ? devCode : "");
+        code.setTextSize(24);
+        code.setSingleLine(true);
+        code.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        new AlertDialog.Builder(this)
+                .setTitle("输入验证码")
+                .setMessage(devMode
+                        ? "验证码会在 10 分钟内有效。当前服务端是开发短信模式，已自动填入测试验证码。"
+                        : "验证码会在 10 分钟内有效。请查看手机短信，不会在 App 里显示验证码。")
+                .setView(code)
+                .setPositiveButton("登录", (d, w) -> verifyServerCode(phone, code.getText().toString()))
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
+    private void verifyServerCode(String phone, String code) {
+        Toast.makeText(this, "正在登录服务端", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                ServerApiClient.AuthResult result = ServerApiClient.verifyCode(
+                        prefs.serverBaseUrl(),
+                        phone,
+                        code,
+                        androidDeviceId());
+                prefs.setServerAuth(result.phone, result.token, result.userId);
+                CareReminderScheduler.ensureCareReminders(this);
+                syncOwnerProfileBlocking();
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "手机号已注册，服务端记忆已开启", Toast.LENGTH_SHORT).show();
+                    showServerAccountSettings();
+                });
+            } catch (Exception ex) {
+                runOnUiThread(() -> showCompanionReply("登录没成功",
+                        "验证码登录失败：" + ex.getMessage() + "\n\n请重新获取验证码。"));
+            }
+        }, "GouXiongVerifyCode").start();
+    }
+
+    private String androidDeviceId() {
+        try {
+            String id = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
+            return id == null ? "android" : id;
+        } catch (Exception ex) {
+            return "android";
+        }
+    }
+
+    private JSONObject ownerProfileJson() throws Exception {
+        return new JSONObject()
+                .put("assistant_name", prefs.assistantName())
+                .put("assistant_identity", prefs.assistantIdentity())
+                .put("owner_address", prefs.ownerAddress())
+                .put("health", prefs.healthProfile())
+                .put("medication", prefs.medicationHabits())
+                .put("sleep", prefs.sleepSituation())
+                .put("family", prefs.familySituation())
+                .put("hobbies", prefs.hobbies())
+                .put("care_preference", prefs.carePreference());
+    }
+
+    private void syncOwnerProfileBlocking() throws Exception {
+        if (!prefs.serverRegistered()) return;
+        ServerApiClient.syncProfile(prefs.serverBaseUrl(), prefs.serverAuthToken(), ownerProfileJson());
+    }
+
+    private void syncOwnerProfileAsync(String source) {
+        if (!prefs.serverRegistered()) {
+            Toast.makeText(this, "请先手机号注册", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        new Thread(() -> {
+            try {
+                syncOwnerProfileBlocking();
+                ServerApiClient.uploadInsight(
+                        prefs.serverBaseUrl(),
+                        prefs.serverAuthToken(),
+                        source == null ? "profile" : source,
+                        "profile",
+                        prefs.ownerProfileSummary(),
+                        1,
+                        ownerProfileJson());
+                runOnUiThread(() -> Toast.makeText(this, "已同步服务端档案", Toast.LENGTH_SHORT).show());
+            } catch (Exception ex) {
+                runOnUiThread(() -> Toast.makeText(this, "档案同步失败：" + ex.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }, "GouXiongSyncProfile").start();
+    }
+
+    private void syncOwnerProfileQuiet(String source) {
+        if (!prefs.serverRegistered()) return;
+        new Thread(() -> {
+            try {
+                syncOwnerProfileBlocking();
+                ServerApiClient.uploadInsight(
+                        prefs.serverBaseUrl(),
+                        prefs.serverAuthToken(),
+                        source == null ? "profile" : source,
+                        "profile",
+                        prefs.ownerProfileSummary(),
+                        1,
+                        ownerProfileJson());
+            } catch (Exception ignored) {
+            }
+        }, "GouXiongSyncProfileQuiet").start();
+    }
+
+    private void maybeSyncCompanionInsight(String text, String source) {
+        if (!prefs.serverRegistered() || text == null || text.trim().length() == 0) {
+            return;
+        }
+        String category = localInsightCategory(text);
+        if ("general".equals(category) && text.trim().length() < 16) {
+            return;
+        }
+        int severity = localInsightSeverity(category, text);
+        new Thread(() -> {
+            try {
+                ServerApiClient.uploadInsight(
+                        prefs.serverBaseUrl(),
+                        prefs.serverAuthToken(),
+                        source == null ? "chat" : source,
+                        category,
+                        text,
+                        severity,
+                        new JSONObject()
+                                .put("assistant_role", prefs.companionRole())
+                                .put("owner_address", prefs.ownerAddress()));
+            } catch (Exception ignored) {
+            }
+        }, "GouXiongSyncInsight").start();
+    }
+
+    private String localInsightCategory(String text) {
+        String q = text == null ? "" : text;
+        if (containsAny(q, "药", "吃过", "漏吃", "药瓶", "药盒", "降压", "胰岛素")) return "medication";
+        if (containsAny(q, "头晕", "胸闷", "不舒服", "疼", "血压", "血糖", "气色", "体检", "报告", "养生", "食补", "食疗", "饮食", "妙招")) return "health";
+        if (containsAny(q, "投资", "理财", "转账", "验证码", "保险", "贷款", "收益", "养老项目", "扫码")) return "economy";
+        if (containsAny(q, "喘", "憋", "噩梦", "呼吸", "摔", "救命", "异常", "惊醒", "呛咳")) return "abnormal";
+        if (containsAny(q, "睡", "打鼾", "午睡", "夜醒", "起床")) return "sleep";
+        if (containsAny(q, "孩子", "老伴", "家人", "独居", "女儿", "儿子")) return "family";
+        if (containsAny(q, "难过", "孤单", "烦", "开心", "害怕", "心情")) return "mood";
+        return "general";
+    }
+
+    private int localInsightSeverity(String category, String text) {
+        String q = text == null ? "" : text;
+        if ("economy".equals(category) && containsAny(q, "转账", "验证码", "贷款", "扫码付款")) return 4;
+        if ("abnormal".equals(category) && containsAny(q, "呼吸", "憋", "救命", "摔", "胸闷")) return 4;
+        if ("health".equals(category) || "medication".equals(category)) return 2;
+        return 1;
+    }
+
+    private void fetchServerMessagesForReading() {
+        fetchServerMessagesForReading(false);
+    }
+
+    private void fetchServerMessagesForReadingSilently() {
+        fetchServerMessagesForReading(true);
+    }
+
+    private void fetchServerMessagesForReading(boolean silent) {
+        if (!prefs.serverRegistered()) {
+            if (!silent) Toast.makeText(this, "请先手机号注册", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        new Thread(() -> {
+            try {
+                JSONArray messages = ServerApiClient.pendingMessages(prefs.serverBaseUrl(), prefs.serverAuthToken());
+                if (messages.length() == 0) {
+                    if (!silent) runOnUiThread(() -> Toast.makeText(this, "暂时没有新消息", Toast.LENGTH_SHORT).show());
+                    return;
+                }
+                JSONObject first = messages.getJSONObject(0);
+                runOnUiThread(() -> readAndMarkServerMessage(first));
+            } catch (Exception ex) {
+                if (!silent) runOnUiThread(() -> Toast.makeText(this, "服务器消息读取失败：" + ex.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }, "GouXiongFetchMessages").start();
+    }
+
+    private void readAndMarkServerMessage(JSONObject message) {
+        int id = message.optInt("id", 0);
+        String title = message.optString("title", "小助手提醒");
+        String body = message.optString("body", "");
+        showCompanionVoiceReply(title, body);
+        if (id > 0 && prefs.serverRegistered()) {
+            new Thread(() -> {
+                try {
+                    ServerApiClient.markMessageRead(prefs.serverBaseUrl(), prefs.serverAuthToken(), id);
+                } catch (Exception ignored) {
+                }
+            }, "GouXiongMarkMessageRead").start();
+        }
     }
 
     private void showDeepSeekQuestionDialog() {
@@ -2130,15 +4213,62 @@ public class MainActivity extends Activity {
                 .show();
     }
 
+    private void requestRequiredPermissionsProactivelySoon() {
+        if (requiredRuntimePermissions().isEmpty() || requiredPermissionsRequestedThisSession) {
+            return;
+        }
+        requiredPermissionsRequestedThisSession = true;
+        View anchor = content != null ? content : getWindow().getDecorView();
+        anchor.postDelayed(() -> {
+            java.util.ArrayList<String> permissions = requiredRuntimePermissions();
+            if (isFinishing() || permissions.isEmpty() || realtimeVoiceEnabled) {
+                return;
+            }
+            Toast.makeText(this, "请允许麦克风、摄像头、媒体、电话和短信权限，小助手才能听、看、读文件并紧急通知家人。", Toast.LENGTH_LONG).show();
+            requestPermissions(permissions.toArray(new String[0]), REQUEST_REQUIRED_PERMISSIONS);
+        }, 650);
+    }
+
+    private boolean requestMicrophoneForLiveChatIfNeeded() {
+        if (hasPermission(Manifest.permission.RECORD_AUDIO)) {
+            return false;
+        }
+        realtimeVoiceEnabled = true;
+        updateVoiceStatus("需要允许麦克风，小助手才能直接听您说话。");
+        updateLiveStageStatus("需要麦克风权限", "comforting");
+        Toast.makeText(this, "请点允许麦克风，我才能听见您。", Toast.LENGTH_LONG).show();
+        requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQUEST_VOICE_CHAT);
+        return true;
+    }
+
+    private boolean requestRequiredPermissionsForLiveChatIfNeeded() {
+        java.util.ArrayList<String> permissions = requiredRuntimePermissions();
+        if (permissions.isEmpty()) {
+            return false;
+        }
+        realtimeVoiceEnabled = true;
+        pendingStartLiveAfterRequiredPermissions = true;
+        updateVoiceStatus("需要先允许麦克风、摄像头和媒体权限，我才能听您说话、帮您看东西。");
+        updateLiveStageStatus("需要必要权限", "comforting");
+        Toast.makeText(this, "请允许必要权限，小助手才能正常听、看、读取文件和紧急通知。", Toast.LENGTH_LONG).show();
+        requestPermissions(permissions.toArray(new String[0]), REQUEST_REQUIRED_PERMISSIONS);
+        return true;
+    }
+
     private void startRealtimeVoiceChat() {
         realtimeVoiceEnabled = true;
+        lastCompanionActiveAtMs = System.currentTimeMillis();
+        sleepCheckPending = false;
+        updateLiveStageStatus("我在这里，您直接说", "listening");
+        XiaozhiVoiceProfile.configureRealtimeAudio(this);
+        ensureLiveCompanionSession();
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             updateVoiceStatus("这台设备暂时不支持系统语音识别，可以先用下方快捷按钮。");
+            updateLiveStageStatus("这台设备暂时不能听", "comforting");
             return;
         }
         if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
-            updateVoiceStatus("需要允许麦克风，小助手才能直接听您说话。");
-            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQUEST_VOICE_CHAT);
+            requestMicrophoneForLiveChatIfNeeded();
             return;
         }
         ensureVoiceRecognizer();
@@ -2146,11 +4276,604 @@ public class MainActivity extends Activity {
             firstMeetingPromptedThisSession = true;
             String intro = CompanionAssistant.firstMeetingIntro(prefs.companionRole());
             updateVoiceStatus("我先问您一句，您直接回答就行。");
+            updateLiveStageStatus("我先问您一句", "speaking");
             speakAssistantText(intro);
             return;
         }
         updateVoiceStatus("我在听，您直接说，不用点发送。");
+        updateLiveStageStatus("我在听，您直接说", "listening");
         restartRealtimeListeningSoon(120);
+    }
+
+    private void ensureLiveCompanionSession() {
+        if (!prefs.serverRegistered() || liveCompanionConnected || liveCompanionConnecting) {
+            Log.i(TAG, "Live WS skip ensure registered=" + prefs.serverRegistered()
+                    + " connected=" + liveCompanionConnected
+                    + " connecting=" + liveCompanionConnecting);
+            return;
+        }
+        try {
+            liveCompanionConnecting = true;
+            LiveCompanionSession session = new LiveCompanionSession();
+            liveCompanionSession = session;
+            Log.i(TAG, "Live WS connect " + liveCompanionEndpoint());
+            session.connect(liveCompanionEndpoint(), prefs.serverAuthToken(), "gouxiong-android", "gouxiong-sleep", new LiveCompanionSession.Listener() {
+                @Override
+                public void onConnected() {
+                    Log.i(TAG, "Live WS connected");
+                    liveCompanionConnected = true;
+                    liveCompanionConnecting = false;
+                    try {
+                        LiveCompanionSession active = liveCompanionSession;
+                        if (active != null) active.startListening("auto");
+                    } catch (Exception ignored) {
+                    }
+                    runOnUiThread(() -> {
+                        updateVoiceStatus("实时陪伴已连上，我在听您说。");
+                        updateLiveStageStatus("实时陪伴已连上", "listening");
+                        startLiveAudioStreamingIfPossible();
+                        flushPendingLiveCompanionText();
+                    });
+                }
+
+                @Override
+                public void onTts(String state, String text) {
+                    if ("interrupted".equals(state) && text != null && text.length() > 0) {
+                        runOnUiThread(() -> {
+                            prefs.recordLiveVoiceState("interrupted", "live_abort", text);
+                            updateVoiceStatus(text);
+                        });
+                    }
+                }
+
+                @Override
+                public void onStt(String text) {
+                    runOnUiThread(() -> updateVoiceStatus("我听到了，正在想。"));
+                }
+
+                @Override
+                public void onEmotion(String emotion, float intensity, String gesture, String safetyLevel, String speechText, JSONObject event) {
+                    runOnUiThread(() -> {
+                        prefs.recordLiveEmotionTagState(emotion, intensity, gesture, safetyLevel, speechText,
+                                event == null ? "" : event.optString("source", ""));
+                        if (liveStageAvatar != null) {
+                            liveStageAvatar.applyCommand(AvatarCommand.setEmotion(emotion, intensity));
+                            applyLiveAvatarGesture(gesture);
+                        }
+                        updateLiveStageStatus(liveEmotionLabel(emotion), liveEmotionMood(emotion, safetyLevel));
+                    });
+                }
+
+                @Override
+                public void onEvent(String type, JSONObject event) {
+                    Log.i(TAG, "Live WS event " + type);
+                    if ("audio_received".equals(type) && event != null) {
+                        int frames = event.optInt("frames", liveAudioFrameCount);
+                        prefs.recordLiveAudioFrameState(frames, "server_audio_received", 0f);
+                        return;
+                    }
+                    if ("event".equals(type) && event != null && "realtime_bridge_abort".equals(event.optString("name", ""))) {
+                        prefs.recordLiveAbortState("server_realtime_bridge_abort",
+                                event.optBoolean("realtime_aborted", false),
+                                event.optString("reason", ""));
+                        return;
+                    }
+                    if (!"tts".equals(type) || event == null) {
+                        return;
+                    }
+                    String state = event.optString("state", "");
+                    String text = event.optString("text", "");
+                    int serial = liveCompanionReplySerial;
+                    if ("interrupted".equals(state)) {
+                        prefs.recordLiveAbortState("server_tts_interrupted",
+                                event.optBoolean("realtime_aborted", false),
+                                text);
+                        return;
+                    }
+                    if ("sentence_delta".equals(state)) {
+                        runOnUiThread(() -> handleLiveTtsDelta(text, serial));
+                        return;
+                    }
+                    if ("sentence_end".equals(state)) {
+                        runOnUiThread(() -> finishLiveTtsReply(text, serial));
+                        return;
+                    }
+                    if ("sentence_start".equals(state) && text.trim().length() > 0) {
+                        runOnUiThread(() -> updateVoiceStatus(text));
+                    }
+                }
+
+                @Override
+                public void onAudio(byte[] pcmFrame) {
+                    playLiveModelAudioFrame(pcmFrame);
+                }
+
+                @Override
+                public void onClosed() {
+                    Log.i(TAG, "Live WS closed");
+                    liveCompanionConnected = false;
+                    liveCompanionConnecting = false;
+                    stopLiveAudioStreaming();
+                    stopLiveModelAudioPlayback();
+                }
+
+                @Override
+                public void onError(String message, Throwable error) {
+                    Log.w(TAG, "Live WS error: " + message, error);
+                    liveCompanionConnected = false;
+                    liveCompanionConnecting = false;
+                    stopLiveAudioStreaming();
+                    stopLiveModelAudioPlayback();
+                    runOnUiThread(() -> {
+                        updateVoiceStatus("实时陪伴连接慢，我先用普通联网回答。");
+                        fallbackPendingLiveCompanionText();
+                    });
+                }
+            });
+        } catch (Exception ex) {
+            Log.w(TAG, "Live WS connect setup failed", ex);
+            liveCompanionConnected = false;
+            liveCompanionConnecting = false;
+        }
+    }
+
+    private String liveCompanionEndpoint() {
+        String base = prefs.serverBaseUrl();
+        if (base == null || base.trim().length() == 0) {
+            base = "http://10.0.2.2:8787";
+        }
+        base = base.trim();
+        while (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+        if (base.startsWith("https://")) {
+            return "wss://" + base.substring("https://".length()) + "/api/live/session";
+        }
+        if (base.startsWith("http://")) {
+            return "ws://" + base.substring("http://".length()) + "/api/live/session";
+        }
+        return "ws://" + base + "/api/live/session";
+    }
+
+    private boolean trySendLiveCompanionText(String clean, String prompt, int serial) {
+        if (!prefs.serverRegistered()) return false;
+        Log.i(TAG, "Live WS try text serial=" + serial + " cleanLength=" + (clean == null ? 0 : clean.length()));
+        pendingLiveCompanionCleanText = clean == null ? "" : clean;
+        pendingLiveCompanionPrompt = prompt == null ? "" : prompt;
+        pendingLiveCompanionSerial = serial;
+        liveCompanionReplySerial = serial;
+        resetLiveStreamingReply(serial);
+        ensureLiveCompanionSession();
+        if (flushPendingLiveCompanionText()) {
+            return true;
+        }
+        content.postDelayed(() -> {
+            if (pendingLiveCompanionSerial == serial && pendingLiveCompanionPrompt.length() > 0) {
+                fallbackPendingLiveCompanionText();
+            }
+        }, 6500);
+        return true;
+    }
+
+    private boolean flushPendingLiveCompanionText() {
+        if (!liveCompanionConnected || liveCompanionSession == null || pendingLiveCompanionPrompt.length() == 0) {
+            Log.i(TAG, "Live WS flush blocked connected=" + liveCompanionConnected
+                    + " session=" + (liveCompanionSession != null)
+                    + " promptLength=" + pendingLiveCompanionPrompt.length());
+            return false;
+        }
+        String prompt = pendingLiveCompanionPrompt;
+        LiveCompanionSession active = liveCompanionSession;
+        int serial = pendingLiveCompanionSerial;
+        pendingLiveCompanionPrompt = "";
+        new Thread(() -> {
+            try {
+                active.sendTextInput(prompt);
+                Log.i(TAG, "Live WS text sent promptLength=" + prompt.length());
+            } catch (Exception ex) {
+                Log.w(TAG, "Live WS send failed", ex);
+                runOnUiThread(() -> {
+                    if (pendingLiveCompanionSerial == serial && pendingLiveCompanionPrompt.length() == 0) {
+                        pendingLiveCompanionPrompt = prompt;
+                    }
+                    liveCompanionConnected = false;
+                    liveCompanionConnecting = false;
+                    fallbackPendingLiveCompanionText();
+                });
+            }
+        }, "GouXiongLiveWebSocketSend").start();
+        runOnUiThread(() -> {
+            updateVoiceStatus("我听懂了，正在实时陪伴里想。");
+            updateLiveStageStatus("您别急，我想想", "thinking");
+        });
+        return true;
+    }
+
+    private void startLiveAudioStreamingIfPossible() {
+        if (!realtimeVoiceEnabled || !liveCompanionConnected || liveCompanionSession == null) {
+            return;
+        }
+        if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
+            return;
+        }
+        if (livePcmRecorder != null && livePcmRecorder.isRunning()) {
+            return;
+        }
+        try {
+            liveAudioStreaming = true;
+            liveAudioFrameCount = 0;
+            lastLiveAudioFrameAtMs = 0L;
+            LivePcmRecorder recorder = new LivePcmRecorder();
+            livePcmRecorder = recorder;
+            recorder.start(new LivePcmRecorder.Listener() {
+                @Override
+                public void onPcmFrame(short[] samples, float rms, long captureTimeMs) {
+                    sendLiveAudioFrame(samples, rms, captureTimeMs);
+                }
+
+                @Override
+                public void onRecorderError(Throwable error) {
+                    Log.w(TAG, "Live PCM recorder error", error);
+                    liveAudioStreaming = false;
+                    prefs.recordLiveAudioFrameState(liveAudioFrameCount, "recorder_error", 0f);
+                    runOnUiThread(() -> updateVoiceStatus("实时麦克风采样暂时不可用，文字识别仍在。"));
+                }
+            });
+            prefs.recordLiveAudioFrameState(0, "recorder_started", 0f);
+            Log.i(TAG, "Live PCM recorder started");
+        } catch (Exception ex) {
+            liveAudioStreaming = false;
+            livePcmRecorder = null;
+            Log.w(TAG, "Live PCM recorder start failed", ex);
+            prefs.recordLiveAudioFrameState(0, "recorder_start_failed", 0f);
+        }
+    }
+
+    private void sendLiveAudioFrame(short[] samples, float rms, long captureTimeMs) {
+        LiveCompanionSession active = liveCompanionSession;
+        if (!liveAudioStreaming || active == null || !liveCompanionConnected) {
+            return;
+        }
+        try {
+            active.sendPcmFrame(LivePcmRecorder.shortsToLittleEndianPcm(samples));
+            liveAudioFrameCount++;
+            lastLiveAudioFrameAtMs = captureTimeMs;
+            maybeAutoBargeInFromPcm(rms, captureTimeMs);
+            if (liveAudioFrameCount == 1 || liveAudioFrameCount % 20 == 0) {
+                Log.i(TAG, "Live PCM frame sent count=" + liveAudioFrameCount + " rms=" + rms);
+                prefs.recordLiveAudioFrameState(liveAudioFrameCount, "client_pcm_sent", rms);
+            }
+        } catch (Exception ex) {
+            Log.w(TAG, "Live PCM frame send failed", ex);
+            liveAudioStreaming = false;
+            prefs.recordLiveAudioFrameState(liveAudioFrameCount, "client_pcm_send_failed", rms);
+        }
+    }
+
+    private void stopLiveAudioStreaming() {
+        liveAudioStreaming = false;
+        LivePcmRecorder recorder = livePcmRecorder;
+        livePcmRecorder = null;
+        if (recorder != null) {
+            try {
+                recorder.stop();
+            } catch (Exception ignored) {
+            }
+        }
+        if (liveAudioFrameCount > 0) {
+            prefs.recordLiveAudioFrameState(liveAudioFrameCount, "client_pcm_stopped", 0f);
+        }
+        liveBargeInCandidateFrames = 0;
+    }
+
+    private void playLiveModelAudioFrame(byte[] pcmFrame) {
+        if (pcmFrame == null || pcmFrame.length == 0) {
+            return;
+        }
+        try {
+            if (livePcmPlayer == null) {
+                livePcmPlayer = new LivePcmPlayer();
+                liveModelAudioFrameCount = 0;
+            }
+            livePcmPlayer.play(pcmFrame);
+            liveModelAudioFrameCount++;
+            lastLiveModelAudioFrameAtMs = System.currentTimeMillis();
+            prefs.recordLiveModelAudioFrameState(liveModelAudioFrameCount, pcmFrame.length, "played");
+            runOnUiThread(() -> {
+                updateLiveStageStatus("我慢慢说给您听", "speaking");
+                updateAvatarMouthFromPcm(pcmFrame);
+                updateVoiceStatus("模型语音正在播放，您可以随时插话。");
+            });
+        } catch (Exception ex) {
+            prefs.recordLiveModelAudioFrameState(liveModelAudioFrameCount, pcmFrame.length, "play_failed");
+            runOnUiThread(() -> updateVoiceStatus("模型语音帧收到了，但这台设备暂时没放出来。"));
+        }
+    }
+
+    private void stopLiveModelAudioPlayback() {
+        liveModelAudioFrameCount = 0;
+        lastLiveModelAudioFrameAtMs = 0L;
+        if (liveStageAvatar != null && !assistantSpeaking) {
+            liveStageAvatar.applyCommand(AvatarCommand.stopSpeaking());
+            liveStageAvatar.applyCommand(AvatarCommand.setState(avatarStateForMood(liveStageMood)));
+        }
+        LivePcmPlayer player = livePcmPlayer;
+        livePcmPlayer = null;
+        if (player != null) {
+            try {
+                player.stop();
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private void maybeAutoBargeInFromPcm(float rms, long captureTimeMs) {
+        long now = captureTimeMs > 0L ? captureTimeMs : System.currentTimeMillis();
+        boolean outputActive = liveOutputActiveForBargeIn(now);
+        updateLiveBargeInNoiseFloor(rms, outputActive);
+        if (!realtimeVoiceEnabled || !liveCompanionConnected || !outputActive) {
+            liveBargeInCandidateFrames = 0;
+            return;
+        }
+        if (now - lastLiveBargeInAtMs < LIVE_BARGE_IN_COOLDOWN_MS) {
+            return;
+        }
+        float threshold = liveBargeInSpeechThresholdRms();
+        float exitThreshold = liveBargeInExitThresholdRms(threshold);
+        lastLiveBargeInThresholdRms = threshold;
+        if (rms >= threshold) {
+            liveBargeInCandidateFrames++;
+        } else if (rms <= exitThreshold) {
+            liveBargeInCandidateFrames = 0;
+        } else {
+            return;
+        }
+        if (liveBargeInCandidateFrames < LIVE_BARGE_IN_CONSECUTIVE_FRAMES) {
+            return;
+        }
+        lastLiveBargeInAtMs = now;
+        liveBargeInCandidateFrames = 0;
+        final float finalThreshold = threshold;
+        final float finalNoiseFloor = liveBargeInNoiseFloorRms;
+        runOnUiThread(() -> triggerAutoLiveBargeIn(rms, finalThreshold, finalNoiseFloor, LIVE_BARGE_IN_CONSECUTIVE_FRAMES));
+    }
+
+    private boolean liveOutputActiveForBargeIn(long now) {
+        if (assistantSpeaking) {
+            return true;
+        }
+        return lastLiveModelAudioFrameAtMs > 0L && now - lastLiveModelAudioFrameAtMs <= LIVE_MODEL_AUDIO_ACTIVE_WINDOW_MS;
+    }
+
+    private void updateLiveBargeInNoiseFloor(float rms, boolean outputActive) {
+        if (rms <= 0f) {
+            return;
+        }
+        float threshold = liveBargeInSpeechThresholdRms();
+        if (outputActive && rms >= threshold) {
+            return;
+        }
+        float clamped = Math.max(0.004f, Math.min(0.080f, rms));
+        liveBargeInNoiseFloorRms = liveBargeInNoiseFloorRms <= 0f
+                ? clamped
+                : liveBargeInNoiseFloorRms * (1f - LIVE_BARGE_IN_NOISE_FLOOR_ALPHA)
+                + clamped * LIVE_BARGE_IN_NOISE_FLOOR_ALPHA;
+    }
+
+    private float liveBargeInSpeechThresholdRms() {
+        float adaptive = Math.max(LIVE_BARGE_IN_RMS_THRESHOLD,
+                liveBargeInNoiseFloorRms * LIVE_BARGE_IN_NOISE_MULTIPLIER);
+        return Math.min(LIVE_BARGE_IN_MAX_RMS_THRESHOLD, adaptive);
+    }
+
+    private float liveBargeInExitThresholdRms(float threshold) {
+        float adaptiveExit = liveBargeInNoiseFloorRms * LIVE_BARGE_IN_EXIT_MULTIPLIER;
+        return Math.max(0.020f, Math.min(threshold * 0.72f, adaptiveExit));
+    }
+
+    private void debugFeedAutoBargeInFrames() {
+        long base = System.currentTimeMillis();
+        lastLiveModelAudioFrameAtMs = base;
+        liveBargeInCandidateFrames = 0;
+        float simulatedRms = Math.max(0.12f, liveBargeInSpeechThresholdRms() + 0.035f);
+        for (int i = 0; i < LIVE_BARGE_IN_CONSECUTIVE_FRAMES; i++) {
+            maybeAutoBargeInFromPcm(simulatedRms, base + (long) i * LivePcmRecorder.FRAME_DURATION_MS);
+        }
+    }
+
+    private void triggerAutoLiveBargeIn(float rms, float thresholdRms, float noiseFloorRms, int frames) {
+        if (!realtimeVoiceEnabled) {
+            return;
+        }
+        prefs.recordLiveAutoBargeInState(rms, frames, thresholdRms, noiseFloorRms,
+                frames * LivePcmRecorder.FRAME_DURATION_MS);
+        voiceConversationSerial++;
+        stopAssistantSpeech();
+        abortLiveCompanionSpeech();
+        updateVoiceStatus("我听到您插话了，先停下，您说。");
+        updateLiveStageStatus("我先停下，听您说", "interrupted");
+        if (content != null) {
+            content.postDelayed(() -> updateLiveStageStatus("我听到您了", "listening"), 180L);
+        }
+        restartRealtimeListeningSoon(120);
+    }
+
+    private void fallbackPendingLiveCompanionText() {
+        if (pendingLiveCompanionPrompt.length() == 0) return;
+        Log.w(TAG, "Live WS fallback to HTTP serial=" + pendingLiveCompanionSerial
+                + " connected=" + liveCompanionConnected
+                + " connecting=" + liveCompanionConnecting);
+        String clean = pendingLiveCompanionCleanText;
+        int serial = pendingLiveCompanionSerial;
+        pendingLiveCompanionPrompt = "";
+        pendingLiveCompanionCleanText = "";
+        pendingLiveCompanionSerial = 0;
+        startHttpVoiceAnswer(clean, serial);
+    }
+
+    private void abortLiveCompanionSpeech() {
+        LiveCompanionSession active = liveCompanionSession;
+        String stateDetail = "connected=" + liveCompanionConnected
+                + ", connecting=" + liveCompanionConnecting
+                + ", session=" + (active != null);
+        if (active != null && liveCompanionConnected) {
+            prefs.recordLiveAbortState("client_abort_sent", false, stateDetail);
+            new Thread(() -> {
+                try {
+                    active.abortCurrentSpeech();
+                    prefs.recordLiveAbortState("client_abort_sent_ok", false, stateDetail);
+                    Log.i(TAG, "Live WS abort sent");
+                } catch (Exception ex) {
+                    prefs.recordLiveAbortState("client_abort_send_failed", false, ex.getMessage());
+                    Log.w(TAG, "Live WS abort failed", ex);
+                }
+            }, "GouXiongLiveWebSocketAbort").start();
+        } else {
+            prefs.recordLiveAbortState("client_abort_skipped", false, stateDetail);
+        }
+    }
+
+    private String liveEmotionLabel(String emotion) {
+        if ("thinking".equals(emotion)) return "您别急，我想想";
+        if ("speaking".equals(emotion)) return "我慢慢说给您听";
+        if ("listening".equals(emotion)) return "我在听您说话";
+        if ("happy".equals(emotion)) return "我也很开心";
+        if ("worried".equals(emotion)) return "我有点担心您";
+        if ("seeing".equals(emotion)) return "我认真看一下";
+        if ("reading".equals(emotion)) return "我帮您读清楚";
+        if ("finding".equals(emotion)) return "您别急，我帮您想想";
+        if ("comforting".equals(emotion)) return "我陪着您";
+        if ("urgent_wakeup".equals(emotion)) return "快醒醒，我在这里";
+        return "我在这里";
+    }
+
+    private void applyLiveAvatarGesture(String gesture) {
+        if (liveStageAvatar == null || gesture == null) {
+            return;
+        }
+        if ("wave".equals(gesture)) {
+            liveStageAvatar.applyCommand(AvatarCommand.wave());
+        } else if ("nod".equals(gesture)) {
+            liveStageAvatar.applyCommand(AvatarCommand.nod());
+        } else if ("lookDown".equals(gesture)) {
+            liveStageAvatar.applyCommand(AvatarCommand.lookDown());
+        } else if ("lookAtUser".equals(gesture)) {
+            liveStageAvatar.applyCommand(AvatarCommand.lookAtUser());
+        } else if ("urgentWake".equals(gesture)) {
+            liveStageAvatar.applyCommand(AvatarCommand.urgentWake());
+        }
+    }
+
+    private String liveEmotionMood(String emotion, String safetyLevel) {
+        if ("urgent".equals(safetyLevel)) return "urgent_wakeup";
+        return liveEmotionMood(emotion);
+    }
+
+    private String liveEmotionMood(String emotion) {
+        if ("thinking".equals(emotion)) return "thinking";
+        if ("speaking".equals(emotion)) return "speaking";
+        if ("listening".equals(emotion)) return "listening";
+        if ("happy".equals(emotion)) return "happy";
+        if ("worried".equals(emotion)) return "worried";
+        if ("seeing".equals(emotion)) return "seeing";
+        if ("reading".equals(emotion)) return "reading";
+        if ("finding".equals(emotion)) return "finding";
+        if ("comforting".equals(emotion)) return "comforting";
+        if ("urgent_wakeup".equals(emotion)) return "urgent_wakeup";
+        return "comforting";
+    }
+
+    private void resetLiveStreamingReply(int serial) {
+        liveStreamingSerial = serial;
+        liveStreamingReplyBuffer.setLength(0);
+        liveStreamingSpeechBuffer.setLength(0);
+        liveStreamingTtsChunkCount = 0;
+        lastLiveStreamingUiUpdateAtMs = 0L;
+        prefs.resetLiveTtsDeltaState(serial);
+    }
+
+    private void handleLiveTtsDelta(String delta, int serial) {
+        String cleanDelta = delta == null ? "" : delta;
+        if (serial != voiceConversationSerial || cleanDelta.trim().length() == 0) {
+            return;
+        }
+        if (liveStreamingSerial != serial) {
+            resetLiveStreamingReply(serial);
+        }
+        liveStreamingReplyBuffer.append(cleanDelta);
+        liveStreamingSpeechBuffer.append(cleanDelta);
+        String visible = liveStreamingReplyBuffer.toString().trim();
+        prefs.recordLiveTtsDeltaState(serial, visible);
+        long now = System.currentTimeMillis();
+        if (lastLiveStreamingUiUpdateAtMs == 0L || now - lastLiveStreamingUiUpdateAtMs >= 450L) {
+            lastLiveStreamingUiUpdateAtMs = now;
+            prefs.recordLiveVoiceState("streaming", "我正在说", visible);
+            updateLiveStageStatus("我边想边说", "speaking");
+            updateLiveStageSpeech(liveBubbleText(visible));
+            updateVoiceStatus("我正在说，您可以随时插话。");
+        }
+        speakLiveStreamingChunk(false);
+    }
+
+    private void finishLiveTtsReply(String answer, int serial) {
+        if (serial != voiceConversationSerial) {
+            return;
+        }
+        String finalAnswer = answer == null ? "" : answer.trim();
+        if (liveStreamingSerial != serial) {
+            resetLiveStreamingReply(serial);
+        }
+        if (liveStreamingReplyBuffer.length() == 0 && finalAnswer.length() == 0) {
+            return;
+        }
+        String streamed = liveStreamingReplyBuffer.toString();
+        if (finalAnswer.length() > streamed.length() && finalAnswer.startsWith(streamed)) {
+            String rest = finalAnswer.substring(streamed.length());
+            liveStreamingReplyBuffer.append(rest);
+            liveStreamingSpeechBuffer.append(rest);
+        } else if (streamed.length() == 0 && finalAnswer.length() > 0) {
+            liveStreamingReplyBuffer.append(finalAnswer);
+            liveStreamingSpeechBuffer.append(finalAnswer);
+        }
+        String core = liveStreamingReplyBuffer.length() > 0 ? liveStreamingReplyBuffer.toString().trim() : finalAnswer;
+        String reply = core + "\n\n说明：这是生活建议，不是医学诊断。";
+        maybeSyncCompanionInsight("实时陪伴回复：" + core, "live_voice_reply");
+        prefs.recordLiveVoiceState("reply", "我听懂了", reply);
+        updateLiveStageStatus("我慢慢说给您听", "speaking");
+        updateLiveStageSpeech(liveBubbleText(reply));
+        updateVoiceStatus("我听懂了。您可以随时插话。");
+        if (liveStreamingSpeechBuffer.length() > 0) {
+            liveStreamingSpeechBuffer.append("。说明：这是生活建议，不是医学诊断。");
+            speakLiveStreamingChunk(true);
+        } else if (liveStreamingTtsChunkCount > 0) {
+            speakAssistantTextQueued("说明：这是生活建议，不是医学诊断。", prefs.companionRole(),
+                    TextToSpeech.QUEUE_ADD, "gouxiong-live-stream-" + serial + "-final");
+        } else {
+            speakAssistantText(reply);
+        }
+    }
+
+    private void speakLiveStreamingChunk(boolean finalFlush) {
+        String pending = liveStreamingSpeechBuffer.toString().trim();
+        if (pending.length() == 0) {
+            return;
+        }
+        if (!finalFlush && !isLiveStreamingChunkReady(pending)) {
+            return;
+        }
+        liveStreamingSpeechBuffer.setLength(0);
+        int chunk = ++liveStreamingTtsChunkCount;
+        int queueMode = chunk == 1 ? TextToSpeech.QUEUE_FLUSH : TextToSpeech.QUEUE_ADD;
+        String suffix = finalFlush ? "-final" : "";
+        speakAssistantTextQueued(pending, prefs.companionRole(), queueMode,
+                "gouxiong-live-stream-" + liveStreamingSerial + "-" + chunk + suffix);
+    }
+
+    private boolean isLiveStreamingChunkReady(String pending) {
+        if (pending.length() >= 60) {
+            return true;
+        }
+        char last = pending.charAt(pending.length() - 1);
+        return last == '。' || last == '！' || last == '？' || last == '；'
+                || last == '!' || last == '?' || last == ';';
     }
 
     private void ensureVoiceRecognizer() {
@@ -2159,17 +4882,23 @@ public class MainActivity extends Activity {
         voiceRecognizer.setRecognitionListener(new RecognitionListener() {
             @Override
             public void onReadyForSpeech(Bundle params) {
+                lastVoiceCallbackAtMs = System.currentTimeMillis();
                 updateVoiceStatus("我在听，您直接说。");
+                updateLiveStageStatus("我在听您说话", "listening");
             }
 
             @Override
             public void onBeginningOfSpeech() {
+                lastVoiceCallbackAtMs = System.currentTimeMillis();
+                lastCompanionActiveAtMs = lastVoiceCallbackAtMs;
                 stopAssistantSpeech();
                 updateVoiceStatus("听到了，您慢慢说。");
+                updateLiveStageStatus("听到了，您慢慢说", "user_speaking");
             }
 
             @Override
             public void onRmsChanged(float rmsdB) {
+                handleVoiceRms(rmsdB);
             }
 
             @Override
@@ -2178,14 +4907,25 @@ public class MainActivity extends Activity {
 
             @Override
             public void onEndOfSpeech() {
+                lastVoiceCallbackAtMs = System.currentTimeMillis();
+                lastCompanionActiveAtMs = lastVoiceCallbackAtMs;
                 updateVoiceStatus("我听完了，正在想。");
+                updateLiveStageStatus("我听完了，正在想", "thinking");
             }
 
             @Override
             public void onError(int error) {
                 voiceListening = false;
                 if (!realtimeVoiceEnabled) return;
-                updateVoiceStatus("刚才没听清，您可以再说一遍。");
+                if (sleepCheckPending && error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+                    enterSleepGuardFromCompanion(false);
+                    return;
+                }
+                if (error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT && maybeAskIfUserAsleep()) {
+                    return;
+                }
+                updateVoiceStatus(voiceErrorText(error));
+                updateLiveStageStatus("刚才没听清，再说一遍", "comforting");
                 restartRealtimeListeningSoon(error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY ? 900 : 500);
             }
 
@@ -2201,6 +4941,7 @@ public class MainActivity extends Activity {
                 if (text.length() > 0) {
                     stopAssistantSpeech();
                     updateVoiceStatus("听到了，您继续说。");
+                    updateLiveStageStatus("听到了，您继续说", "user_speaking");
                 }
             }
 
@@ -2214,6 +4955,8 @@ public class MainActivity extends Activity {
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "zh-CN");
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "zh-CN");
+        intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getPackageName());
         intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
         intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
         intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 900);
@@ -2223,6 +4966,7 @@ public class MainActivity extends Activity {
 
     private void restartRealtimeListeningSoon(long delayMs) {
         if (!realtimeVoiceEnabled || voiceRestartScheduled) return;
+        if (content == null) return;
         voiceRestartScheduled = true;
         content.postDelayed(() -> {
             voiceRestartScheduled = false;
@@ -2235,13 +4979,78 @@ public class MainActivity extends Activity {
             return;
         }
         try {
+            int listenSerial = ++voiceListenSerial;
+            voiceListenStartedAtMs = System.currentTimeMillis();
+            lastVoiceCallbackAtMs = 0L;
+            lastVoiceSoundAtMs = 0L;
+            voiceInputLevel = 0f;
+            updateVoiceStatus("正在打开麦克风，您可以直接说。");
+            updateLiveStageStatus("正在打开麦克风", "listening");
             voiceRecognizer.cancel();
             voiceRecognizer.startListening(realtimeVoiceIntent());
             voiceListening = true;
+            scheduleVoiceListenWatchdog(listenSerial);
         } catch (Exception ex) {
             voiceListening = false;
             updateVoiceStatus("语音入口暂时不可用，请稍后再试。");
+            updateLiveStageStatus("语音入口暂时不可用", "comforting");
         }
+    }
+
+    private void handleVoiceRms(float rmsdB) {
+        long now = System.currentTimeMillis();
+        lastVoiceCallbackAtMs = now;
+        float level = Math.max(0f, Math.min(1f, (rmsdB + 2f) / 12f));
+        voiceInputLevel = level;
+        if (level > 0.18f) {
+            lastVoiceSoundAtMs = now;
+            lastCompanionActiveAtMs = now;
+            updateVoiceStatus("麦克风有声音，我在听。");
+            updateLiveStageStatus("听到了，您继续说", "user_speaking");
+        }
+    }
+
+    private void scheduleVoiceListenWatchdog(int listenSerial) {
+        content.postDelayed(() -> {
+            if (!realtimeVoiceEnabled || !voiceListening || listenSerial != voiceListenSerial) {
+                return;
+            }
+            long started = voiceListenStartedAtMs;
+            if (lastVoiceCallbackAtMs < started) {
+                updateVoiceStatus("系统语音入口还没响应，请确认手机语音识别服务可用。");
+                updateLiveStageStatus("麦克风入口没响应", "comforting");
+            } else if (lastVoiceSoundAtMs < started) {
+                if (!maybeAskIfUserAsleep()) {
+                    updateVoiceStatus("麦克风已打开，但还没检测到声音。请靠近手机说一句。");
+                    updateLiveStageStatus("我在等您说话", "listening");
+                }
+            }
+        }, 1800);
+    }
+
+    private String voiceErrorText(int error) {
+        if (error == SpeechRecognizer.ERROR_AUDIO) {
+            return "麦克风录音出错，请确认没有被别的 App 占用。";
+        }
+        if (error == SpeechRecognizer.ERROR_CLIENT) {
+            return "系统语音识别临时出错，我再试一次。";
+        }
+        if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
+            return "麦克风权限没有打开，请允许后再说。";
+        }
+        if (error == SpeechRecognizer.ERROR_NETWORK || error == SpeechRecognizer.ERROR_NETWORK_TIMEOUT) {
+            return "语音识别网络慢，我再听一次。";
+        }
+        if (error == SpeechRecognizer.ERROR_NO_MATCH) {
+            return "麦克风开着，但没听清人声，请靠近一点再说。";
+        }
+        if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) {
+            return "语音入口正忙，我马上重新听。";
+        }
+        if (error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+            return "我没听到声音，请直接说一句。";
+        }
+        return "刚才没听清，您可以再说一遍。";
     }
 
     private void stopRealtimeVoiceChat(boolean clearStatus) {
@@ -2249,6 +5058,22 @@ public class MainActivity extends Activity {
         realtimeVoiceEnabled = false;
         voiceListening = false;
         voiceRestartScheduled = false;
+        voiceInputLevel = 0f;
+        liveCompanionConnected = false;
+        liveCompanionConnecting = false;
+        stopLiveAudioStreaming();
+        stopLiveModelAudioPlayback();
+        pendingLiveCompanionPrompt = "";
+        pendingLiveCompanionCleanText = "";
+        pendingLiveCompanionSerial = 0;
+        if (liveCompanionSession != null) {
+            try {
+                liveCompanionSession.close();
+            } catch (Exception ignored) {
+            }
+            liveCompanionSession = null;
+        }
+        XiaozhiVoiceProfile.restoreRealtimeAudio(this);
         if (voiceRecognizer != null) {
             try {
                 voiceRecognizer.cancel();
@@ -2262,6 +5087,8 @@ public class MainActivity extends Activity {
 
     private void stopAssistantSpeech() {
         assistantSpeaking = false;
+        stopLiveModelAudioPlayback();
+        stopAvatarSpeaking();
         if (assistantTts != null) {
             try {
                 assistantTts.stop();
@@ -2291,30 +5118,78 @@ public class MainActivity extends Activity {
             restartRealtimeListeningSoon(500);
             return;
         }
+        lastCompanionActiveAtMs = System.currentTimeMillis();
+        if (sleepCheckPending) {
+            if (looksLikeStillAwakeReply(clean)) {
+                sleepCheckPending = false;
+                restoreSleepSoundAfterAwakeReply();
+                showCompanionVoiceReply("我继续陪您", sleepCheckContinueLine());
+                return;
+            }
+            if (looksLikeReadyToSleepReply(clean)) {
+                enterSleepGuardFromCompanion(true);
+                return;
+            }
+            sleepCheckPending = false;
+        }
         if (!prefs.assistantPersonaConfigured()) {
             saveAssistantPersonaFromMessage(clean);
             return;
         }
+        if (looksLikeBedtimeStoryRequest(clean)) {
+            prefs.recordCompanionShortcutRoute("bedtime_story", clean);
+            askBedtimeStory();
+            return;
+        }
+        if (looksLikeNewsRequest(clean)) {
+            prefs.recordCompanionShortcutRoute("news_briefing", clean);
+            showNewsCapabilityStatus();
+            return;
+        }
+        if (looksLikeSleepSoundStopRequest(clean)) {
+            prefs.recordCompanionShortcutRoute("music_playback_stop", clean);
+            stopSleepSound();
+            return;
+        }
+        if (looksLikeSleepSoundStartRequest(clean)) {
+            prefs.recordCompanionShortcutRoute("music_playback", clean);
+            startSleepSound();
+            return;
+        }
         int serial = ++voiceConversationSerial;
         boolean findQuestion = looksLikeFindObjectQuestion(clean);
+        maybeSyncCompanionInsight(clean, "voice_chat");
         String objectAnswer = db.objectMemoryAnswer(clean);
-        if (objectAnswer.length() > 0 && findQuestion) {
+        VisionIntent visionIntent = analyzeVisionIntent(clean);
+        if (objectAnswer.length() > 0 && findQuestion && !visionIntent.explicitLook) {
             showCompanionVoiceReply("我帮你找", objectAnswer);
             return;
         }
-        if (!prefs.assistantOnlineEnabled() || !prefs.deepSeekKeyConfigured()) {
+        if (visionIntent.matched) {
+            handleRealtimeVisionIntent(visionIntent);
+            return;
+        }
+        if (looksLikeWellnessTipQuestion(clean)) {
+            showWellnessTip();
+            return;
+        }
+        if (!prefs.deepSeekKeyConfigured()) {
             showCompanionVoiceReply("我先陪您说", localVoiceFallback(clean));
             return;
         }
         String thinking = CompanionAssistant.thinkingComfortLine(prefs.companionRole(), findQuestion ? "find" : "chat");
         showCompanionVoiceWaiting(thinking);
+        if (trySendLiveCompanionText(clean, deepSeekUserPrompt(clean), serial)) {
+            return;
+        }
+        startHttpVoiceAnswer(clean, serial);
+    }
+
+    private void startHttpVoiceAnswer(String clean, int serial) {
         new Thread(() -> {
             try {
-                String answer = DeepSeekClient.chat(
-                        prefs.deepSeekApiKey(),
-                        prefs.deepSeekModel(),
-                        deepSeekSystemPrompt(),
-                        deepSeekUserPrompt(clean));
+                String answer = askAssistantModel(deepSeekUserPrompt(clean));
+                maybeSyncCompanionInsight("用户：" + clean + "\n小助手：" + answer, "voice_reply");
                 runOnUiThread(() -> {
                     if (serial == voiceConversationSerial) {
                         showCompanionVoiceReply("我听懂了", answer + "\n\n说明：这是生活建议，不是医学诊断。");
@@ -2331,33 +5206,160 @@ public class MainActivity extends Activity {
         }, "GouXiongRealtimeVoiceChat").start();
     }
 
+    private void startCompanionModelAnswer(String topic, String prompt, String syncSource) {
+        int serial = ++voiceConversationSerial;
+        String cleanTopic = topic == null || topic.trim().length() == 0 ? "我听懂了" : topic.trim();
+        String cleanPrompt = prompt == null ? "" : prompt.trim();
+        if (cleanPrompt.length() == 0) {
+            showCompanionVoiceReply(cleanTopic, localVoiceFallback(""));
+            return;
+        }
+        showCompanionVoiceWaiting(CompanionAssistant.thinkingComfortLine(prefs.companionRole(), syncSource));
+        if (trySendLiveCompanionText(cleanTopic, cleanPrompt, serial)) {
+            return;
+        }
+        startHttpVoiceAnswerWithPrompt(cleanTopic, cleanPrompt, serial, syncSource);
+    }
+
+    private void startHttpVoiceAnswerWithPrompt(String topic, String prompt, int serial, String syncSource) {
+        new Thread(() -> {
+            try {
+                String answer = askAssistantModel(prompt);
+                maybeSyncCompanionInsight("任务：" + topic + "\n小助手：" + answer,
+                        syncSource == null || syncSource.length() == 0 ? "voice_reply" : syncSource);
+                runOnUiThread(() -> {
+                    if (serial == voiceConversationSerial) {
+                        showCompanionVoiceReply(topic, answer + "\n\n说明：这是生活陪伴，不是医学诊断。");
+                    }
+                });
+            } catch (Exception ex) {
+                runOnUiThread(() -> {
+                    if (serial == voiceConversationSerial) {
+                        showCompanionVoiceReply("这次没连上",
+                                "联网回答没成功：" + ex.getMessage() + "\n\n我先陪着您；夜间强唤醒仍由本地兜底。");
+                    }
+                });
+            }
+        }, "GouXiongCompanionModelTask").start();
+    }
+
     private String localVoiceFallback(String question) {
         if (looksLikeFindObjectQuestion(question)) {
             return CompanionAssistant.findObjectLine(question, db.objectMemorySummary() + "\n" + prefs.visualMemorySummary());
         }
-        return "我听到了。现在联网陪伴还没配置好，我先用本机记录陪您。\n\n"
+        if (looksLikeWellnessTipQuestion(question)) {
+            return CompanionAssistant.wellnessTipLine(
+                    prefs.companionRole(),
+                    prefs.ownerAddress(),
+                    prefs.healthProfile(),
+                    prefs.medicationHabits(),
+                    prefs.sleepSituation(),
+                    prefs.hobbies())
+                    + "\n\n这是本机生活建议，不是医学诊断；用药和不舒服的情况按医嘱来。";
+        }
+        return "我听到了。现在模型服务还没配置好，我先用本机记录陪您。\n\n"
                 + proactiveCareText()
-                + "\n\n需要更自然地聊天，可以在“我的小助手”里配置联网 Key。";
+                + "\n\n需要更自然地实时聊天，可以在“我的小助手”里完成手机号注册和服务端配置。";
     }
 
     private void showCompanionVoiceWaiting(String line) {
+        prefs.recordLiveVoiceState("waiting", "您别急，我想想", line);
         hideBottomNavForLiveCompanion();
         content.removeAllViews();
         addLiveCompanionStage("您别急，我想想", line, "thinking");
-        addRealtimeVoicePanel();
         updateVoiceStatus("我先陪着您，正在想。");
         speakAssistantText(line);
     }
 
     private void showCompanionVoiceReply(String topic, String reply) {
+        prefs.recordLiveVoiceState("reply", topic, reply);
+        pendingSleepContinuationText = reply == null ? "" : reply.trim();
+        lastCompanionActiveAtMs = System.currentTimeMillis();
         hideBottomNavForLiveCompanion();
         content.removeAllViews();
         addLiveCompanionStage("我慢慢说给您听", liveBubbleText(reply), "speaking");
-        addRealtimeVoicePanel();
-        addCard("完整回答", reply, CompanionAssistant.roleColor(prefs.companionRole()));
-        addLiveCompanionShortcuts();
         updateVoiceStatus(topic + "。您可以随时插话。");
         speakAssistantText(reply);
+    }
+
+    private boolean maybeAskIfUserAsleep() {
+        if (!realtimeVoiceEnabled || assistantSpeaking || sleepCheckPending) {
+            return false;
+        }
+        long now = System.currentTimeMillis();
+        long activeAt = lastCompanionActiveAtMs > 0L ? lastCompanionActiveAtMs : voiceListenStartedAtMs;
+        if (activeAt > 0L && now - activeAt < 45L * 1000L) {
+            return false;
+        }
+        sleepCheckPending = true;
+        voiceConversationSerial++;
+        String line = prefs.ownerAddress() + "，您睡了么？";
+        prefs.recordLiveVoiceState("sleep_check", "可能睡着确认", line);
+        updateVoiceStatus("我轻轻问一句，确认您是不是睡着了。");
+        updateLiveStageStatus("我轻轻问一句", "comforting");
+        if (sleepSoundPlayer != null && sleepSoundPlayer.isRunning()) {
+            sleepSoundPlayer.duckForSpeech();
+        }
+        speakAssistantTextQueued(line, prefs.companionRole(), TextToSpeech.QUEUE_FLUSH, "sleep-check");
+        return true;
+    }
+
+    private boolean looksLikeStillAwakeReply(String text) {
+        String q = text == null ? "" : text.trim();
+        return containsAny(q, "没睡", "没有睡", "还没睡", "没睡着", "睡不着", "没呢", "没有呢",
+                "还没", "没有", "没", "别停", "继续", "接着", "再讲", "再说", "放着", "听着",
+                "not_asleep", "still_awake", "continue_companion");
+    }
+
+    private boolean looksLikeReadyToSleepReply(String text) {
+        String q = text == null ? "" : text.trim();
+        return containsAny(q, "睡了", "要睡", "想睡", "困了", "睡着", "晚安", "不用了", "停吧", "关了", "守护",
+                "asleep_now", "start_sleep_guard");
+    }
+
+    private String sleepCheckContinueLine() {
+        String last = pendingSleepContinuationText == null ? "" : pendingSleepContinuationText.trim();
+        if (last.length() == 0) {
+            return "好的，那我继续陪您。您想聊天、听故事，还是听点轻音乐，都可以慢慢说。";
+        }
+        return "好的，那我继续。\n\n" + last;
+    }
+
+    private void restoreSleepSoundAfterAwakeReply() {
+        if (sleepSoundPlayer == null || !sleepSoundPlayer.isRunning() || content == null) {
+            return;
+        }
+        content.postDelayed(() -> {
+            if (sleepSoundPlayer != null && sleepSoundPlayer.isRunning()) {
+                sleepSoundPlayer.restoreGentleVolume(1800L);
+            }
+        }, 1800L);
+    }
+
+    private void enterSleepGuardFromCompanion(boolean confirmedByUser) {
+        sleepCheckPending = false;
+        pendingSleepContinuationText = "";
+        String line = confirmedByUser
+                ? "好的，您安心睡。我把声音收起来，开始安静守护。"
+                : "我没听到您回答，就先当您可能睡着了。我把声音收起来，开始安静守护。";
+        prefs.recordLiveVoiceState("sleep_guard", "转入睡眠守护", line);
+        updateVoiceStatus("准备转入睡眠守护。");
+        updateLiveStageStatus("我安静守着您", "comforting");
+        if (sleepSoundPlayer != null && sleepSoundPlayer.isRunning()) {
+            sleepSoundPlayer.fadeOutAndStop(confirmedByUser ? 2200L : 4200L);
+        }
+        if (confirmedByUser) {
+            speakAssistantTextQueued(line, prefs.companionRole(), TextToSpeech.QUEUE_FLUSH, "sleep-guard-start");
+            if (content != null) {
+                content.postDelayed(() -> {
+                    stopRealtimeVoiceChat(false);
+                    startMonitoring();
+                }, 3200L);
+            }
+        } else {
+            stopRealtimeVoiceChat(false);
+            startMonitoring();
+        }
     }
 
     private void askDeepSeek(String question) {
@@ -2366,10 +5368,35 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "问题不能为空", Toast.LENGTH_SHORT).show();
             return;
         }
+        if (looksLikeBedtimeStoryRequest(cleanQuestion)) {
+            prefs.recordCompanionShortcutRoute("bedtime_story", cleanQuestion);
+            askBedtimeStory();
+            return;
+        }
+        if (looksLikeNewsRequest(cleanQuestion)) {
+            prefs.recordCompanionShortcutRoute("news_briefing", cleanQuestion);
+            showNewsCapabilityStatus();
+            return;
+        }
+        if (looksLikeSleepSoundStopRequest(cleanQuestion)) {
+            prefs.recordCompanionShortcutRoute("music_playback_stop", cleanQuestion);
+            stopSleepSound();
+            return;
+        }
+        if (looksLikeSleepSoundStartRequest(cleanQuestion)) {
+            prefs.recordCompanionShortcutRoute("music_playback", cleanQuestion);
+            startSleepSound();
+            return;
+        }
         boolean findQuestion = looksLikeFindObjectQuestion(cleanQuestion);
+        maybeSyncCompanionInsight(cleanQuestion, "typed_chat");
         String objectAnswer = db.objectMemoryAnswer(cleanQuestion);
         if (objectAnswer.length() > 0 && findQuestion) {
             showCompanionReply("我帮你找", objectAnswer);
+            return;
+        }
+        if (looksLikeWellnessTipQuestion(cleanQuestion)) {
+            showWellnessTip();
             return;
         }
         showCompanionWaiting("小助手在想",
@@ -2377,11 +5404,8 @@ public class MainActivity extends Activity {
                         + "\n\n夜间强唤醒保留本地兜底，避免网络波动影响安全。");
         new Thread(() -> {
             try {
-                String answer = DeepSeekClient.chat(
-                        prefs.deepSeekApiKey(),
-                        prefs.deepSeekModel(),
-                        deepSeekSystemPrompt(),
-                        deepSeekUserPrompt(cleanQuestion));
+                String answer = askAssistantModel(deepSeekUserPrompt(cleanQuestion));
+                maybeSyncCompanionInsight("用户：" + cleanQuestion + "\n小助手：" + answer, "typed_reply");
                 runOnUiThread(() -> showCompanionReply("小助手回答", answer + "\n\n说明：这是生活建议，不是医学诊断。"));
             } catch (Exception ex) {
                 runOnUiThread(() -> showCompanionReply("小助手没连上",
@@ -2396,15 +5420,125 @@ public class MainActivity extends Activity {
                 || q.contains("丢") || q.contains("放哪") || q.contains("不见");
     }
 
+    private boolean looksLikeWellnessTipQuestion(String question) {
+        String q = question == null ? "" : question;
+        return containsAny(q, "妙招", "养生", "食补", "食疗", "饮食建议", "今天吃什么", "怎么吃",
+                "喝什么汤", "睡前怎么做", "降压吃", "血糖怎么吃", "清淡一点");
+    }
+
+    private boolean looksLikeBedtimeStoryRequest(String question) {
+        String q = question == null ? "" : question.trim();
+        return containsAny(q, "讲故事", "说故事", "小故事", "睡前故事", "讲个故事", "说个故事",
+                "哄我睡", "陪我睡", "睡不着讲点", "tell_bedtime_story", "bedtime_story");
+    }
+
+    private boolean looksLikeNewsRequest(String question) {
+        String q = question == null ? "" : question.trim();
+        return containsAny(q, "说新闻", "讲新闻", "听新闻", "新闻简报", "今天新闻", "有什么新闻",
+                "读新闻", "播新闻", "read_news", "news_brief");
+    }
+
+    private boolean looksLikeSleepSoundStartRequest(String question) {
+        String q = question == null ? "" : question.trim();
+        return containsAny(q, "放音乐", "放点音乐", "轻音乐", "助眠音", "白噪声", "雨声",
+                "轻雨声", "催眠声", "放点声音", "睡眠音乐", "play_rain_sound", "play_sleep_sound");
+    }
+
+    private boolean looksLikeSleepSoundStopRequest(String question) {
+        String q = question == null ? "" : question.trim();
+        return containsAny(q, "停音乐", "关音乐", "别放音乐", "停助眠音", "关助眠音", "停雨声",
+                "关雨声", "别放了", "安静点", "声音关掉", "stop_rain_sound", "stop_sleep_sound");
+    }
+
+    private VisionIntent analyzeVisionIntent(String text) {
+        String q = text == null ? "" : text.trim();
+        if (q.length() == 0) return VisionIntent.none();
+        boolean explicitLook = containsAny(q, "帮我看看", "帮我看", "你看看", "你看下", "看一下", "看一眼",
+                "看看", "瞧瞧", "拍一下", "识别", "读读", "念念", "帮我读", "帮我念", "分析一下");
+        boolean findAsk = containsAny(q, "找钥匙", "找手机", "找眼镜", "找钱包", "找药", "找遥控器", "找医保卡",
+                "找证件", "丢哪", "放哪", "不见了", "找不到");
+        if (!explicitLook && !findAsk) {
+            return VisionIntent.none();
+        }
+
+        boolean face = containsAny(q, "脸", "脸色", "气色", "眼睛", "舌头", "皮肤", "伤口", "表情", "精神", "脸上");
+        boolean report = containsAny(q, "体检", "报告", "化验", "检查单", "检验单", "血常规", "尿常规", "ct", "CT",
+                "B超", "b超", "心电图", "血压单", "血糖", "血脂", "肝功", "肾功");
+        boolean medicine = containsAny(q, "药瓶", "药盒", "药品", "药片", "药名", "吃药", "保健品", "说明书",
+                "剂量", "用法", "禁忌", "有效期");
+        boolean finance = containsAny(q, "投资", "理财", "股票", "基金", "保险", "养老项目", "分红", "收益",
+                "贷款", "借钱", "转账", "扫码付款", "验证码", "签字");
+        boolean read = containsAny(q, "读", "念", "文字", "小字", "这封信", "信上", "合同", "纸上", "通知",
+                "票据", "短信", "公告", "说明");
+        boolean find = findAsk || containsAny(q, "钥匙", "手机", "眼镜", "钱包", "遥控器", "医保卡", "证件",
+                "拐杖", "水杯", "药盒在哪", "药瓶在哪");
+        boolean outside = containsAny(q, "外面", "门口", "窗外", "厨房", "客厅", "床边", "桌上", "地上");
+        boolean faceDetail = face && containsAny(q, "脸上", "伤口", "红", "痣", "肿", "斑", "疼", "疹", "破");
+
+        String task;
+        if (report) task = "report";
+        else if (finance) task = "finance";
+        else if (medicine) task = "medicine_text";
+        else if (read) task = "read";
+        else if (find) task = "find";
+        else if (face) task = "face";
+        else if (outside) task = "outside";
+        else task = "object";
+
+        boolean preferFront = face;
+        boolean detailed = faceDetail || (!"face".equals(task) && !"quick_glance".equals(task));
+        String reason = "用户刚才说：" + q + "。请先判断主人让你看的真实用意，再用亲近的孩子式口吻帮忙。";
+        return new VisionIntent(true, explicitLook, task, preferFront, detailed, reason);
+    }
+
+    private boolean containsAny(String text, String... needles) {
+        if (text == null) return false;
+        for (String needle : needles) {
+            if (needle != null && needle.length() > 0 && text.contains(needle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void handleRealtimeVisionIntent(VisionIntent intent) {
+        if (intent == null || !intent.matched) return;
+        pendingVisionTask = intent.task;
+        activeVisionTask = intent.task;
+        activeVisionPreferFront = intent.preferFront;
+        activeVisionDetailed = intent.detailed;
+        activeVisionReason = intent.reason;
+        if (!hasPermission(Manifest.permission.CAMERA)) {
+            updateVoiceStatus("需要允许摄像头，小助手才能帮您看。");
+            updateLiveStageStatus("需要摄像头权限", "comforting");
+            requestPermissions(new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_GLANCE);
+            return;
+        }
+        if (!prefs.deepSeekKeyConfigured()) {
+            showCompanionVoiceReply("我还不能看",
+                    "奶奶，我听懂了，您是想让我帮您看。摄像头已经准备好了，但视觉模型服务还没连上；先完成手机号注册或服务端配置，我再帮您看。");
+            return;
+        }
+        String waiting = intent.detailed ? visionReasonForTask(intent.task) : "我看看您，您别急。";
+        showCompanionVoiceWaiting(waiting);
+        updateLiveStageStatus(waiting, avatarMoodForVisionTask(intent.task));
+        startVisionFrameCapture(intent.task, intent.preferFront, intent.detailed, true, intent.reason);
+    }
+
     private String deepSeekSystemPrompt() {
-        return "你是狗熊睡眠 App 的 AI 小助手，角色是" + prefs.companionRole()
+        return "你是睡了么 App 的 AI 小助手，角色是" + prefs.companionRole()
                 + "。" + CompanionAssistant.companionshipPrinciples(prefs.assistantName(), prefs.assistantIdentity(), prefs.ownerAddress())
                 + "。你面向中老年用户，回答要短、清楚、温柔，适合语音朗读。"
                 + "你平时用自然的人类陪伴口吻说话，不要反复强调自己是 AI 或机器人；按主人给你的名字和身份自称。"
+                + "你要智能判断情绪和场景：孤单时共情陪伴，拖延喝水吃药时可以温柔撒娇或着急，睡眠异常时要坚定叫醒，开心时跟着开心，难过时先陪着。"
+                + "你可以有情绪，但不能辱骂、吓唬、羞辱或操控用户；所有情绪都服务于关心和安全。"
+                + "你要像懂事的孩子或亲近家人一样，先理解奶奶、爷爷、爸爸妈妈为什么让你看这个东西，再给贴心建议。"
                 + "如果用户直接问到联网、隐私或你是不是程序，要诚实简短说明，不要欺骗。"
                 + "你不是医生，不做诊断，不下医学结论。"
                 + "看图时只能做生活观察、朗读、找物和安全提醒，不判断疾病、药量、换药或停药。"
-                + "你可以结合主人档案、今天状态、睡眠摘要和守护完整性，给睡眠复盘、生活建议、情绪陪伴和医生沟通准备。"
+                + "遇到药品、保健品要结合主人档案做谨慎提醒；遇到投资、理财、转账、贷款、保险、养老项目等明显不适合老人或疑似诈骗的内容，要温和但坚定地劝主人先不要付款、不要给验证码、先问家人。"
+                + "你可以结合主人档案、今天状态、睡眠摘要和守护完整性，给睡眠复盘、生活建议、养生小妙招、食补食疗做法、情绪陪伴和医生沟通准备。"
+                + "讲养生和食疗时，只说安全、常见、容易执行的日常食养办法，不承诺疗效；先主动汇报一个方向，主人感兴趣时再一步一步教怎么做。"
                 + "睡眠记录只能称为疑似记录或提醒事件。"
                 + "异常多晚重复、憋醒样声音、喘息呛咳或明显不适时，建议用户带记录咨询医生。";
     }
@@ -2489,6 +5623,7 @@ public class MainActivity extends Activity {
                     } catch (Exception ignored) {
                     }
                     prefs.setMedication(name.getText().toString(), minutes);
+                    CareReminderScheduler.ensureCareReminders(this);
                     Toast.makeText(this, prefs.medicationEnabled() ? "已保存吃药提醒" : "已关闭吃药提醒", Toast.LENGTH_SHORT).show();
                     showSettings();
                 })
@@ -2497,17 +5632,7 @@ public class MainActivity extends Activity {
     }
 
     private void scheduleMedicationReminder(int minutes) {
-        Intent intent = new Intent(this, MedicationReminderReceiver.class);
-        PendingIntent pi = PendingIntent.getBroadcast(this, 4401, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-        long trigger = System.currentTimeMillis() + minutes * 60L * 1000L;
-        if (alarmManager == null) return;
-        if (Build.VERSION.SDK_INT >= 23) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi);
-        } else {
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP, trigger, pi);
-        }
+        CareReminderScheduler.scheduleMedicationLater(this, minutes);
     }
 
     private String preSleepStatusText() {
@@ -2522,7 +5647,8 @@ public class MainActivity extends Activity {
         b.append(batteryOptimizationText()).append("\n");
         b.append("✓ 守护通知静音，不会发运行提示音\n");
         b.append(prefs.saveAudioClips() ? "✓ 异常现场录音片段已开启\n" : "! 异常现场录音片段已关闭\n");
-        b.append(prefs.externalDeviceEnabled() ? "✓ 已填写外部设备摘要\n" : "! 外部设备未接入\n");
+        b.append(AudioOutputStatus.inspect(this).preSleepLine()).append("\n");
+        b.append(prefs.externalDeviceEnabled() ? "! 已填写手动设备摘要，未自动接入\n" : "! 外部设备未自动接入\n");
         b.append("唤醒声音：").append(prefs.alarmLabel()).append("\n");
         b.append(prefs.emergencyEnabled() ? "✓ 紧急联系人已设置" : "! 紧急联系人未设置");
         return b.toString();
@@ -2547,9 +5673,9 @@ public class MainActivity extends Activity {
 
     private void showDetectionTest() {
         content.removeAllViews();
-        content.addView(Theme.text(this, "检测测试", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
+        content.addView(Theme.text(this, "开发者演练测试", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
-        addCard("测试说明", "这里用于验证记录、轻提醒、强唤醒和反馈流程。\n它是模拟事件，不代表真实睡眠识别能力。", Theme.ORANGE);
+        addCard("测试说明", "这里用于验证记录、轻提醒、强唤醒和反馈流程。\n它是模拟事件，不代表真实睡眠识别能力，也不会计入正式睡眠守护报告。", Theme.ORANGE);
         addSettingButton("模拟鼾声：只记录", () -> simulateEvent("模拟鼾声", "low", "record", "测试音频集：鼾声样本模拟，只记录不唤醒"));
         addSettingButton("模拟咳嗽/轻喘：轻提醒并自动取消", () -> {
             simulateEvent("模拟咳嗽/轻喘", "medium", "auto_cancel", "测试音频集：中风险样本模拟，轻提醒后自动取消");
@@ -2565,7 +5691,7 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "已填入模拟手表摘要", Toast.LENGTH_SHORT).show();
             showDetectionTest();
         });
-        addSettingButton("查看测试记录", this::showRecords);
+        addSettingButton("查看全部记录（含演练）", this::showRecords);
         addSettingButton("返回首页", () -> showShell("guard"));
         addCard("真实测试建议", "模拟事件会生成一段测试 WAV，方便验收播放按钮。\n真机验收时仍要用另一台设备播放鼾声、咳嗽、喘息、尖叫和环境噪声样本，观察是否触发相应记录。", Theme.BLUE);
     }
@@ -2845,21 +5971,55 @@ public class MainActivity extends Activity {
     private void stopMonitoring() {
         prefs.setMonitoring(false);
         stopService(new Intent(this, SleepMonitorService.class));
+        CareReminderScheduler.ensureCareReminders(this);
         Toast.makeText(this, "已停止守护", Toast.LENGTH_SHORT).show();
         showHome();
     }
 
     private void requestEssentialPermissions() {
+        java.util.ArrayList<String> permissions = requiredRuntimePermissions();
+        if (!permissions.isEmpty()) {
+            requestPermissions(permissions.toArray(new String[0]), 7);
+        }
+    }
+
+    private java.util.ArrayList<String> requiredRuntimePermissions() {
         java.util.ArrayList<String> permissions = new java.util.ArrayList<>();
         if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
             permissions.add(Manifest.permission.RECORD_AUDIO);
         }
+        if (!hasPermission(Manifest.permission.CAMERA)) {
+            permissions.add(Manifest.permission.CAMERA);
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (!hasPermission(Manifest.permission.READ_MEDIA_IMAGES)) {
+                permissions.add(Manifest.permission.READ_MEDIA_IMAGES);
+            }
+            if (!hasPermission(Manifest.permission.READ_MEDIA_VIDEO)) {
+                permissions.add(Manifest.permission.READ_MEDIA_VIDEO);
+            }
+            if (!hasPermission(Manifest.permission.READ_MEDIA_AUDIO)) {
+                permissions.add(Manifest.permission.READ_MEDIA_AUDIO);
+            }
+        } else if (Build.VERSION.SDK_INT >= 23 && !hasPermission(Manifest.permission.READ_EXTERNAL_STORAGE)) {
+            permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+        }
+        if (Build.VERSION.SDK_INT <= 28 && !hasPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+            permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        }
         if (Build.VERSION.SDK_INT >= 33 && !hasPermission(Manifest.permission.POST_NOTIFICATIONS)) {
             permissions.add(Manifest.permission.POST_NOTIFICATIONS);
         }
-        if (!permissions.isEmpty()) {
-            requestPermissions(permissions.toArray(new String[0]), 7);
+        if (Build.VERSION.SDK_INT >= 31 && !hasPermission(Manifest.permission.BLUETOOTH_CONNECT)) {
+            permissions.add(Manifest.permission.BLUETOOTH_CONNECT);
         }
+        if (!hasPermission(Manifest.permission.CALL_PHONE)) {
+            permissions.add(Manifest.permission.CALL_PHONE);
+        }
+        if (!hasPermission(Manifest.permission.SEND_SMS)) {
+            permissions.add(Manifest.permission.SEND_SMS);
+        }
+        return permissions;
     }
 
     private boolean hasPermission(String permission) {
@@ -2871,10 +6031,30 @@ public class MainActivity extends Activity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_CAMERA_VISION) {
             if (hasPermission(Manifest.permission.CAMERA)) {
-                launchVisionCamera();
+                requestCameraForVision(pendingVisionTask);
             } else {
                 Toast.makeText(this, "未授权摄像头，小助手暂时不能看一眼", Toast.LENGTH_LONG).show();
                 showCompanionVision();
+            }
+            return;
+        }
+        if (requestCode == REQUEST_CAMERA_GLANCE) {
+            if (hasPermission(Manifest.permission.CAMERA)) {
+                String task = activeVisionTask.length() > 0 ? activeVisionTask : pendingVisionTask;
+                if (!prefs.deepSeekKeyConfigured()) {
+                    showCompanionVoiceReply("我还不能看",
+                            "奶奶，摄像头已经允许了，但视觉模型服务还没连上。先完成手机号注册或服务端配置，我再帮您看。");
+                    return;
+                }
+                boolean detailed = activeVisionDetailed;
+                boolean preferFront = activeVisionPreferFront || preferFrontForVisionTask(task);
+                String reason = activeVisionReason.length() > 0 ? activeVisionReason : visionReasonForTask(task);
+                showCompanionVoiceWaiting(detailed ? visionReasonForTask(task) : "我看一眼，您别急。");
+                updateLiveStageStatus(detailed ? visionReasonForTask(task) : "我认真看一眼", avatarMoodForVisionTask(task));
+                startVisionFrameCapture(task, preferFront, detailed, true, reason);
+            } else {
+                updateVoiceStatus("未授权摄像头，不能帮您看。");
+                showCompanionVoiceReply("我还不能看", "奶奶，摄像头没有允许，我现在还不能帮您看东西。");
             }
             return;
         }
@@ -2895,6 +6075,34 @@ public class MainActivity extends Activity {
             }
             return;
         }
+        if (requestCode == REQUEST_MICROPHONE_PROACTIVE) {
+            if (hasPermission(Manifest.permission.RECORD_AUDIO)) {
+                Toast.makeText(this, "麦克风已打开，小助手可以听您说话了。", Toast.LENGTH_SHORT).show();
+                if (realtimeVoiceEnabled) {
+                    startRealtimeVoiceChat();
+                }
+            } else {
+                Toast.makeText(this, "未授权麦克风，小助手听不见您，也不能做睡眠声音守护。", Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
+        if (requestCode == REQUEST_REQUIRED_PERMISSIONS) {
+            java.util.ArrayList<String> missing = requiredRuntimePermissions();
+            if (missing.isEmpty()) {
+                Toast.makeText(this, "必要权限已打开，小助手可以听、看和读取文件了。", Toast.LENGTH_SHORT).show();
+                if (pendingStartLiveAfterRequiredPermissions || realtimeVoiceEnabled) {
+                    pendingStartLiveAfterRequiredPermissions = false;
+                    startRealtimeVoiceChat();
+                    maybeStartAutoVisionScan();
+                }
+            } else {
+                pendingStartLiveAfterRequiredPermissions = false;
+                updateVoiceStatus("必要权限没开全，我还不能完整听您说话、看东西或读文件。");
+                updateLiveStageStatus("必要权限未完成", "comforting");
+                Toast.makeText(this, "必要权限未开全，小助手功能会受限。", Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
         if (pendingStartAfterPermission) {
             pendingStartAfterPermission = false;
             if (hasPermission(Manifest.permission.RECORD_AUDIO)) {
@@ -2909,7 +6117,7 @@ public class MainActivity extends Activity {
     private void shareReport() {
         Intent share = new Intent(Intent.ACTION_SEND);
         share.setType("text/plain");
-        share.putExtra(Intent.EXTRA_SUBJECT, "狗熊睡眠复盘证据摘要");
+        share.putExtra(Intent.EXTRA_SUBJECT, "睡了么复盘证据摘要");
         share.putExtra(Intent.EXTRA_TEXT, db.doctorReportText(20));
         startActivity(Intent.createChooser(share, "导出给医生/自己复盘"));
     }
@@ -2983,7 +6191,9 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
-        stopRealtimeVoiceChat(false);
+        if (isFinishing()) {
+            stopRealtimeVoiceChat(false);
+        }
         closeAutoVisionCamera();
         super.onPause();
     }
@@ -3019,10 +6229,19 @@ public class MainActivity extends Activity {
     }
 
     private void speakAssistantText(String text) {
+        speakAssistantTextForRole(text, prefs.companionRole());
+    }
+
+    private void speakAssistantTextForRole(String text, String role) {
+        speakAssistantTextQueued(text, role, TextToSpeech.QUEUE_FLUSH, "gouxiong-assistant");
+    }
+
+    private void speakAssistantTextQueued(String text, String role, int queueMode, String utteranceId) {
         if (text == null || text.trim().length() == 0) {
             return;
         }
         String clean = text.replace("\n", "。");
+        String speakRole = CompanionAssistant.normalize(role);
         if (realtimeVoiceEnabled && voiceRecognizer != null) {
             try {
                 voiceRecognizer.cancel();
@@ -3031,13 +6250,16 @@ public class MainActivity extends Activity {
             voiceListening = false;
         }
         if (assistantTts == null) {
+            assistantTtsProfileApplied = false;
+            assistantTtsAppliedRole = "";
             assistantTts = new TextToSpeech(this, status -> {
                 assistantTtsReady = status == TextToSpeech.SUCCESS;
                 if (assistantTtsReady && assistantTts != null) {
-                    assistantTts.setLanguage(Locale.CHINA);
+                    applyAssistantTtsProfileIfNeeded(speakRole);
                     installAssistantTtsListener();
                     assistantSpeaking = true;
-                    assistantTts.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "gouxiong-assistant");
+                    startAvatarSpeaking();
+                    assistantTts.speak(clean, queueMode, null, utteranceId);
                 } else {
                     Toast.makeText(this, clean, Toast.LENGTH_LONG).show();
                     if (realtimeVoiceEnabled) restartRealtimeListeningSoon(500);
@@ -3046,13 +6268,26 @@ public class MainActivity extends Activity {
             return;
         }
         if (assistantTtsReady) {
+            applyAssistantTtsProfileIfNeeded(speakRole);
             installAssistantTtsListener();
             assistantSpeaking = true;
-            assistantTts.speak(clean, TextToSpeech.QUEUE_FLUSH, null, "gouxiong-assistant");
+            startAvatarSpeaking();
+            assistantTts.speak(clean, queueMode, null, utteranceId);
         } else {
             Toast.makeText(this, clean, Toast.LENGTH_LONG).show();
             if (realtimeVoiceEnabled) restartRealtimeListeningSoon(500);
         }
+    }
+
+    private void applyAssistantTtsProfileIfNeeded(String speakRole) {
+        if (assistantTts == null) return;
+        String cleanRole = CompanionAssistant.normalize(speakRole);
+        if (assistantTtsProfileApplied && cleanRole.equals(assistantTtsAppliedRole)) {
+            return;
+        }
+        XiaozhiVoiceProfile.applyTo(assistantTts, cleanRole);
+        assistantTtsAppliedRole = cleanRole;
+        assistantTtsProfileApplied = true;
     }
 
     private void installAssistantTtsListener() {
@@ -3061,15 +6296,26 @@ public class MainActivity extends Activity {
             @Override
             public void onStart(String utteranceId) {
                 assistantSpeaking = true;
+                runOnUiThread(() -> {
+                    updateLiveStageStatus("我慢慢说给您听", "speaking");
+                    startAvatarSpeaking();
+                });
             }
 
             @Override
             public void onDone(String utteranceId) {
                 runOnUiThread(() -> {
+                    if (isLiveStreamingInterimUtterance(utteranceId)) {
+                        return;
+                    }
                     assistantSpeaking = false;
+                    stopAvatarSpeaking();
                     if (realtimeVoiceEnabled) {
                         updateVoiceStatus("我说完了，继续听您说。");
+                        updateLiveStageStatus("我说完了，继续听您说", "listening");
                         restartRealtimeListeningSoon(250);
+                    } else {
+                        settleCompanionAvatarAfterSpeech();
                     }
                 });
             }
@@ -3077,17 +6323,46 @@ public class MainActivity extends Activity {
             @Override
             public void onError(String utteranceId) {
                 runOnUiThread(() -> {
+                    if (isLiveStreamingInterimUtterance(utteranceId)) {
+                        return;
+                    }
                     assistantSpeaking = false;
-                    if (realtimeVoiceEnabled) restartRealtimeListeningSoon(250);
+                    stopAvatarSpeaking();
+                    if (realtimeVoiceEnabled) {
+                        updateLiveStageStatus("声音没放出来，我还在听", "comforting");
+                        restartRealtimeListeningSoon(250);
+                    } else {
+                        updateLiveStageStatus("声音没放出来，我还在这里", "comforting");
+                    }
                 });
             }
         });
         assistantTtsListenerSet = true;
     }
 
+    private void settleCompanionAvatarAfterSpeech() {
+        if (sleepCheckPending) {
+            updateLiveStageStatus("我等您回一句", "listening");
+        } else if (sleepSoundPlayer != null && sleepSoundPlayer.isRunning()) {
+            updateLiveStageStatus("本地轻雨声放着，我轻轻陪您", "comforting");
+        } else {
+            updateLiveStageStatus("我在这里陪您", "comforting");
+        }
+    }
+
+    private boolean isLiveStreamingInterimUtterance(String utteranceId) {
+        return utteranceId != null
+                && utteranceId.startsWith("gouxiong-live-stream-")
+                && !utteranceId.endsWith("-final");
+    }
+
     @Override
     protected void onDestroy() {
         stopPreview();
+        if (sleepSoundPlayer != null) {
+            sleepSoundPlayer.stop();
+            sleepSoundPlayer = null;
+        }
         stopRealtimeVoiceChat(false);
         if (voiceRecognizer != null) {
             voiceRecognizer.destroy();
@@ -3099,6 +6374,7 @@ public class MainActivity extends Activity {
             visionThread = null;
             visionHandler = null;
         }
+        destroyLiveStageWebView();
         if (assistantTts != null) {
             assistantTts.stop();
             assistantTts.shutdown();
@@ -3274,17 +6550,22 @@ public class MainActivity extends Activity {
     }
 
     private String roleAssetName(String role) {
-        if (CompanionAssistant.ROLE_SISTER.equals(role)) return "ui_role_sister";
-        if (CompanionAssistant.ROLE_BROTHER.equals(role)) return "ui_role_brother";
-        if (CompanionAssistant.ROLE_YOUNG_MAN.equals(role)) return "ui_role_young_man";
-        return "ui_role_gentle_woman";
+        return roleAvatarAssetName(role);
+    }
+
+    private int roleAvatarResourceId(String role) {
+        int id = getResources().getIdentifier(roleAvatarAssetName(role), "drawable", getPackageName());
+        if (id == 0) {
+            id = getResources().getIdentifier("ic_launcher", "drawable", getPackageName());
+        }
+        return id;
     }
 
     private String roleAvatarAssetName(String role) {
-        if (CompanionAssistant.ROLE_SISTER.equals(role)) return "ui_avatar_sister";
-        if (CompanionAssistant.ROLE_BROTHER.equals(role)) return "ui_avatar_brother";
-        if (CompanionAssistant.ROLE_YOUNG_MAN.equals(role)) return "ui_avatar_young_man";
-        return "ui_avatar_gentle_woman";
+        if (CompanionAssistant.ROLE_SISTER.equals(role)) return "avatar_2d_sister";
+        if (CompanionAssistant.ROLE_BROTHER.equals(role)) return "avatar_2d_brother";
+        if (CompanionAssistant.ROLE_YOUNG_MAN.equals(role)) return "avatar_2d_young_man";
+        return "avatar_2d_gentle_woman";
     }
 
     private String roleLiveAssetName(String role) {
@@ -3305,32 +6586,25 @@ public class MainActivity extends Activity {
     }
 
     private void addHomeTileGrid() {
-        LinearLayout row1 = new LinearLayout(this);
-        row1.setOrientation(LinearLayout.HORIZONTAL);
-        addSmallTile(row1, "✓\n安心守护", Theme.GREEN, this::showPreSleepCheck);
-        addSmallTile(row1, "☀\n晨间关怀", Theme.ORANGE, this::showMorningCare);
-        content.addView(row1, matchWrap());
-        addSpace(content, 10);
-
-        LinearLayout row2 = new LinearLayout(this);
-        row2.setOrientation(LinearLayout.HORIZONTAL);
-        addSmallTile(row2, "♥\n家人陪伴", Theme.GREEN, this::showCompanionChat);
-        addSmallTile(row2, "▮\n睡眠记录", Theme.BLUE, () -> showRecords());
-        content.addView(row2, matchWrap());
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        addSmallTile(row, "✓\n睡前检查", Theme.GREEN, this::showPreSleepCheck);
+        addSmallTile(row, "▮\n睡眠报告", Theme.BLUE, this::showSleepReport);
+        content.addView(row, matchWrap());
     }
 
     private void addMorningTiles() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.VERTICAL);
         Button water = Theme.softButton(this, "💧  我喝水了", Theme.GREEN);
-        water.setTextSize(22);
-        water.setMinHeight(Theme.dp(this, 92));
+        water.setTextSize(26);
+        water.setMinHeight(Theme.dp(this, 104));
         water.setOnClickListener(v -> Toast.makeText(this, "我记下了，今天慢慢喝水。", Toast.LENGTH_SHORT).show());
         row.addView(water, matchWrap());
         addSpace(row, 12);
         Button med = Theme.softButton(this, "💊  已吃药", Theme.ORANGE);
-        med.setTextSize(22);
-        med.setMinHeight(Theme.dp(this, 92));
+        med.setTextSize(26);
+        med.setMinHeight(Theme.dp(this, 104));
         med.setOnClickListener(v -> {
             prefs.confirmMedicationNow();
             Toast.makeText(this, "已记录今天已吃药", Toast.LENGTH_SHORT).show();
@@ -3344,7 +6618,7 @@ public class MainActivity extends Activity {
     private void addSmallTile(LinearLayout row, String text, int color, Runnable action) {
         Button tile = Theme.softButton(this, text, color);
         tile.setTextSize(18);
-        tile.setMinHeight(Theme.dp(this, 92));
+        tile.setMinHeight(Theme.dp(this, 78));
         tile.setOnClickListener(v -> action.run());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
         lp.setMargins(Theme.dp(this, 4), 0, Theme.dp(this, 4), 0);
@@ -3359,10 +6633,10 @@ public class MainActivity extends Activity {
     }
 
     private void addNav(LinearLayout nav, String text, Runnable action, boolean selected) {
-        int color = "守护".equals(text) ? Theme.BLUE : ("早安".equals(text) ? Theme.ORANGE : Theme.MUTED);
+        int color = "睡眠守护".equals(text) ? Theme.BLUE : ("小助理".equals(text) ? CompanionAssistant.roleColor(prefs.companionRole()) : Theme.MUTED);
         Button button = selected ? Theme.button(this, navLabel(text), color) : Theme.softButton(this, navLabel(text), color);
-        button.setTextSize(17);
-        button.setMinHeight(Theme.dp(this, 66));
+        button.setTextSize(15);
+        button.setMinHeight(Theme.dp(this, 56));
         button.setOnClickListener(v -> action.run());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
         lp.setMargins(Theme.dp(this, 4), 0, Theme.dp(this, 4), 0);
@@ -3370,9 +6644,93 @@ public class MainActivity extends Activity {
     }
 
     private String navLabel(String text) {
-        if ("守护".equals(text)) return "🛡\n守护";
-        if ("早安".equals(text)) return "☀\n早安";
-        return "♡\n我的";
+        if ("睡眠守护".equals(text)) return "🛡\n睡眠守护";
+        if ("小助理".equals(text)) return "♡\n小助理";
+        return "⚙\n设置";
+    }
+
+    private static class SleepWaveformView extends View {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private SleepDashboardData data;
+        private boolean monitoring;
+
+        SleepWaveformView(android.content.Context context) {
+            super(context);
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+        }
+
+        void setDashboardData(SleepDashboardData data, boolean monitoring) {
+            this.data = data;
+            this.monitoring = monitoring;
+            invalidate();
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            int w = getWidth();
+            int h = getHeight();
+            if (w <= 0 || h <= 0) {
+                return;
+            }
+            int events = data == null ? 0 : data.eventCount;
+            int high = data == null ? 0 : data.highRiskCount;
+            int[] levels = data == null || data.waveformLevels == null ? new int[0] : data.waveformLevels;
+
+            RectF bounds = new RectF(0, 0, w, h);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Theme.mix(monitoring ? Theme.BLUE : Theme.GREEN, Theme.WARM_WHITE, 0.88f));
+            canvas.drawRoundRect(bounds, Theme.dp(getContext(), 18), Theme.dp(getContext(), 18), paint);
+
+            float centerY = h * 0.56f;
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(Math.max(2f, Theme.dp(getContext(), 1)));
+            paint.setColor(Theme.mix(Theme.BLUE, Theme.WARM_WHITE, 0.52f));
+            canvas.drawLine(Theme.dp(getContext(), 12), centerY, w - Theme.dp(getContext(), 12), centerY, paint);
+
+            if (levels.length == 0) {
+                paint.setStyle(Paint.Style.FILL);
+                paint.setTextSize(Theme.dp(getContext(), 14));
+                paint.setTypeface(Typeface.DEFAULT_BOLD);
+                paint.setColor(Theme.ORANGE);
+                canvas.drawText(monitoring ? "正在等待真实采样" : "暂无真实波形", Theme.dp(getContext(), 14), h * 0.48f, paint);
+                paint.setTextSize(Theme.dp(getContext(), 11));
+                paint.setTypeface(Typeface.DEFAULT);
+                paint.setColor(Theme.MUTED);
+                canvas.drawText("开始守护后每 3 秒记录声音/动作摘要", Theme.dp(getContext(), 14), h * 0.72f, paint);
+                return;
+            }
+
+            int bars = levels.length;
+            float side = Theme.dp(getContext(), 14);
+            float usable = Math.max(1f, w - side * 2f);
+            float step = usable / bars;
+            float barWidth = Math.max(Theme.dp(getContext(), 4), step * 0.56f);
+            for (int i = 0; i < bars; i++) {
+                float x = side + i * step + (step - barWidth) / 2f;
+                int level = Math.max(0, Math.min(100, levels[i]));
+                float amp = h * (0.08f + level / 100f * 0.42f);
+                int color = monitoring ? Theme.BLUE : Theme.GREEN;
+                boolean highSpike = level >= 88;
+                boolean mediumSpike = level >= 58 && level < 88;
+                if (highSpike) {
+                    color = Theme.RED;
+                } else if (mediumSpike) {
+                    color = Theme.ORANGE;
+                }
+                paint.setStyle(Paint.Style.FILL);
+                paint.setColor(Theme.mix(color, Theme.WARM_WHITE, highSpike || mediumSpike ? 0.08f : 0.18f));
+                RectF bar = new RectF(x, centerY - amp, x + barWidth, centerY + amp * 0.55f);
+                canvas.drawRoundRect(bar, barWidth, barWidth, paint);
+            }
+
+            paint.setStyle(Paint.Style.FILL);
+            paint.setTextSize(Theme.dp(getContext(), 12));
+            paint.setTypeface(Typeface.DEFAULT_BOLD);
+            paint.setColor(high > 0 ? Theme.RED : (events > 0 ? Theme.ORANGE : Theme.darken(Theme.GREEN, 0.20f)));
+            String label = "真实采样 " + (data == null ? levels.length : data.waveformSampleCount) + " 点";
+            canvas.drawText(label, Theme.dp(getContext(), 14), h - Theme.dp(getContext(), 10), paint);
+        }
     }
 
     private LinearLayout.LayoutParams matchWrap() {

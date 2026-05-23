@@ -1,4 +1,4 @@
-# 狗熊睡眠开源发布清单
+# 睡了么开源发布清单
 
 ## 版权与开源协议
 
@@ -36,7 +36,7 @@
 创建空仓库后执行：
 
 ```powershell
-cd D:\www\狗熊睡眠
+cd D:\www\睡了么
 git remote add origin https://github.com/<你的账号或组织>/gouxiong-sleep.git
 git push -u origin main
 ```
@@ -44,7 +44,7 @@ git push -u origin main
 如果远端已存在：
 
 ```powershell
-cd D:\www\狗熊睡眠
+cd D:\www\睡了么
 git remote set-url origin https://github.com/<你的账号或组织>/gouxiong-sleep.git
 git push -u origin main
 ```

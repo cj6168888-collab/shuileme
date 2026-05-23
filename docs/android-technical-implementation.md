@@ -1,4 +1,4 @@
-# 狗熊睡眠 Android 技术实施方案
+# 睡了么 Android 技术实施方案
 
 目标：先交付一个无服务器、可离线安装运行的原生 Android APK MVP。
 

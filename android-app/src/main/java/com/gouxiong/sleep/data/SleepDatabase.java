@@ -17,7 +17,7 @@ import java.util.Locale;
 
 public class SleepDatabase extends SQLiteOpenHelper {
     private static final String NAME = "gouxiong_sleep.db";
-    private static final int VERSION = 4;
+    private static final int VERSION = 5;
     private static final long DEVICE_MATCH_WINDOW_MS = 15L * 60L * 1000L;
 
     public SleepDatabase(Context context) {
@@ -53,6 +53,7 @@ public class SleepDatabase extends SQLiteOpenHelper {
                 ")");
         createDeviceReadingsTable(db);
         createObjectMemoryTable(db);
+        createSignalSamplesTable(db);
     }
 
     @Override
@@ -69,6 +70,9 @@ public class SleepDatabase extends SQLiteOpenHelper {
         }
         if (oldVersion < 4) {
             createObjectMemoryTable(db);
+        }
+        if (oldVersion < 5) {
+            createSignalSamplesTable(db);
         }
     }
 
@@ -165,6 +169,155 @@ public class SleepDatabase extends SQLiteOpenHelper {
         }
     }
 
+    public long insertSignalSample(long timestamp, int rms, int peak, int motionScore, String state) {
+        ContentValues values = new ContentValues();
+        values.put("ts", timestamp);
+        values.put("rms", clamp(rms, 0, 32767));
+        values.put("peak", clamp(peak, 0, 32767));
+        values.put("motion_score", clamp(motionScore, 0, 200));
+        values.put("state", nullToEmpty(state));
+        SQLiteDatabase db = getWritableDatabase();
+        long id = db.insert("signal_samples", null, values);
+        db.delete("signal_samples", "ts<?", new String[]{String.valueOf(System.currentTimeMillis() - 14L * 24L * 60L * 60L * 1000L)});
+        return id;
+    }
+
+    public int countSignalSamplesSince(long since) {
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT COUNT(*) FROM signal_samples WHERE ts>=?",
+                new String[]{String.valueOf(since)});
+        try {
+            return cursor.moveToFirst() ? cursor.getInt(0) : 0;
+        } finally {
+            cursor.close();
+        }
+    }
+
+    public List<Integer> getRecentSignalLevelsSince(long since, int limit) {
+        List<Integer> levels = new ArrayList<>();
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT rms, motion_score, state FROM signal_samples WHERE ts>=? ORDER BY ts DESC LIMIT ?",
+                new String[]{String.valueOf(since), String.valueOf(limit)});
+        try {
+            while (cursor.moveToNext()) {
+                int rms = cursor.getInt(0);
+                int motion = cursor.getInt(1);
+                String state = cursor.getString(2);
+                int level = Math.max(rms / 220, motion * 3);
+                if ("high".equals(state)) {
+                    level = Math.max(level, 92);
+                } else if ("medium".equals(state)) {
+                    level = Math.max(level, 64);
+                }
+                levels.add(0, clamp(level, 3, 100));
+            }
+        } finally {
+            cursor.close();
+        }
+        return levels;
+    }
+
+    public String signalSummarySince(long since, int limit) {
+        StringBuilder b = new StringBuilder();
+        Cursor stats = getReadableDatabase().rawQuery(
+                "SELECT COUNT(*), AVG(rms), MAX(rms), AVG(peak), MAX(peak), AVG(motion_score), MAX(motion_score) FROM signal_samples WHERE ts>=?",
+                new String[]{String.valueOf(since)});
+        try {
+            if (stats.moveToFirst()) {
+                int count = stats.getInt(0);
+                b.append("采样点 ").append(count).append(" 个");
+                if (count > 0) {
+                    b.append("，平均声音 ").append(Math.round(stats.getDouble(1)))
+                            .append("，最高声音 ").append(stats.getInt(2))
+                            .append("，平均峰值 ").append(Math.round(stats.getDouble(3)))
+                            .append("，最高峰值 ").append(stats.getInt(4))
+                            .append("，平均动作 ").append(Math.round(stats.getDouble(5)))
+                            .append("，最高动作 ").append(stats.getInt(6)).append("。");
+                } else {
+                    b.append("。");
+                }
+            }
+        } finally {
+            stats.close();
+        }
+
+        Cursor states = getReadableDatabase().rawQuery(
+                "SELECT state, COUNT(*) FROM signal_samples WHERE ts>=? GROUP BY state ORDER BY COUNT(*) DESC",
+                new String[]{String.valueOf(since)});
+        try {
+            boolean first = true;
+            while (states.moveToNext()) {
+                if (first) {
+                    b.append("\n状态分布：");
+                    first = false;
+                } else {
+                    b.append("，");
+                }
+                String state = states.getString(0);
+                b.append(state == null || state.length() == 0 ? "unknown" : state).append(" ").append(states.getInt(1)).append(" 点");
+            }
+            if (!first) b.append("。");
+        } finally {
+            states.close();
+        }
+
+        Cursor recent = getReadableDatabase().rawQuery(
+                "SELECT ts, rms, peak, motion_score, state FROM signal_samples WHERE ts>=? ORDER BY ts DESC LIMIT ?",
+                new String[]{String.valueOf(since), String.valueOf(Math.max(6, Math.min(120, limit)))});
+        try {
+            int rows = 0;
+            while (recent.moveToNext()) {
+                if (rows == 0) {
+                    b.append("\n最近采样片段（新到旧）：");
+                } else {
+                    b.append(" | ");
+                }
+                b.append(formatTime(recent.getLong(0)))
+                        .append(" 声").append(recent.getInt(1))
+                        .append("/峰").append(recent.getInt(2))
+                        .append("/动").append(recent.getInt(3))
+                        .append("/").append(recent.getString(4));
+                rows++;
+            }
+        } finally {
+            recent.close();
+        }
+        return b.toString();
+    }
+
+    public long latestSummaryStartSince(long since) {
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT start_ts FROM nightly_summary WHERE end_ts>=? ORDER BY end_ts DESC LIMIT 1",
+                new String[]{String.valueOf(since)});
+        try {
+            return cursor.moveToFirst() ? cursor.getLong(0) : 0L;
+        } finally {
+            cursor.close();
+        }
+    }
+
+    public long latestSummaryEndSince(long since) {
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT end_ts FROM nightly_summary WHERE end_ts>=? ORDER BY end_ts DESC LIMIT 1",
+                new String[]{String.valueOf(since)});
+        try {
+            return cursor.moveToFirst() ? cursor.getLong(0) : 0L;
+        } finally {
+            cursor.close();
+        }
+    }
+
+    public int latestSummaryAutoCancelSince(long since) {
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT auto_cancel_count FROM nightly_summary WHERE end_ts>=? ORDER BY end_ts DESC LIMIT 1",
+                new String[]{String.valueOf(since)});
+        try {
+            return cursor.moveToFirst() ? cursor.getInt(0) : 0;
+        } finally {
+            cursor.close();
+        }
+    }
+
     public long insertDeviceReading(long timestamp, String source, int heartRate, int spo2, int respiratoryRate, String note) {
         ContentValues values = new ContentValues();
         values.put("ts", timestamp);
@@ -246,6 +399,7 @@ public class SleepDatabase extends SQLiteOpenHelper {
         db.delete("nightly_summary", null, null);
         db.delete("device_readings", null, null);
         db.delete("object_memory", null, null);
+        db.delete("signal_samples", null, null);
     }
 
     public void upsertObjectMemory(String itemName, String place, String note, String confidence) {
@@ -339,7 +493,7 @@ public class SleepDatabase extends SQLiteOpenHelper {
 
     public String doctorReportText(int limit) {
         StringBuilder b = new StringBuilder();
-        b.append("狗熊睡眠复盘摘要\n");
+        b.append("睡了么复盘摘要\n");
         b.append(localReportText()).append("\n\n");
         b.append("说明：以下为疑似异常提醒证据，不是医学诊断；医生仍需结合问诊、体征和专业检查判断。\n\n");
         List<SleepEvent> events = getRecentEvents(limit);
@@ -403,6 +557,18 @@ public class SleepDatabase extends SQLiteOpenHelper {
                 "confidence TEXT DEFAULT ''," +
                 "last_seen_ts INTEGER NOT NULL" +
                 ")");
+    }
+
+    private void createSignalSamplesTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS signal_samples (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "ts INTEGER NOT NULL," +
+                "rms INTEGER NOT NULL DEFAULT 0," +
+                "peak INTEGER NOT NULL DEFAULT 0," +
+                "motion_score INTEGER NOT NULL DEFAULT 0," +
+                "state TEXT DEFAULT 'calm'" +
+                ")");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_signal_samples_ts ON signal_samples(ts)");
     }
 
     private void addColumn(SQLiteDatabase db, String table, String columnSql) {

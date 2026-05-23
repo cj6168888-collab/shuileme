@@ -4,25 +4,22 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 public final class LiveCompanionProtocol {
-    public static final int OPUS_SAMPLE_RATE = 16000;
-    public static final int OPUS_CHANNELS = 1;
-    public static final int OPUS_FRAME_DURATION_MS = 60;
+    public static final String AUDIO_FORMAT = "pcm16";
+    public static final String AUDIO_ENCODING = "signed_16bit_little_endian";
+    public static final int PCM_SAMPLE_RATE = 16000;
+    public static final int PCM_CHANNELS = 1;
+    public static final int PCM_FRAME_DURATION_MS = 30;
 
     private LiveCompanionProtocol() {
     }
 
     public static String helloMessage() {
         try {
-            JSONObject audio = new JSONObject()
-                    .put("format", "opus")
-                    .put("sample_rate", OPUS_SAMPLE_RATE)
-                    .put("channels", OPUS_CHANNELS)
-                    .put("frame_duration", OPUS_FRAME_DURATION_MS);
             return new JSONObject()
                     .put("type", "hello")
                     .put("version", 1)
                     .put("transport", "websocket")
-                    .put("audio_params", audio)
+                    .put("audio_params", audioParams())
                     .toString();
         } catch (JSONException ex) {
             return "{}";
@@ -31,19 +28,24 @@ public final class LiveCompanionProtocol {
 
     public static String startCallMessage() {
         try {
-            JSONObject audio = new JSONObject()
-                    .put("format", "opus")
-                    .put("sample_rate", OPUS_SAMPLE_RATE)
-                    .put("channels", OPUS_CHANNELS)
-                    .put("frame_duration", OPUS_FRAME_DURATION_MS);
             return new JSONObject()
                     .put("type", "start")
                     .put("mode", "auto")
-                    .put("audio_params", audio)
+                    .put("audio_params", audioParams())
                     .toString();
         } catch (JSONException ex) {
             return "{}";
         }
+    }
+
+    private static JSONObject audioParams() throws JSONException {
+        return new JSONObject()
+                .put("format", AUDIO_FORMAT)
+                .put("encoding", AUDIO_ENCODING)
+                .put("sample_rate", PCM_SAMPLE_RATE)
+                .put("channels", PCM_CHANNELS)
+                .put("frame_duration", PCM_FRAME_DURATION_MS)
+                .put("container", "raw");
     }
 
     public static String listenMessage(String sessionId, boolean start, String mode) {
@@ -71,6 +73,16 @@ public final class LiveCompanionProtocol {
         try {
             return new JSONObject()
                     .put("type", muted ? "voice_mute" : "voice_unmute")
+                    .toString();
+        } catch (JSONException ex) {
+            return "{}";
+        }
+    }
+
+    public static String inputTextMessage(String sessionId, String text) {
+        try {
+            return baseSessionMessage(sessionId, "input_text")
+                    .put("text", text == null ? "" : text.trim())
                     .toString();
         } catch (JSONException ex) {
             return "{}";

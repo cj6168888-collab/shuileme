@@ -181,7 +181,7 @@ mkdirSync(__dirname, { recursive: true });
 
 rect(0, 0, W, H, C.warm);
 rect(0, 0, W, 268, C.softBlue);
-text(64, 80, '狗熊睡眠 APK UI 设计交付稿', 44, C.title, 700);
+text(64, 80, '睡了么 APK UI 设计交付稿', 44, C.title, 700);
 text(66, 138, '离线本地睡眠守护，不做诊断；重点是异常发生时分级唤醒、确认安全和家人通知。', 22, C.body);
 chip(66, 178, 112, '本机处理', C.green, C.softGreen);
 chip(196, 178, 132, '大字大按钮', C.blue, C.softBlue);
@@ -209,7 +209,7 @@ const y2 = 1560;
 phone(xs[0], y1, '01 欢迎 / 直接开始', C.warm, (x, y) => {
   status(x, y);
   sleepScene(x + 34, y + 128, 325, 226);
-  text(x + 196, y + 424, '狗熊睡眠', 34, C.title, 700, 'middle');
+  text(x + 196, y + 424, '睡了么', 34, C.title, 700, 'middle');
   text(x + 196, y + 472, '本机识别异常声音和动作，必要时唤醒你。', 19, C.body, 400, 'middle');
   button(x + 36, y + 520, 321, 76, '直接开始', C.blue);
   button(x + 36, y + 612, 321, 66, '简单设置', C.white, C.blue);
@@ -324,7 +324,7 @@ writeFileSync(outHtml, `<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>狗熊睡眠 UI 交付稿</title>
+  <title>睡了么 UI 交付稿</title>
   <style>
     body { margin: 0; background: #f4efe6; font-family: "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif; }
     header { padding: 20px 28px; background: #16325C; color: white; }
@@ -336,15 +336,15 @@ writeFileSync(outHtml, `<!doctype html>
 </head>
 <body>
   <header>
-    <h1>狗熊睡眠 UI 交付稿</h1>
+    <h1>睡了么 UI 交付稿</h1>
     <p>Figma 限额恢复后，可直接导入同目录 SVG，或继续由 Codex 写入 Figma 文件。</p>
   </header>
-  <main><img src="./gouxiong-sleep-ui-handoff.svg" alt="狗熊睡眠 UI 交付稿"></main>
+  <main><img src="./gouxiong-sleep-ui-handoff.svg" alt="睡了么 UI 交付稿"></main>
 </body>
 </html>
 `, 'utf8');
 
-writeFileSync(outNotes, `# 狗熊睡眠 Figma 交付说明
+writeFileSync(outNotes, `# 睡了么 Figma 交付说明
 
 ## 当前状态
 

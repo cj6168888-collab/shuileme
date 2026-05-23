@@ -20,11 +20,11 @@ public final class LiveCompanionSession {
 
         void onStt(String text);
 
-        void onEmotion(String emotion);
+        void onEmotion(String emotion, float intensity, String gesture, String safetyLevel, String speechText, JSONObject event);
 
         void onEvent(String type, JSONObject event);
 
-        void onAudio(byte[] opusFrame);
+        void onAudio(byte[] pcmFrame);
 
         void onClosed();
 
@@ -95,9 +95,13 @@ public final class LiveCompanionSession {
         sendText(LiveCompanionProtocol.voiceMuteMessage(muted));
     }
 
-    public void sendOpusFrame(byte[] opusFrame) throws IOException {
+    public void sendPcmFrame(byte[] pcmFrame) throws IOException {
         NativeWebSocketClient active = requireClient();
-        active.sendBinary(opusFrame);
+        active.sendBinary(pcmFrame);
+    }
+
+    public void sendTextInput(String text) throws IOException {
+        sendText(LiveCompanionProtocol.inputTextMessage(sessionId, text));
     }
 
     public String sessionId() {
@@ -136,7 +140,13 @@ public final class LiveCompanionSession {
             } else if ("stt".equals(type)) {
                 currentListener().onStt(event.optString("text", ""));
             } else if ("emotion".equals(type)) {
-                currentListener().onEmotion(event.optString("emotion", ""));
+                currentListener().onEmotion(
+                        event.optString("emotion", ""),
+                        (float) event.optDouble("intensity", 0.82d),
+                        event.optString("gesture", ""),
+                        event.optString("safety_level", ""),
+                        event.optString("speech_text", ""),
+                        event);
             }
             currentListener().onEvent(type, event);
         } catch (JSONException ex) {
@@ -179,7 +189,7 @@ public final class LiveCompanionSession {
         }
 
         @Override
-        public void onEmotion(String emotion) {
+        public void onEmotion(String emotion, float intensity, String gesture, String safetyLevel, String speechText, JSONObject event) {
         }
 
         @Override
@@ -187,7 +197,7 @@ public final class LiveCompanionSession {
         }
 
         @Override
-        public void onAudio(byte[] opusFrame) {
+        public void onAudio(byte[] pcmFrame) {
         }
 
         @Override

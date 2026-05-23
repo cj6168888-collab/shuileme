@@ -43,7 +43,7 @@
 <rect x="162.08" y="122.55" width="13.86" height="3.15" rx="5" fill="#664125" stroke="none" stroke-width="1" />
 <ellipse cx="152" cy="137.04" rx="8.82" ry="6.3" fill="#664125" stroke="none" stroke-width="1"/>
 <path d="M 141.92 149.64 Q 152 158.46 162.08 149.64" fill="none" stroke="#664125" stroke-width="2.52" stroke-linecap="round"/>
-<text x="178" y="306" fill="#16325C" font-size="52" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="900" text-anchor="middle" letter-spacing="0">狗熊睡眠</text>
+<text x="178" y="306" fill="#16325C" font-size="52" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="900" text-anchor="middle" letter-spacing="0">睡了么</text>
 <text x="178" y="355" fill="#4F4A45" font-size="28" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="500" text-anchor="middle" letter-spacing="0">离线守护 · 晨间关怀</text>
 <rect x="48" y="420" width="156" height="126" rx="18" fill="#FFFFFF" stroke="#EFE3D1" stroke-width="1" filter="url(#softShadow)"/>
 <path d="M 126 446 L 146.9 453.7 L 144.15 477.9 Q 136.45 487.8 126 492.2 Q 115.55 487.8 107.85 477.9 L 105.1 453.7 Z" fill="#4CAF67" stroke="#2D8D45" stroke-width="1.1"/>
@@ -83,7 +83,7 @@
 <path d="M 713 107 l 16 0 l -8 12 z" fill="#FFFFFF"/>
 <path d="M 742 106 l 16 21 l -25 0 z" fill="#FFFFFF"/>
 <rect x="763" y="107" width="10" height="20" rx="3" fill="#FFFFFF" stroke="none" stroke-width="1" />
-<text x="605" y="183" fill="#FFFFFF" font-size="32" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="800" text-anchor="middle" letter-spacing="0">狗熊睡眠</text>
+<text x="605" y="183" fill="#FFFFFF" font-size="32" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="800" text-anchor="middle" letter-spacing="0">睡了么</text>
 <circle cx="713" cy="231" r="28" fill="#FFE08A" stroke="none" stroke-width="1"/>
 <circle cx="722.52" cy="226.8" r="26.599999999999998" fill="#16325C" stroke="none" stroke-width="1"/>
 <text x="537" y="221" fill="#FFE08A" font-size="20" font-family='"Noto Sans SC","Microsoft YaHei",Arial,sans-serif' font-weight="700" text-anchor="middle" letter-spacing="0">✦</text>

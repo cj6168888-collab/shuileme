@@ -1,4 +1,4 @@
-狗熊睡眠
+睡了么
 Copyright 2026 佛山吉麟数字生命研究院
 
 佛山吉麟数字生命研究院荣誉出品
@@ -11,3 +11,8 @@ Apache License 2.0 NOTICE requirements.
 The Live companion protocol design includes independently rewritten protocol
 helpers informed by the Apache-2.0 project xiaozhi-android-client:
 https://github.com/TOM88812/xiaozhi-android-client
+
+The APK also includes a small voice-core reference image copied from the same
+Apache-2.0 project for local integration testing. The elderly-facing assistant
+screens continue to use the 睡了么 companion characters instead of the 小智
+robot brand image.

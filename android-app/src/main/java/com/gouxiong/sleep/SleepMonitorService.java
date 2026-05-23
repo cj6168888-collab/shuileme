@@ -206,6 +206,8 @@ public class SleepMonitorService extends Service implements SensorEventListener 
         double highRmsThreshold = highRmsThreshold();
         double mediumMotionThreshold = mediumMotionThreshold();
         double highMotionThreshold = highMotionThreshold();
+        String signalState = signalState(rms, motion, mediumRmsThreshold, highRmsThreshold, mediumMotionThreshold, highMotionThreshold);
+        db.insertSignalSample(now, (int) rms, peak, (int) motion, signalState);
 
         if (now - lastEventAt < 20000) {
             updateSignalBaselineIfCalm(now, rms, motion, mediumRmsThreshold, mediumMotionThreshold);
@@ -236,6 +238,17 @@ public class SleepMonitorService extends Service implements SensorEventListener 
         } else {
             updateSignalBaselineIfCalm(now, rms, motion, mediumRmsThreshold, mediumMotionThreshold);
         }
+    }
+
+    private String signalState(double rms, double motion, double mediumRmsThreshold, double highRmsThreshold,
+                               double mediumMotionThreshold, double highMotionThreshold) {
+        if (rms > highRmsThreshold || motion > highMotionThreshold || rms > 18000 || motion > 30) {
+            return "high";
+        }
+        if (rms > mediumRmsThreshold || motion > mediumMotionThreshold) {
+            return "medium";
+        }
+        return "calm";
     }
 
     private void loadSignalBaseline() {
@@ -476,7 +489,7 @@ public class SleepMonitorService extends Service implements SensorEventListener 
 
         return new Notification.Builder(this, GUARD_CHANNEL)
                 .setSmallIcon(getResources().getIdentifier("ic_launcher", "drawable", getPackageName()))
-                .setContentTitle("狗熊睡眠正在守护")
+                .setContentTitle("睡了么正在守护")
                 .setContentText("静音守护中，不会发出运行提示音")
                 .setContentIntent(openPi)
                 .addAction(0, "停止", stopPi)

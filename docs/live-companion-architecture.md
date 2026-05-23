@@ -23,16 +23,19 @@
 
 ## 2. 现有实现不足
 
-当前 Android 实现更接近：
+当前 Android 实现已经从单纯 HTTP 回合升级为 WebSocket Live 文本回合，但还不是完整 Gemini Live：
 
 ```text
-SpeechRecognizer 识别一句话 -> 发送给 DeepSeek 文本模型 -> TTS 朗读
+SpeechRecognizer 识别一句话 -> WebSocket input_text -> 服务端模型文本流式回复 -> APK 消费 sentence_delta 并分段 TTS
+麦克风 PCM16 -> /api/live/session 二进制帧 -> 可选阿里 Realtime input_audio_buffer.append -> 服务端回传 stt/tts/audio
+用户插话/点头像 -> APK 停止本地 TTS/PCM 播放 -> WebSocket abort -> 可选阿里 Realtime response.cancel + input_audio_buffer.clear
+小助手说话/模型音频播放时 -> 16kHz/30ms PCM 短帧 -> 自适应噪声底 + 回落阈值 + 240ms 最短语音门 -> APK 自动判定主人插话 -> 同一条 abort 链路
 ```
 
 这个方案能验证功能，但体验上不是 Gemini Live：
 
-- 有明显轮次感，像“说完一句再等回复”。
-- 打断只是停止 TTS，不是真正全双工。
+- 仍有系统语音识别的轮次边界，但模型回复已能按 `sentence_delta` 先显示、先排队朗读；服务端已经能桥接阿里 Realtime 音频转写和模型音频帧，APK 已有 `AudioTrack` 低延迟播放路径。
+- 打断已能停止 APK 本地播放并通知 Realtime 桥取消当前响应；APK 也已有保守的 PCM 自动插话检测和 E2E 调试验收，但真实扬声器回采下的阈值、回音消除和真机长时稳定仍需调优。
 - 视频不是连续上下文，只是低频抓拍。
 - 延迟高时，用户会以为软件没反应。
 - 页面仍容易变成按钮和状态卡，而不是面对面交流。
@@ -90,7 +93,7 @@ Android 路线：
 - 支持图像或视频输入。
 - 支持函数调用：找物品、读取睡眠摘要、设置提醒。
 
-### 4.3 兜底：DeepSeek 文本 + 本地 ASR/TTS
+### 4.3 兜底：阿里文本/DeepSeek文字兜底 + 本地 ASR/TTS
 
 仅用于：
 
@@ -104,7 +107,7 @@ Android 路线：
 - 不显示“发送”。
 - 不显示大段转写。
 - 先播放本地安抚语：“您别急，我在听，我想想。”
-- 后台再走文本模型。
+- 后台再走服务端文本模型；DeepSeek 只作为低成本文字兜底，不承担视觉、音频或数字人能力。
 
 ## 5. Live 页面设计
 

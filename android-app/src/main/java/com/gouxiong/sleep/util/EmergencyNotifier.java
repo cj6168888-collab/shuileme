@@ -18,7 +18,7 @@ public class EmergencyNotifier {
             return;
         }
 
-        String message = "狗熊睡眠提醒：我触发高风险睡眠异常唤醒，超过 60 秒未确认。请尝试联系我。原因：" + reason;
+        String message = "睡了么提醒：我触发高风险睡眠异常唤醒，超过 60 秒未确认。请尝试联系我。原因：" + reason;
         if (store.emergencySms()) {
             sendSms(activity, phones, message, store.emergencyCall());
         }

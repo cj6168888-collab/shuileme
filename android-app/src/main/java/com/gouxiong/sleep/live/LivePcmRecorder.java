@@ -8,9 +8,9 @@ import android.media.audiofx.AutomaticGainControl;
 import android.media.audiofx.NoiseSuppressor;
 
 public final class LivePcmRecorder {
-    public static final int SAMPLE_RATE = LiveCompanionProtocol.OPUS_SAMPLE_RATE;
-    public static final int CHANNELS = LiveCompanionProtocol.OPUS_CHANNELS;
-    public static final int FRAME_DURATION_MS = LiveCompanionProtocol.OPUS_FRAME_DURATION_MS;
+    public static final int SAMPLE_RATE = LiveCompanionProtocol.PCM_SAMPLE_RATE;
+    public static final int CHANNELS = LiveCompanionProtocol.PCM_CHANNELS;
+    public static final int FRAME_DURATION_MS = LiveCompanionProtocol.PCM_FRAME_DURATION_MS;
     public static final int FRAME_SAMPLES = SAMPLE_RATE * FRAME_DURATION_MS / 1000;
 
     private volatile boolean running;

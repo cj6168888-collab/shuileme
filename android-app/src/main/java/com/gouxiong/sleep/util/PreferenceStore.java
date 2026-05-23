@@ -35,6 +35,122 @@ public class PreferenceStore {
         prefs.edit().putBoolean("first_launch", false).apply();
     }
 
+    public void recordLiveVoiceState(String stage, String title, String body) {
+        prefs.edit()
+                .putString("last_voice_state_stage", clean(stage))
+                .putString("last_voice_state_title", clean(title))
+                .putString("last_voice_state_body", clean(body))
+                .putLong("last_voice_state_at", System.currentTimeMillis())
+                .apply();
+    }
+
+    public void recordCompanionShortcutRoute(String route, String source) {
+        prefs.edit()
+                .putString("last_companion_shortcut_route", clean(route))
+                .putString("last_companion_shortcut_source", clean(source))
+                .putLong("last_companion_shortcut_at", System.currentTimeMillis())
+                .apply();
+    }
+
+    public void recordLiveAudioFrameState(int frameCount, String source, float rms) {
+        prefs.edit()
+                .putInt("last_live_audio_frame_count", Math.max(0, frameCount))
+                .putString("last_live_audio_frame_source", clean(source))
+                .putFloat("last_live_audio_frame_rms", Math.max(0f, rms))
+                .putLong("last_live_audio_frame_at", System.currentTimeMillis())
+                .apply();
+    }
+
+    public void resetLiveTtsDeltaState(int serial) {
+        prefs.edit()
+                .putInt("last_live_tts_delta_count", 0)
+                .putInt("last_live_tts_delta_serial", Math.max(0, serial))
+                .putString("last_live_tts_delta_text", "")
+                .putLong("last_live_tts_delta_at", 0L)
+                .apply();
+    }
+
+    public void recordLiveTtsDeltaState(int serial, String text) {
+        int count = prefs.getInt("last_live_tts_delta_count", 0) + 1;
+        prefs.edit()
+                .putInt("last_live_tts_delta_count", Math.max(1, count))
+                .putInt("last_live_tts_delta_serial", Math.max(0, serial))
+                .putString("last_live_tts_delta_text", clean(text))
+                .putLong("last_live_tts_delta_at", System.currentTimeMillis())
+                .apply();
+    }
+
+    public void recordLiveModelAudioFrameState(int frameCount, int bytes, String source) {
+        prefs.edit()
+                .putInt("last_live_model_audio_frame_count", Math.max(0, frameCount))
+                .putInt("last_live_model_audio_frame_bytes", Math.max(0, bytes))
+                .putString("last_live_model_audio_frame_source", clean(source))
+                .putLong("last_live_model_audio_frame_at", System.currentTimeMillis())
+                .apply();
+    }
+
+    public void recordLiveAbortState(String source, boolean realtimeAborted, String detail) {
+        int count = prefs.getInt("last_live_abort_count", 0) + 1;
+        boolean stickyRealtimeAborted = realtimeAborted || prefs.getBoolean("last_live_abort_realtime_aborted", false);
+        SharedPreferences.Editor editor = prefs.edit()
+                .putInt("last_live_abort_count", Math.max(1, count))
+                .putString("last_live_abort_source", clean(source))
+                .putBoolean("last_live_abort_realtime_aborted", stickyRealtimeAborted)
+                .putString("last_live_abort_detail", clean(detail))
+                .putLong("last_live_abort_at", System.currentTimeMillis());
+        if (realtimeAborted) {
+            editor.putString("last_live_abort_realtime_source", clean(source))
+                    .putString("last_live_abort_realtime_detail", clean(detail));
+        }
+        editor.apply();
+    }
+
+    public void recordLiveAutoBargeInState(float rms, int consecutiveFrames, float thresholdRms, float noiseFloorRms, int speechMs) {
+        int count = prefs.getInt("last_live_auto_barge_in_count", 0) + 1;
+        prefs.edit()
+                .putInt("last_live_auto_barge_in_count", Math.max(1, count))
+                .putFloat("last_live_auto_barge_in_rms", Math.max(0f, rms))
+                .putInt("last_live_auto_barge_in_frames", Math.max(0, consecutiveFrames))
+                .putInt("last_live_auto_barge_in_speech_ms", Math.max(0, speechMs))
+                .putFloat("last_live_auto_barge_in_threshold_rms", Math.max(0f, thresholdRms))
+                .putFloat("last_live_auto_barge_in_noise_floor_rms", Math.max(0f, noiseFloorRms))
+                .putLong("last_live_auto_barge_in_at", System.currentTimeMillis())
+                .apply();
+    }
+
+    public void recordLiveEmotionTagState(String emotion, float intensity, String gesture, String safetyLevel, String speechText, String source) {
+        int count = prefs.getInt("last_live_emotion_tag_count", 0) + 1;
+        prefs.edit()
+                .putInt("last_live_emotion_tag_count", Math.max(1, count))
+                .putString("last_live_emotion_tag_emotion", clean(emotion))
+                .putFloat("last_live_emotion_tag_intensity", Math.max(0f, Math.min(1f, intensity)))
+                .putString("last_live_emotion_tag_gesture", clean(gesture))
+                .putString("last_live_emotion_tag_safety_level", clean(safetyLevel))
+                .putString("last_live_emotion_tag_speech_text", clean(speechText))
+                .putString("last_live_emotion_tag_source", clean(source))
+                .putLong("last_live_emotion_tag_at", System.currentTimeMillis())
+                .apply();
+    }
+
+    public void recordVisionCaptureState(String source, int bytes, int width, int height) {
+        prefs.edit()
+                .putString("last_vision_capture_source", clean(source))
+                .putInt("last_vision_capture_bytes", Math.max(0, bytes))
+                .putInt("last_vision_capture_width", Math.max(0, width))
+                .putInt("last_vision_capture_height", Math.max(0, height))
+                .putLong("last_vision_capture_at", System.currentTimeMillis())
+                .apply();
+    }
+
+    public void recordSleepAudioReadState(int readCount, double rms, int peak) {
+        prefs.edit()
+                .putInt("last_sleep_audio_read_count", Math.max(0, readCount))
+                .putFloat("last_sleep_audio_read_rms", (float) Math.max(0d, rms))
+                .putInt("last_sleep_audio_read_peak", Math.max(0, peak))
+                .putLong("last_sleep_audio_read_at", System.currentTimeMillis())
+                .apply();
+    }
+
     public String mode() {
         return prefs.getString("mode", "标准模式");
     }
@@ -308,6 +424,18 @@ public class PreferenceStore {
         prefs.edit().putString("companion_role", role == null ? "温柔姐姐" : role).apply();
     }
 
+    public boolean assistantVideoChatMode() {
+        return prefs.getBoolean("assistant_video_chat_mode", true);
+    }
+
+    public void setAssistantVideoChatMode(boolean enabled) {
+        prefs.edit().putBoolean("assistant_video_chat_mode", enabled).commit();
+    }
+
+    public boolean debugCompanionUiTestMode() {
+        return prefs.getBoolean("debug_companion_ui_test_mode", false);
+    }
+
     public boolean assistantPersonaConfigured() {
         return prefs.getBoolean("assistant_persona_configured", false);
     }
@@ -350,12 +478,67 @@ public class PreferenceStore {
         return "名字：" + assistantName() + "\n身份：" + assistantIdentity() + "\n称呼您：" + ownerAddress();
     }
 
+    public String serverBaseUrl() {
+        String value = prefs.getString("server_base_url", "http://10.0.2.2:8787");
+        return value == null || value.trim().length() == 0 ? "http://10.0.2.2:8787" : value.trim();
+    }
+
+    public void setServerBaseUrl(String value) {
+        String clean = clean(value);
+        if (clean.length() == 0) clean = "http://10.0.2.2:8787";
+        while (clean.endsWith("/")) {
+            clean = clean.substring(0, clean.length() - 1);
+        }
+        prefs.edit().putString("server_base_url", clean).apply();
+    }
+
+    public String serverAuthToken() {
+        return prefs.getString("server_auth_token", "");
+    }
+
+    public String serverPhone() {
+        return prefs.getString("server_phone", "");
+    }
+
+    public int serverUserId() {
+        return prefs.getInt("server_user_id", 0);
+    }
+
+    public boolean serverRegistered() {
+        return serverAuthToken().length() > 20 && serverPhone().length() > 0;
+    }
+
+    public void setServerAuth(String phone, String token, int userId) {
+        prefs.edit()
+                .putString("server_phone", clean(phone))
+                .putString("server_auth_token", clean(token))
+                .putInt("server_user_id", userId)
+                .apply();
+    }
+
+    public void clearServerAuth() {
+        prefs.edit()
+                .remove("server_phone")
+                .remove("server_auth_token")
+                .remove("server_user_id")
+                .apply();
+    }
+
+    public String serverAccountSummary() {
+        if (serverRegistered()) {
+            return "已登录：" + serverPhone()
+                    + "\n小助手长期记忆已开启。"
+                    + "\n会自动同步档案、聊天重点和提醒消息。";
+        }
+        return "还没登录。输入手机号验证码后，小助手会记住健康、用药、睡眠和家庭情况。";
+    }
+
     public boolean assistantOnlineEnabled() {
-        return prefs.getBoolean("assistant_online_enabled", true);
+        return true;
     }
 
     public void setAssistantOnlineEnabled(boolean value) {
-        prefs.edit().putBoolean("assistant_online_enabled", value).apply();
+        prefs.edit().putBoolean("assistant_online_enabled", true).apply();
     }
 
     public String deepSeekApiKey() {
@@ -395,7 +578,11 @@ public class PreferenceStore {
     }
 
     public boolean deepSeekKeyConfigured() {
-        return deepSeekApiKey().startsWith("sk-") && deepSeekApiKey().length() > 20;
+        return serverRegistered();
+    }
+
+    public boolean localDeepSeekKeyConfigured() {
+        return false;
     }
 
     public String deepSeekModel() {
@@ -579,6 +766,22 @@ public class PreferenceStore {
         b.setTimeInMillis(confirmed);
         return a.get(java.util.Calendar.YEAR) == b.get(java.util.Calendar.YEAR)
                 && a.get(java.util.Calendar.DAY_OF_YEAR) == b.get(java.util.Calendar.DAY_OF_YEAR);
+    }
+
+    public boolean hydrationReminderEnabled() {
+        return prefs.getBoolean("hydration_reminder_enabled", true);
+    }
+
+    public void setHydrationReminderEnabled(boolean enabled) {
+        prefs.edit().putBoolean("hydration_reminder_enabled", enabled).apply();
+    }
+
+    public long hydrationAcknowledgedAt() {
+        return prefs.getLong("hydration_acknowledged_at", 0L);
+    }
+
+    public void markHydrationAcknowledgedNow() {
+        prefs.edit().putLong("hydration_acknowledged_at", System.currentTimeMillis()).apply();
     }
 
     public String importantObjectMemory() {

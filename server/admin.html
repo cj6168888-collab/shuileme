@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>睡了么后台</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #fff8eb;
+      --card: #fffdf7;
+      --ink: #24304a;
+      --muted: #6f7380;
+      --blue: #2f66e8;
+      --green: #4f9e5a;
+      --orange: #f28c18;
+      --red: #e94f3c;
+      --line: rgba(36, 48, 74, 0.12);
+      --shadow: 0 12px 28px rgba(70, 48, 18, 0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    header {
+      padding: 28px 32px 18px;
+      background: linear-gradient(180deg, #fff3d8, rgba(255, 248, 235, 0));
+    }
+    h1, h2, h3 { margin: 0; letter-spacing: 0; }
+    h1 { font-size: 34px; }
+    h2 { font-size: 24px; margin-bottom: 14px; }
+    h3 { font-size: 19px; margin-bottom: 8px; }
+    p { margin: 6px 0; color: var(--muted); line-height: 1.55; }
+    button, input, textarea, select {
+      font: inherit;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+    }
+    input, textarea, select {
+      width: 100%;
+      padding: 12px 14px;
+      background: #fff;
+      color: var(--ink);
+      outline: none;
+    }
+    textarea { min-height: 112px; resize: vertical; }
+    button {
+      padding: 12px 18px;
+      border: 0;
+      color: #fff;
+      background: var(--blue);
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(47, 102, 232, 0.22);
+    }
+    button.secondary {
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: none;
+    }
+    button.danger {
+      background: var(--red);
+      box-shadow: 0 8px 18px rgba(233, 79, 60, 0.2);
+    }
+    main {
+      display: grid;
+      grid-template-columns: minmax(320px, 0.9fr) minmax(420px, 1.4fr);
+      gap: 18px;
+      padding: 0 32px 32px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+    .auth {
+      display: grid;
+      grid-template-columns: 1fr auto auto auto;
+      gap: 10px;
+      align-items: center;
+      margin-top: 16px;
+      max-width: 980px;
+    }
+    .list {
+      display: grid;
+      gap: 10px;
+    }
+    .user-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      cursor: pointer;
+    }
+    .user-row.active {
+      border-color: rgba(47, 102, 232, 0.5);
+      box-shadow: 0 0 0 3px rgba(47, 102, 232, 0.12);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 34px;
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      color: #fff;
+      background: var(--green);
+      font-weight: 800;
+    }
+    .badge.orange { background: var(--orange); }
+    .badge.red { background: var(--red); }
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .kv {
+      padding: 12px;
+      border-radius: 10px;
+      background: #fff;
+      border: 1px solid var(--line);
+    }
+    .kv strong { display: block; margin-bottom: 4px; }
+    .timeline {
+      display: grid;
+      gap: 10px;
+      max-height: 420px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+    .item {
+      border-left: 5px solid var(--green);
+      padding: 10px 12px;
+      background: #fff;
+      border-radius: 10px;
+      border-top-left-radius: 4px;
+      border-bottom-left-radius: 4px;
+    }
+    .item.sev4 { border-left-color: var(--red); }
+    .item.sev2, .item.sev3 { border-left-color: var(--orange); }
+    .item.audit { border-left-color: var(--blue); }
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .status {
+      min-height: 24px;
+      margin-top: 10px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .empty {
+      padding: 18px;
+      color: var(--muted);
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.55);
+    }
+    @media (max-width: 900px) {
+      header { padding: 22px 18px 12px; }
+      main { grid-template-columns: 1fr; padding: 0 18px 22px; }
+      .auth { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>睡了么后台</h1>
+    <p>查看用户健康档案、长期记忆和待朗读消息。这里只做生活关怀辅助，不做诊断。</p>
+    <div class="auth">
+      <input id="token" type="password" placeholder="输入 GOUXIONG_ADMIN_TOKEN">
+      <button id="saveToken">保存令牌</button>
+      <button class="secondary" id="probeModel">模型探测</button>
+      <button class="secondary" id="refresh">刷新</button>
+    </div>
+    <div class="status" id="status"></div>
+  </header>
+
+  <main>
+    <section>
+      <div class="card">
+        <h2>用户列表</h2>
+        <div id="users" class="list"></div>
+      </div>
+
+      <div class="card">
+        <h2>审计日志</h2>
+        <p>导出、删除、查看详情、模型探测和消息下发都会留下记录。</p>
+        <button class="secondary" id="refreshAudit">刷新审计</button>
+        <p></p>
+        <div id="auditLogs" class="timeline"></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <h2>用户详情</h2>
+        <div id="detail" class="empty">请选择左侧用户。</div>
+      </div>
+
+      <div class="card">
+        <h2>下发小助手消息</h2>
+        <p>消息会进入 APK 队列，小助手下次拉取后读给用户听。</p>
+        <div class="grid2">
+          <input id="messageTitle" placeholder="标题，例如 吃药提醒" value="小助手提醒">
+          <select id="messagePriority">
+            <option value="1">普通</option>
+            <option value="3" selected>重要</option>
+            <option value="4">紧急</option>
+          </select>
+        </div>
+        <p></p>
+        <textarea id="messageBody" placeholder="要读给用户听的话"></textarea>
+        <p></p>
+        <button id="sendMessage">发送给当前用户</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const state = { users: [], selectedId: 0 };
+    const tokenEl = document.getElementById('token');
+    const statusEl = document.getElementById('status');
+    const usersEl = document.getElementById('users');
+    const detailEl = document.getElementById('detail');
+    const auditLogsEl = document.getElementById('auditLogs');
+
+    tokenEl.value = localStorage.getItem('gouxiong_admin_token') || '';
+
+    function setStatus(text, isError = false) {
+      statusEl.textContent = text || '';
+      statusEl.style.color = isError ? '#e94f3c' : '#6f7380';
+    }
+
+    function fmtTime(value) {
+      if (!value) return '暂无';
+      return new Date(Number(value) * 1000).toLocaleString();
+    }
+
+    function el(tag, text, className) {
+      const node = document.createElement(tag);
+      if (text !== undefined && text !== null) node.textContent = text;
+      if (className) node.className = className;
+      return node;
+    }
+
+    async function api(path, options = {}) {
+      const token = tokenEl.value.trim();
+      if (!token) throw new Error('请先输入管理令牌');
+      const response = await fetch(path, {
+        ...options,
+        headers: {
+          'content-type': 'application/json; charset=utf-8',
+          authorization: 'Bearer ' + token,
+          ...(options.headers || {})
+        }
+      });
+      const data = await response.json();
+      if (!response.ok || data.ok === false) throw new Error(data.error || '请求失败');
+      return data;
+    }
+
+    function renderUsers() {
+      usersEl.replaceChildren();
+      if (!state.users.length) {
+        usersEl.appendChild(el('div', '暂无用户。', 'empty'));
+        return;
+      }
+      for (const user of state.users) {
+        const row = el('div', null, 'user-row' + (user.id === state.selectedId ? ' active' : ''));
+        const left = document.createElement('div');
+        left.appendChild(el('strong', user.phone || ('用户 ' + user.id)));
+        left.appendChild(el('p', (user.owner_address || '未设置称呼') + ' · ' + (user.assistant_name || '未设置小助手')));
+        left.appendChild(el('p', '最后活跃：' + fmtTime(user.last_seen_at)));
+        const right = document.createElement('div');
+        right.className = 'row';
+        right.appendChild(el('span', String(user.insight_count || 0), 'badge'));
+        if (user.memory_count > 0) {
+          right.appendChild(el('span', '忆' + String(user.memory_count), 'badge'));
+        }
+        if (user.unread_message_count > 0) {
+          right.appendChild(el('span', String(user.unread_message_count), 'badge orange'));
+        }
+        row.append(left, right);
+        row.addEventListener('click', () => loadDetail(user.id));
+        usersEl.appendChild(row);
+      }
+    }
+
+    function renderProfile(profile) {
+      const grid = el('div', null, 'grid2');
+      const fields = [
+        ['称呼', profile?.owner_address],
+        ['小助手', profile?.assistant_name],
+        ['身体状况', profile?.health],
+        ['用药习惯', profile?.medication],
+        ['睡眠情况', profile?.sleep],
+        ['家庭情况', profile?.family],
+        ['兴趣爱好', profile?.hobbies],
+        ['关怀偏好', profile?.care_preference]
+      ];
+      for (const [label, value] of fields) {
+        const box = el('div', null, 'kv');
+        box.appendChild(el('strong', label));
+        box.appendChild(el('span', value || '未填写'));
+        grid.appendChild(box);
+      }
+      return grid;
+    }
+
+    function renderTimeline(rows, emptyText) {
+      const list = el('div', null, 'timeline');
+      if (!rows || !rows.length) {
+        list.appendChild(el('div', emptyText, 'empty'));
+        return list;
+      }
+      for (const row of rows) {
+        const item = el('div', null, 'item sev' + (row.severity || row.priority || 1));
+        const label = row.label || row.category || row.title || '消息';
+        item.appendChild(el('strong', label + ' · ' + fmtTime(row.updated_at || row.created_at)));
+        item.appendChild(el('p', row.value || row.content || row.body || ''));
+        if (row.evidence) item.appendChild(el('p', '证据：' + row.evidence));
+        if (row.mentions) item.appendChild(el('p', '来源：' + (row.source || 'app') + '，提及 ' + row.mentions + ' 次'));
+        if (row.read_at !== undefined) item.appendChild(el('p', row.read_at ? ('已读：' + fmtTime(row.read_at)) : '未读'));
+        list.appendChild(item);
+      }
+      return list;
+    }
+
+    function renderAuditLogs(rows) {
+      auditLogsEl.replaceChildren();
+      if (!rows || !rows.length) {
+        auditLogsEl.appendChild(el('div', '暂无审计记录。', 'empty'));
+        return;
+      }
+      for (const row of rows) {
+        const item = el('div', null, 'item audit');
+        const target = row.target_user_id ? ('用户 ' + row.target_user_id) : '系统';
+        item.appendChild(el('strong', row.action + ' · ' + target));
+        item.appendChild(el('p', fmtTime(row.created_at) + ' · ' + row.actor_type + ' · ' + (row.ip || 'unknown')));
+        if (row.metadata && Object.keys(row.metadata).length) {
+          item.appendChild(el('p', JSON.stringify(row.metadata)));
+        }
+        auditLogsEl.appendChild(item);
+      }
+    }
+
+    async function loadAuditLogs() {
+      const data = await api('/api/admin/audit-logs');
+      renderAuditLogs(data.logs || []);
+    }
+
+    async function loadUsers() {
+      setStatus('正在读取用户列表...');
+      const data = await api('/api/admin/users');
+      state.users = data.users || [];
+      renderUsers();
+      setStatus('用户列表已更新。');
+      await loadAuditLogs();
+      if (!state.selectedId && state.users[0]) await loadDetail(state.users[0].id);
+    }
+
+    async function probeModel() {
+      setStatus('正在探测阿里多模态文本模型...');
+      const data = await api('/api/admin/model/probe', { method: 'POST' });
+      if (data.probe_used) {
+        setStatus('模型探测通过：' + data.provider + ' / ' + data.model + ' / ' + (data.latency_ms || 0) + 'ms。');
+      } else {
+        setStatus(data.message || '模型未配置，当前会走兜底。');
+      }
+      await loadAuditLogs();
+    }
+
+    async function loadDetail(userId) {
+      state.selectedId = userId;
+      renderUsers();
+      setStatus('正在读取用户详情...');
+      const data = await api('/api/admin/users/' + userId);
+      detailEl.className = '';
+      detailEl.replaceChildren();
+      detailEl.appendChild(el('h3', '手机号：' + data.user.phone));
+      detailEl.appendChild(el('p', '创建时间：' + fmtTime(data.user.created_at) + '，最后活跃：' + fmtTime(data.user.last_seen_at)));
+      const actions = el('div', null, 'row');
+      const exportButton = el('button', '导出用户数据', 'secondary');
+      const deleteButton = el('button', '删除用户', 'danger');
+      exportButton.addEventListener('click', exportCurrentUser);
+      deleteButton.addEventListener('click', deleteCurrentUser);
+      actions.append(exportButton, deleteButton);
+      detailEl.appendChild(actions);
+      detailEl.appendChild(el('h3', '主人档案'));
+      detailEl.appendChild(renderProfile(data.profile));
+      detailEl.appendChild(el('h3', '结构化记忆'));
+      detailEl.appendChild(renderTimeline(data.memories, '暂无结构化记忆。'));
+      detailEl.appendChild(el('h3', '长期记忆'));
+      detailEl.appendChild(renderTimeline(data.insights, '暂无长期记忆。'));
+      detailEl.appendChild(el('h3', '消息记录'));
+      detailEl.appendChild(renderTimeline(data.messages, '暂无消息。'));
+      setStatus('用户详情已更新。');
+      await loadAuditLogs();
+    }
+
+    async function exportCurrentUser() {
+      if (!state.selectedId) throw new Error('请先选择用户');
+      setStatus('正在导出用户数据...');
+      const data = await api('/api/admin/users/' + state.selectedId + '/export');
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'gouxiong-user-' + state.selectedId + '-export.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setStatus('用户数据已导出，未包含验证码和会话密钥。');
+      await loadAuditLogs();
+    }
+
+    async function deleteCurrentUser() {
+      if (!state.selectedId) throw new Error('请先选择用户');
+      const user = state.users.find(item => item.id === state.selectedId);
+      const label = user ? user.phone : ('用户 ' + state.selectedId);
+      if (!confirm('确定删除 ' + label + ' 的服务端账号、健康档案、长期记忆、聊天记录和待读消息吗？此操作不能撤销。')) {
+        return;
+      }
+      setStatus('正在删除用户数据...');
+      await api('/api/admin/users/' + state.selectedId, { method: 'DELETE' });
+      state.selectedId = 0;
+      detailEl.className = 'empty';
+      detailEl.textContent = '请选择左侧用户。';
+      setStatus('用户数据已删除。');
+      await loadUsers();
+      await loadAuditLogs();
+    }
+
+    async function sendMessage() {
+      if (!state.selectedId) throw new Error('请先选择用户');
+      const title = document.getElementById('messageTitle').value.trim() || '小助手提醒';
+      const body = document.getElementById('messageBody').value.trim();
+      const priority = Number(document.getElementById('messagePriority').value || '1');
+      if (!body) throw new Error('请填写消息内容');
+      setStatus('正在发送消息...');
+      await api('/api/admin/users/' + state.selectedId + '/messages', {
+        method: 'POST',
+        body: JSON.stringify({ title, body, priority })
+      });
+      document.getElementById('messageBody').value = '';
+      setStatus('消息已加入待朗读队列。');
+      await loadDetail(state.selectedId);
+      await loadUsers();
+      await loadAuditLogs();
+    }
+
+    document.getElementById('saveToken').addEventListener('click', () => {
+      localStorage.setItem('gouxiong_admin_token', tokenEl.value.trim());
+      setStatus('令牌已保存。');
+      loadUsers().catch(error => setStatus(error.message, true));
+    });
+    document.getElementById('refresh').addEventListener('click', () => loadUsers().catch(error => setStatus(error.message, true)));
+    document.getElementById('refreshAudit').addEventListener('click', () => loadAuditLogs().catch(error => setStatus(error.message, true)));
+    document.getElementById('probeModel').addEventListener('click', () => probeModel().catch(error => setStatus(error.message, true)));
+    document.getElementById('sendMessage').addEventListener('click', () => sendMessage().catch(error => setStatus(error.message, true)));
+
+    if (tokenEl.value.trim()) {
+      loadUsers().catch(error => setStatus(error.message, true));
+    } else {
+      setStatus('请输入管理令牌后刷新。');
+    }
+  </script>
+</body>
+</html>
