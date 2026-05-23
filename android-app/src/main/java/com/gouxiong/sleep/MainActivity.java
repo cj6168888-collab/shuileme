@@ -621,7 +621,7 @@ public class MainActivity extends Activity {
         ScrollView scroll = new ScrollView(this);
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(Theme.dp(this, 18), safeTopPadding(16), Theme.dp(this, 18), Theme.dp(this, 8));
+        content.setPadding(Theme.dp(this, 18), safeTopPadding(6), Theme.dp(this, 18), Theme.dp(this, 8));
         scroll.addView(content);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
 
@@ -652,11 +652,10 @@ public class MainActivity extends Activity {
         boolean monitoring = prefs.isMonitoring();
         int integrity = guardIntegrityScore();
         addHomeHero(monitoring, integrity);
-        addSleepDashboardCard(monitoring);
 
         Button primary = Theme.button(this, monitoring ? "停止守护" : "▶  开始守护", monitoring ? Theme.RED : Theme.BLUE);
-        primary.setTextSize(28);
-        primary.setMinHeight(Theme.dp(this, 82));
+        primary.setTextSize(26);
+        primary.setMinHeight(Theme.dp(this, 70));
         primary.setOnClickListener(v -> {
             if (prefs.isMonitoring()) {
                 stopMonitoring();
@@ -665,30 +664,28 @@ public class MainActivity extends Activity {
             }
         });
         content.addView(primary, matchWrap());
-        addSpace(content, 12);
+        addSpace(content, 10);
         addHomeTileGrid();
+        addSpace(content, 10);
+        addSleepDashboardCard(monitoring);
     }
 
     private void addHomeHero(boolean monitoring, int integrity) {
         LinearLayout hero = cardContainer();
         hero.setGravity(Gravity.CENTER_HORIZONTAL);
-        hero.setPadding(Theme.dp(this, 14), Theme.dp(this, 14), Theme.dp(this, 14), Theme.dp(this, 16));
+        hero.setPadding(Theme.dp(this, 12), Theme.dp(this, 12), Theme.dp(this, 12), Theme.dp(this, 12));
         hero.setBackground(Theme.tintedCard(this, Theme.BLUE));
-        ImageView scene = designImage("ui_sleep_scene_v2", 205, ImageView.ScaleType.CENTER_CROP);
+        ImageView scene = designImage("ui_sleep_scene_v2", 120, ImageView.ScaleType.CENTER_CROP);
         scene.setContentDescription("睡了么守护场景");
-        hero.addView(scene, new LinearLayout.LayoutParams(-1, Theme.dp(this, 205)));
+        hero.addView(scene, new LinearLayout.LayoutParams(-1, Theme.dp(this, 120)));
         addSpace(hero, 8);
-        TextView title = Theme.text(this, monitoring ? "睡眠守护中" : "睡眠守护", 34, Theme.TEXT, Typeface.BOLD);
+        TextView title = Theme.text(this, monitoring ? "睡眠守护中" : "睡眠守护", 30, Theme.TEXT, Typeface.BOLD);
         title.setGravity(Gravity.CENTER);
         hero.addView(title, matchWrap());
-        addSpace(hero, 4);
-        TextView subtitle = Theme.text(this, monitoring ? "没有异常时保持安静，有风险时再温和干预。" : "安静守护 · 异常唤醒 · 睡眠记录", 18, Theme.MUTED, Typeface.NORMAL);
-        subtitle.setGravity(Gravity.CENTER);
-        hero.addView(subtitle, matchWrap());
-        addSpace(hero, 10);
+        addSpace(hero, 8);
         addHomeReadyBadge(hero, monitoring, integrity);
         content.addView(hero, matchWrap());
-        addSpace(content, 12);
+        addSpace(content, 10);
     }
 
     private void addHomeReadyBadge(LinearLayout hero, boolean monitoring, int integrity) {
@@ -698,7 +695,7 @@ public class MainActivity extends Activity {
         badge.setPadding(Theme.dp(this, 16), Theme.dp(this, 10), Theme.dp(this, 16), Theme.dp(this, 10));
         badge.setBackground(Theme.rounded(Theme.mix(color, Theme.WARM_WHITE, 0.88f), 28, this));
         String state = monitoring ? "守护进行中" : (integrity >= 80 ? "守护已就绪" : "先补齐守护");
-        TextView label = Theme.text(this, "✓  " + state + " · 完整性 " + integrity + " 分", 21, Theme.darken(color, 0.28f), Typeface.BOLD);
+        TextView label = Theme.text(this, "✓  " + state + " · 完整性 " + integrity + " 分", 19, Theme.darken(color, 0.28f), Typeface.BOLD);
         label.setGravity(Gravity.CENTER);
         badge.addView(label, matchWrap());
         hero.addView(badge, matchWrap());
@@ -730,12 +727,12 @@ public class MainActivity extends Activity {
         card.setOnClickListener(v -> showSleepReport());
 
         TextView title = Theme.text(this, monitoring ? "实时守护波形" : "昨晚守护记录", 24, Theme.TEXT, Typeface.BOLD);
-        title.setGravity(Gravity.CENTER);
+        title.setGravity(Gravity.LEFT);
         card.addView(title, matchWrap());
         addSpace(card, 4);
 
         TextView subtitle = Theme.text(this, monitoring ? "正在静音守护，只在异常时出声。" : data.trendLine, 16, Theme.MUTED, Typeface.NORMAL);
-        subtitle.setGravity(Gravity.CENTER);
+        subtitle.setGravity(Gravity.LEFT);
         card.addView(subtitle, matchWrap());
         addSpace(card, 8);
 
@@ -1434,9 +1431,6 @@ public class MainActivity extends Activity {
         content.removeAllViews();
         content.addView(Theme.text(this, "设置", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
-        content.addView(Theme.text(this, "所有配置只放在这里，睡眠守护和小助理页不再重复出现。", 19, Theme.MUTED, Typeface.NORMAL), matchWrap());
-        addSpace(content, 14);
-
         addSettingsCategoryGrid();
         addCard("紧急联系人",
                 prefs.emergencySummary() + "\n" + prefs.emergencyActionSummary(),
@@ -1567,11 +1561,11 @@ public class MainActivity extends Activity {
 
     private void addSettingButton(String text, Runnable action) {
         Button button = Theme.button(this, text, Theme.BLUE);
-        button.setTextSize(21);
-        button.setMinHeight(Theme.dp(this, 78));
+        button.setTextSize(20);
+        button.setMinHeight(Theme.dp(this, 64));
         button.setOnClickListener(v -> action.run());
         content.addView(button, matchWrap());
-        addSpace(content, 10);
+        addSpace(content, 8);
     }
 
     private void showEmergencyDialog() {
@@ -3830,11 +3824,9 @@ public class MainActivity extends Activity {
         content.removeAllViews();
         content.addView(Theme.text(this, "联网账号", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
-        addAssistantHero("我会越来越懂你",
-                "登录后，我会自动记住健康、用药、睡眠和家里的重要提醒。您不用管同步，我会自己照顾好这些事。",
-                false);
-        addCard("账号状态", prefs.serverAccountSummary(), prefs.serverRegistered() ? Theme.GREEN : Theme.ORANGE);
-        addSettingButton("检查服务能力", this::showServerCapabilityCheck);
+        addCheckRow("账号", prefs.serverRegistered() ? "已登录" : "未登录", prefs.serverRegistered(), null);
+        addCheckRow("服务端", compactForCard(prefs.serverBaseUrl(), 24), true, this::showServerUrlDialog);
+        addSettingButton("诚实检查", this::showServerCapabilityCheck);
         if (prefs.serverRegistered()) {
             content.postDelayed(this::syncOwnerProfileQuietAfterAccountOpen, 450);
             addSettingButton("导出服务端资料", this::exportServerAccountData);
@@ -3910,9 +3902,10 @@ public class MainActivity extends Activity {
 
     private void showServerCapabilityCheck() {
         content.removeAllViews();
-        content.addView(Theme.text(this, "服务能力自检", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        content.addView(Theme.text(this, "诚实检查", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
-        addCard("正在检查", "我正在连接 " + prefs.serverBaseUrl() + "，确认短信、阿里多模态和数字人服务是不是真的可用。", Theme.BLUE);
+        addCheckRow("本机麦克风", prefs.microphoneProbePassed() ? "通过" : "未证明", prefs.microphoneProbePassed(), this::showMicrophoneHonestCheck);
+        addCheckRow("正在连服务端", prefs.serverBaseUrl(), false, null);
         addSettingButton("返回账号", this::showServerAccountSettings);
         new Thread(() -> {
             try {
@@ -3926,16 +3919,17 @@ public class MainActivity extends Activity {
 
     private void showServerCapabilityResult(ServerApiClient.ServerHealth status) {
         content.removeAllViews();
-        content.addView(Theme.text(this, "服务能力自检", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        content.addView(Theme.text(this, "诚实检查", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
-        addCard("服务端", status.ok ? "已连接：" + status.service : "服务端响应异常", status.ok ? Theme.GREEN : Theme.RED);
-        addCard("短信验证码", status.smsLine(), status.smsAliyunConfigured && !status.smsDevMode ? Theme.GREEN : Theme.ORANGE);
-        addCard("阿里多模态", status.modelLine(), status.modelReady() ? Theme.GREEN : Theme.ORANGE);
-        addCard("实时陪伴", status.liveLine(), status.websocketLiveSession ? Theme.GREEN : Theme.ORANGE);
-        addCard("麦克风拾音", prefs.microphoneProbeSummary(), prefs.microphoneProbePassed() ? Theme.GREEN : Theme.RED);
-        addCard("2D小助手", status.avatarLine(), status.local2dAvatarView && status.avatarStateMachine && status.mouthLevelProtocol ? Theme.GREEN : Theme.ORANGE);
-        addCard("陪伴能力", status.companionLine(), status.bedtimeStory && status.possibleAsleepConfirm && status.musicPlayback && !status.newsBriefing ? Theme.GREEN : Theme.ORANGE);
-        addCard("安全边界", "模型 Key、短信 AK 和管理令牌都应只放服务端。APK 只保存登录态，夜间强唤醒和紧急联系人继续由本机兜底。", Theme.BLUE);
+        addCheckRow("服务端", status.ok ? "通过" : "异常", status.ok, null);
+        addCheckRow("短信", status.smsAliyunConfigured && !status.smsDevMode ? "真实阿里短信" : (status.smsDevMode ? "开发模式" : "未配置"), status.smsAliyunConfigured && !status.smsDevMode, null);
+        addCheckRow("模型", status.modelReady() ? "文本/看图/音频可用" : "未完整证明", status.modelReady(), null);
+        addCheckRow("实时语音", status.realtimeConfigured && status.modelAudioOutputStreaming && status.apkLowLatencyAudioPlayback ? "模型音频优先" : "未完整证明", status.realtimeConfigured && status.modelAudioOutputStreaming && status.apkLowLatencyAudioPlayback, null);
+        addCheckRow("麦克风", prefs.microphoneProbePassed() ? "现场拾音通过" : "未证明真实拾音", prefs.microphoneProbePassed(), this::showMicrophoneHonestCheck);
+        addCheckRow("2D Avatar", status.local2dAvatarView && status.avatarStateMachine ? (status.live2dSdk ? "Live2D" : "本机2D，非Live2D") : "未完整证明", status.local2dAvatarView && status.avatarStateMachine, null);
+        addCheckRow("故事/助眠音", status.bedtimeStory && status.musicPlayback ? "可用" : "未完整证明", status.bedtimeStory && status.musicPlayback, null);
+        addCheckRow("新闻", status.newsBriefing ? "已接真实源" : "未接入，不编", status.newsBriefing, this::showNewsCapabilityStatus);
+        addCheckRow("Key安全", "只放服务端", true, null);
         addSettingButton("现场验证麦克风拾音", this::showMicrophoneHonestCheck);
         addSettingButton("重新检查", this::showServerCapabilityCheck);
         addSettingButton("返回账号", this::showServerAccountSettings);
@@ -3943,9 +3937,10 @@ public class MainActivity extends Activity {
 
     private void showServerCapabilityError(String message) {
         content.removeAllViews();
-        content.addView(Theme.text(this, "服务能力自检", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        content.addView(Theme.text(this, "诚实检查", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
-        addCard("连接失败", "服务端没有连上：" + message + "\n请检查地址、电脑服务端和模拟器网络。", Theme.RED);
+        addCheckRow("服务端", "连接失败", false, null);
+        addCard("错误", compactForCard(message, 80), Theme.RED);
         addSettingButton("连接服务设置", this::showServerUrlDialog);
         addSettingButton("重新检查", this::showServerCapabilityCheck);
         addSettingButton("返回账号", this::showServerAccountSettings);
@@ -3956,17 +3951,15 @@ public class MainActivity extends Activity {
         content.removeAllViews();
         content.addView(Theme.text(this, "麦克风拾音验证", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
-        addCard("诚实规则",
-                "这里不是检查“有没有权限”，而是现场打开麦克风采样 2.5 秒。\n只有同时满足：AudioRecord 启动、收到 PCM 帧、RMS 有明显非静音变化，才算拾音已证明。",
-                Theme.BLUE);
         if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
             prefs.recordMicrophoneProbeState(false, 0, 0f, 0f, "未授权 RECORD_AUDIO");
-            addCard("当前结论", "麦克风未授权，拾音功能未实现到可用状态。", Theme.RED);
+            addCheckRow("权限", "未授权", false, null);
+            addCheckRow("结论", "未实现到可用", false, null);
             addSettingButton("授权麦克风", () -> requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQUEST_VOICE_CHAT));
             addSettingButton("返回小助手", this::showCompanionChat);
             return;
         }
-        addCard("正在验证", "请对着手机说一句话，或轻拍桌面。验证时长约 2.5 秒。", Theme.ORANGE);
+        addCheckRow("验证中", "说句话或轻拍桌面，2.5秒", false, null);
         addSettingButton("返回小助手", this::showCompanionChat);
         startMicrophoneHonestProbe(++microphoneProbeSerial);
     }
@@ -4027,20 +4020,14 @@ public class MainActivity extends Activity {
         addSpace(content, 8);
         boolean frameOk = frames >= 12;
         boolean soundOk = maxRms >= 0.010f && maxRms - minRms >= 0.004f;
-        addCard("1. 权限", hasPermission(Manifest.permission.RECORD_AUDIO) ? "已授权 RECORD_AUDIO" : "未授权 RECORD_AUDIO", hasPermission(Manifest.permission.RECORD_AUDIO) ? Theme.GREEN : Theme.RED);
-        addCard("2. AudioRecord", started ? "已启动 16kHz / PCM16 / 30ms 帧采样" : "没有启动：" + emptyText(error, "未知原因"), started ? Theme.GREEN : Theme.RED);
-        addCard("3. PCM 帧", "2.5 秒内收到 " + frames + " 帧。" + (frameOk ? "帧数足够。" : "帧数不足，不能证明稳定采样。"), frameOk ? Theme.GREEN : Theme.RED);
-        addCard("4. 声音变化",
-                "RMS 最小 " + formatRms(minRms) + "，最大 " + formatRms(maxRms) + "，变化 " + formatRms(Math.max(0f, maxRms - minRms)) + "。\n"
-                        + (soundOk ? "已证明采到非静音声音。" : "未证明采到真实声音；可能是模拟器无麦克风、权限被系统限制，或环境太安静。"),
-                soundOk ? Theme.GREEN : Theme.RED);
+        addCheckRow("权限", hasPermission(Manifest.permission.RECORD_AUDIO) ? "已授权" : "未授权", hasPermission(Manifest.permission.RECORD_AUDIO), null);
+        addCheckRow("AudioRecord", started ? "已启动" : "失败", started, null);
+        addCheckRow("PCM帧", frames + " 帧", frameOk, null);
+        addCheckRow("声音变化", formatRms(minRms) + "-" + formatRms(maxRms), soundOk, null);
         if (error != null && error.length() > 0) {
-            addCard("错误", error, Theme.RED);
+            addCard("错误", compactForCard(error, 80), Theme.RED);
         }
-        addCard("最终结论", prefs.microphoneProbePassed()
-                ? "本机拾音已通过现场验证。下一步还要验证：帧是否实时发到服务端、服务端是否转给 Realtime 模型。"
-                : "麦克风拾音未通过现场验证。当前不能把“直接听您说话”标成完成能力。",
-                prefs.microphoneProbePassed() ? Theme.GREEN : Theme.RED);
+        addCheckRow("结论", prefs.microphoneProbePassed() ? "拾音通过" : "未证明真实拾音", prefs.microphoneProbePassed(), null);
         addSettingButton("重新验证", this::showMicrophoneHonestCheck);
         addSettingButton("返回小助手", this::showCompanionChat);
     }
@@ -6665,6 +6652,33 @@ public class MainActivity extends Activity {
         addSpace(content, 14);
     }
 
+    private void addCheckRow(String title, String state, boolean ok, Runnable action) {
+        LinearLayout card = cardContainer();
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setPadding(Theme.dp(this, 14), Theme.dp(this, 8), Theme.dp(this, 14), Theme.dp(this, 8));
+        int color = ok ? Theme.GREEN : Theme.ORANGE;
+        TextView left = Theme.text(this, (ok ? "✓ " : "! ") + title, 20, ok ? Theme.darken(color, 0.28f) : Theme.RED, Typeface.BOLD);
+        left.setGravity(Gravity.CENTER_VERTICAL);
+        card.addView(left, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView right = Theme.text(this, compactForCard(state, 22), 18, Theme.MUTED, Typeface.BOLD);
+        right.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        card.addView(right, new LinearLayout.LayoutParams(0, -2, 1));
+        if (action != null) {
+            card.setOnClickListener(v -> action.run());
+            card.setClickable(true);
+            card.setFocusable(true);
+        }
+        content.addView(card, matchWrap());
+        addSpace(content, 6);
+    }
+
+    private String compactForCard(String text, int max) {
+        String clean = text == null ? "" : text.replace("\n", " ").trim();
+        if (clean.length() <= max) return clean;
+        return clean.substring(0, Math.max(0, max - 1)) + "…";
+    }
+
     private LinearLayout cardContainer() {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
@@ -6729,6 +6743,12 @@ public class MainActivity extends Activity {
         addSmallTile(row, "✓\n睡前检查", Theme.GREEN, this::showPreSleepCheck);
         addSmallTile(row, "▮\n睡眠报告", Theme.BLUE, this::showSleepReport);
         content.addView(row, matchWrap());
+        addSpace(content, 10);
+        LinearLayout row2 = new LinearLayout(this);
+        row2.setOrientation(LinearLayout.HORIZONTAL);
+        addSmallTile(row2, "✓\n诚实检查", prefs.microphoneProbePassed() ? Theme.GREEN : Theme.ORANGE, this::showServerCapabilityCheck);
+        addSmallTile(row2, "♡\n小助手", CompanionAssistant.roleColor(prefs.companionRole()), this::showCompanionChat);
+        content.addView(row2, matchWrap());
     }
 
     private void addMorningTiles() {
@@ -6755,8 +6775,8 @@ public class MainActivity extends Activity {
 
     private void addSmallTile(LinearLayout row, String text, int color, Runnable action) {
         Button tile = Theme.softButton(this, text, color);
-        tile.setTextSize(18);
-        tile.setMinHeight(Theme.dp(this, 78));
+        tile.setTextSize(17);
+        tile.setMinHeight(Theme.dp(this, 68));
         tile.setOnClickListener(v -> action.run());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
         lp.setMargins(Theme.dp(this, 4), 0, Theme.dp(this, 4), 0);
@@ -6774,7 +6794,7 @@ public class MainActivity extends Activity {
         int color = "睡眠守护".equals(text) ? Theme.BLUE : ("小助理".equals(text) ? CompanionAssistant.roleColor(prefs.companionRole()) : Theme.MUTED);
         Button button = selected ? Theme.button(this, navLabel(text), color) : Theme.softButton(this, navLabel(text), color);
         button.setTextSize(15);
-        button.setMinHeight(Theme.dp(this, 56));
+        button.setMinHeight(Theme.dp(this, 52));
         button.setOnClickListener(v -> action.run());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
         lp.setMargins(Theme.dp(this, 4), 0, Theme.dp(this, 4), 0);
