@@ -6784,6 +6784,7 @@ public class MainActivity extends Activity {
         stylePageInput(repeat);
 
         addMedicationSummaryCard();
+        addMedicationTodayConfirmCard();
         addMedicationFormCard(name, time, repeat);
         addPrimaryActionButton("保存吃药提醒", Theme.BLUE, () -> {
             int minutes = 30;
@@ -6892,6 +6893,34 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams wordsLp = new LinearLayout.LayoutParams(0, -2, 1);
         wordsLp.setMargins(Theme.dp(this, 12), 0, 0, 0);
         card.addView(words, wordsLp);
+        content.addView(card, matchWrap());
+        addSpace(content, 10);
+    }
+
+    private void addMedicationTodayConfirmCard() {
+        if (!prefs.medicationEnabled()) {
+            return;
+        }
+        LinearLayout card = cardContainer();
+        card.setPadding(Theme.dp(this, 14), Theme.dp(this, 12), Theme.dp(this, 14), Theme.dp(this, 14));
+        card.setBackground(Theme.tintedCard(this, prefs.medicationConfirmedToday() ? Theme.GREEN : Theme.ORANGE));
+        card.addView(Theme.text(this, "今日服药确认", 18, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(card, 6);
+        String line = prefs.medicationConfirmedToday()
+                ? "今天已确认服用：" + prefs.medicationName()
+                : "今天 " + formatMedicationTime() + " 的 " + prefs.medicationName() + " 还未确认。";
+        card.addView(Theme.text(this, line, 14, Theme.MUTED, Typeface.BOLD), matchWrap());
+        addSpace(card, 10);
+        Button confirm = Theme.button(this, prefs.medicationConfirmedToday() ? "重新确认已吃药" : "确认已吃药", prefs.medicationConfirmedToday() ? Theme.GREEN : Theme.ORANGE);
+        confirm.setTextSize(19);
+        confirm.setMinHeight(Theme.dp(this, 54));
+        confirm.setOnClickListener(v -> {
+            prefs.confirmMedicationNow();
+            CareReminderScheduler.ensureCareReminders(this);
+            Toast.makeText(this, "已记录今天吃药", Toast.LENGTH_SHORT).show();
+            showMedicationDialog();
+        });
+        card.addView(confirm, matchWrap());
         content.addView(card, matchWrap());
         addSpace(content, 10);
     }
