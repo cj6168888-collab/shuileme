@@ -1,3 +1,7 @@
+param(
+  [string]$ServerBaseUrl = $env:GOUXIONG_ANDROID_SERVER_BASE_URL
+)
+
 $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -52,6 +56,32 @@ if (Test-Path $workRoot) {
 }
 New-Item -ItemType Directory -Force -Path $workRoot | Out-Null
 Copy-Item -LiteralPath (Join-Path $projectRoot "src") -Destination (Join-Path $workRoot "src") -Recurse
+
+if (-not $ServerBaseUrl) {
+  $ServerBaseUrl = "http://10.0.2.2:8787"
+}
+$ServerBaseUrl = $ServerBaseUrl.Trim()
+while ($ServerBaseUrl.EndsWith("/")) {
+  $ServerBaseUrl = $ServerBaseUrl.Substring(0, $ServerBaseUrl.Length - 1)
+}
+if ($ServerBaseUrl -notmatch '^https?://') {
+  throw "ServerBaseUrl must start with http:// or https://"
+}
+$escapedServerBaseUrl = $ServerBaseUrl.Replace('\', '\\').Replace('"', '\"')
+$buildSettings = Join-Path $workRoot "src\main\java\com\gouxiong\sleep\BuildSettings.java"
+$buildSettingsSource = @"
+package com.gouxiong.sleep;
+
+public final class BuildSettings {
+    public static final String DEFAULT_SERVER_BASE_URL = "$escapedServerBaseUrl";
+
+    private BuildSettings() {
+    }
+}
+"@
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($buildSettings, $buildSettingsSource, $utf8NoBom)
+Write-Host "Default server base URL: $ServerBaseUrl"
 
 $build = Join-Path $workRoot "build"
 $projectBuild = Join-Path $projectRoot "build"

@@ -1,5 +1,7 @@
 package com.gouxiong.sleep.util;
 
+import com.gouxiong.sleep.BuildSettings;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -242,7 +244,7 @@ public final class ServerApiClient {
     private static String normalizeBaseUrl(String baseUrl) {
         String clean = baseUrl == null ? "" : baseUrl.trim();
         if (clean.length() == 0) {
-            clean = "http://10.0.2.2:8787";
+            clean = BuildSettings.DEFAULT_SERVER_BASE_URL;
         }
         while (clean.endsWith("/")) {
             clean = clean.substring(0, clean.length() - 1);

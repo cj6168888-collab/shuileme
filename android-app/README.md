@@ -16,6 +16,12 @@
 powershell -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
+真机交付包可显式写入默认服务端地址：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build.ps1 -ServerBaseUrl "https://jilinpc.com/shuileme"
+```
+
 测试：
 
 ```powershell

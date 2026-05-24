@@ -6,6 +6,8 @@ import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
 
+import com.gouxiong.sleep.BuildSettings;
+
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 
@@ -612,13 +614,13 @@ public class PreferenceStore {
     }
 
     public String serverBaseUrl() {
-        String value = prefs.getString("server_base_url", "http://10.0.2.2:8787");
-        return value == null || value.trim().length() == 0 ? "http://10.0.2.2:8787" : value.trim();
+        String value = prefs.getString("server_base_url", BuildSettings.DEFAULT_SERVER_BASE_URL);
+        return value == null || value.trim().length() == 0 ? BuildSettings.DEFAULT_SERVER_BASE_URL : value.trim();
     }
 
     public void setServerBaseUrl(String value) {
         String clean = clean(value);
-        if (clean.length() == 0) clean = "http://10.0.2.2:8787";
+        if (clean.length() == 0) clean = BuildSettings.DEFAULT_SERVER_BASE_URL;
         while (clean.endsWith("/")) {
             clean = clean.substring(0, clean.length() - 1);
         }

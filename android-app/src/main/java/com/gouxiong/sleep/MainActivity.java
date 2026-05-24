@@ -4658,7 +4658,7 @@ public class MainActivity extends Activity {
     private String liveCompanionEndpoint() {
         String base = prefs.serverBaseUrl();
         if (base == null || base.trim().length() == 0) {
-            base = "http://10.0.2.2:8787";
+            base = BuildSettings.DEFAULT_SERVER_BASE_URL;
         }
         base = base.trim();
         while (base.endsWith("/")) base = base.substring(0, base.length() - 1);
