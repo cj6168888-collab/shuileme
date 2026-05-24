@@ -2822,25 +2822,81 @@ public class MainActivity extends Activity {
 
     private void showOwnerProfileSettings() {
         content.removeAllViews();
-        content.addView(Theme.text(this, "主人档案", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
-        addSpace(content, 8);
-        addAssistantHero("我想更懂你", "这些信息会让小助手更懂您。可以少填，也可以随时改；不要填写身份证、银行卡等敏感信息。", false);
-        addCard("当前档案", prefs.ownerProfileSummary(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
-        addCard("今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
-        addCard("主动关怀",
-                prefs.assistantProactiveCareEnabled()
-                        ? "已开启。App 打开时，小助手每天最多主动问候一次；夜间守护时不会打扰。"
-                        : "已关闭。小助手只在你点开时回应。",
-                prefs.assistantProactiveCareEnabled() ? Theme.GREEN : Theme.ORANGE);
+        addSimplePageHeader("主人档案", "编辑", this::showOwnerProfileDialog);
+        addOwnerProfileHeroCard();
+        addOwnerMemoryList();
+        addOwnerCareStatusCard();
         addSettingButton("记录今天状态", this::showAssistantCheckIn);
         addSettingButton("小助手一步步建档", () -> showOwnerProfileWizard(0));
-        addSettingButton("一次性编辑主人档案", this::showOwnerProfileDialog);
         addSettingButton(prefs.assistantProactiveCareEnabled() ? "关闭主动关怀" : "开启主动关怀", () -> {
             prefs.setAssistantProactiveCareEnabled(!prefs.assistantProactiveCareEnabled());
             showOwnerProfileSettings();
         });
         addSettingButton("看看今天关怀建议", () -> showCompanionReply("今天关怀建议", proactiveCareText()));
         addSettingButton("返回设置", this::showSettings);
+    }
+
+    private void addOwnerProfileHeroCard() {
+        LinearLayout card = cardContainer();
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setBackground(Theme.tintedCard(this, CompanionAssistant.roleColor(prefs.companionRole())));
+        ImageView avatar = designImage("ui_digital_human_assistant_image2", 76, ImageView.ScaleType.FIT_CENTER);
+        card.addView(avatar, new LinearLayout.LayoutParams(Theme.dp(this, 78), Theme.dp(this, 78)));
+        LinearLayout words = new LinearLayout(this);
+        words.setOrientation(LinearLayout.VERTICAL);
+        String name = prefs.ownerAddress();
+        if (name == null || name.trim().length() == 0) {
+            name = "主人";
+        }
+        words.addView(Theme.text(this, name, 22, Theme.TEXT, Typeface.BOLD), matchWrap());
+        words.addView(Theme.text(this, prefs.ownerProfileStarted() ? "档案已建立" : "档案待完善", 15, prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE, Typeface.BOLD), matchWrap());
+        words.addView(Theme.text(this, prefs.assistantCheckInToday() ? "今天状态已记录" : "今天还没记录状态", 14, Theme.MUTED, Typeface.BOLD), matchWrap());
+        LinearLayout.LayoutParams wordsLp = new LinearLayout.LayoutParams(0, -2, 1);
+        wordsLp.setMargins(Theme.dp(this, 12), 0, 0, 0);
+        card.addView(words, wordsLp);
+        content.addView(card, matchWrap());
+        addSpace(content, 10);
+    }
+
+    private void addOwnerMemoryList() {
+        LinearLayout card = cardContainer();
+        card.setPadding(Theme.dp(this, 14), Theme.dp(this, 12), Theme.dp(this, 14), Theme.dp(this, 12));
+        card.addView(Theme.text(this, "我的记忆", 19, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(card, 8);
+        addMemoryLine(card, "主人档案", prefs.ownerProfileSummary(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
+        addMemoryLine(card, "今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
+        String objectMemory = prefs.importantObjectMemory();
+        addMemoryLine(card, "常用物品", objectMemory.length() > 0 ? objectMemory : "还没有记录物品位置", objectMemory.length() > 0 ? Theme.BLUE : Theme.ORANGE);
+        content.addView(card, matchWrap());
+        addSpace(content, 10);
+    }
+
+    private void addMemoryLine(LinearLayout card, String title, String body, int color) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        TextView dot = Theme.text(this, "✓", 15, color, Typeface.BOLD);
+        dot.setGravity(Gravity.CENTER);
+        dot.setBackground(Theme.rounded(Theme.mix(color, Color.WHITE, 0.86f), 12, this));
+        row.addView(dot, new LinearLayout.LayoutParams(Theme.dp(this, 30), Theme.dp(this, 30)));
+        LinearLayout words = new LinearLayout(this);
+        words.setOrientation(LinearLayout.VERTICAL);
+        words.addView(Theme.text(this, title, 15, Theme.TEXT, Typeface.BOLD), matchWrap());
+        words.addView(Theme.text(this, compactForCard(body, 34), 13, Theme.MUTED, Typeface.NORMAL), matchWrap());
+        LinearLayout.LayoutParams wordsLp = new LinearLayout.LayoutParams(0, -2, 1);
+        wordsLp.setMargins(Theme.dp(this, 10), 0, 0, 0);
+        row.addView(words, wordsLp);
+        card.addView(row, matchWrap());
+        addSpace(card, 8);
+    }
+
+    private void addOwnerCareStatusCard() {
+        addCard("主动关怀",
+                prefs.assistantProactiveCareEnabled()
+                        ? "已开启。App 打开时，小助手每天最多主动问候一次；夜间守护时不会打扰。"
+                        : "已关闭。小助手只在你点开时回应。",
+                prefs.assistantProactiveCareEnabled() ? Theme.GREEN : Theme.ORANGE);
     }
 
     private void showOwnerProfileWizard(int step) {
