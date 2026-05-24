@@ -1,0 +1,172 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+      touch-action: none;
+    }
+    #stage {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 50% 62%, rgba(187, 219, 178, .62), rgba(255,255,255,0) 58%);
+    }
+    #status {
+      position: fixed;
+      left: 10px;
+      right: 10px;
+      bottom: 8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      color: rgba(50, 70, 82, .74);
+      background: rgba(255,255,255,.72);
+      font: 13px/1.3 sans-serif;
+      text-align: center;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="status">Live2D Hiyori 正在加载</div>
+  <script src="../vendor/pixi.min.js"></script>
+  <script src="../vendor/live2dcubismcore.min.js"></script>
+  <script src="../vendor/pixi-live2d-cubism4.min.js"></script>
+  <script>
+    const status = document.getElementById('status');
+    let app = null;
+    let model = null;
+    let currentMood = 'listening';
+    let mouth = 0;
+    let blinkTick = 0;
+
+    function setStatus(text) {
+      status.textContent = text;
+    }
+
+    function fitModel() {
+      if (!app || !model) return;
+      const w = window.innerWidth || 1;
+      const h = window.innerHeight || 1;
+      app.renderer.resize(w, h);
+      const scale = Math.min(w / Math.max(1, model.width), h / Math.max(1, model.height)) * 1.52;
+      model.scale.set(scale);
+      model.x = w * 0.50;
+      model.y = h * 0.92;
+      model.anchor.set(0.5, 1.0);
+    }
+
+    function parameter(id, value, weight) {
+      try {
+        if (model && model.internalModel && model.internalModel.coreModel) {
+          model.internalModel.coreModel.setParameterValueById(id, value, weight || 1);
+        }
+      } catch (e) {
+      }
+    }
+
+    function moodMotionName(mood) {
+      if (mood === 'speaking') return 'Hiyori_m03';
+      if (mood === 'thinking') return 'Hiyori_m06';
+      if (mood === 'comforting') return 'Hiyori_m02';
+      if (mood === 'seeing') return 'Hiyori_m08';
+      return 'Hiyori_m01';
+    }
+
+    function startMotionForMood(mood) {
+      if (!model) return;
+      try {
+        const name = moodMotionName(mood);
+        if (model.motion && typeof model.motion === 'function') {
+          model.motion(name);
+        } else if (model.internalModel && model.internalModel.motionManager) {
+          model.internalModel.motionManager.startRandomMotion('Idle', 1);
+        }
+      } catch (e) {
+      }
+    }
+
+    function tick(delta) {
+      if (!model) return;
+      const now = performance.now() / 1000;
+      const speaking = currentMood === 'speaking';
+      const thinking = currentMood === 'thinking';
+      const seeing = currentMood === 'seeing';
+      const breath = Math.sin(now * 2.0) * (speaking ? 0.18 : 0.10);
+      const tilt = seeing ? Math.sin(now * 1.6) * 14 : (thinking ? Math.sin(now * 1.2) * 6 : Math.sin(now * 0.8) * 3);
+      parameter('ParamBodyAngleX', tilt, 0.55);
+      parameter('ParamAngleX', seeing ? Math.sin(now * 1.8) * 20 : Math.sin(now * 0.7) * 5, 0.55);
+      parameter('ParamAngleY', thinking ? 5 + Math.sin(now * 1.0) * 6 : Math.sin(now * 0.9) * 4, 0.55);
+      parameter('ParamBreath', 0.5 + breath, 0.8);
+      parameter('ParamEyeBallX', seeing ? Math.sin(now * 1.7) : Math.sin(now * 0.45) * 0.28, 0.75);
+      parameter('ParamEyeBallY', thinking ? -0.18 : Math.sin(now * 0.55) * 0.18, 0.75);
+      if (speaking) {
+        mouth = 0.18 + Math.abs(Math.sin(now * 9.5)) * 0.82;
+      } else {
+        mouth *= 0.74;
+      }
+      parameter('ParamMouthOpenY', mouth, 0.95);
+      parameter('ParamMouthForm', speaking ? 0.45 : 0.18, 0.5);
+
+      blinkTick += delta || 1;
+      if (blinkTick > 120 + Math.random() * 90) {
+        parameter('ParamEyeLOpen', 0, 1);
+        parameter('ParamEyeROpen', 0, 1);
+        setTimeout(() => {
+          parameter('ParamEyeLOpen', 1, 1);
+          parameter('ParamEyeROpen', 1, 1);
+        }, 120);
+        blinkTick = 0;
+      }
+    }
+
+    window.setMood = function(mood) {
+      const next = String(mood || 'listening').replace(/[^a-z_]/g, '') || 'listening';
+      if (next === currentMood) return;
+      currentMood = next;
+      document.body.setAttribute('data-mood', next);
+      setStatus('Live2D Hiyori · ' + next);
+      startMotionForMood(next);
+    };
+
+    window.setMouth = function(level) {
+      mouth = Math.max(mouth, Math.max(0, Math.min(1, Number(level) || 0)));
+    };
+
+    async function boot() {
+      try {
+        if (!window.PIXI || !PIXI.live2d || !PIXI.live2d.Live2DModel) {
+          throw new Error('Live2D runtime not loaded');
+        }
+        app = new PIXI.Application({
+          view: document.createElement('canvas'),
+          autoStart: true,
+          resizeTo: window,
+          transparent: true,
+          antialias: true,
+          backgroundAlpha: 0
+        });
+        document.getElementById('stage').appendChild(app.view);
+        model = await PIXI.live2d.Live2DModel.from('Hiyori/Hiyori.model3.json');
+        app.stage.addChild(model);
+        model.interactive = true;
+        fitModel();
+        startMotionForMood(currentMood);
+        app.ticker.add(tick);
+        window.addEventListener('resize', fitModel);
+        setStatus('Live2D Hiyori 已加载');
+        setTimeout(() => status.style.opacity = '0', 2400);
+      } catch (e) {
+        setStatus('Live2D 加载失败：' + (e && e.message ? e.message : e));
+      }
+    }
+    boot();
+  </script>
+</body>
+</html>

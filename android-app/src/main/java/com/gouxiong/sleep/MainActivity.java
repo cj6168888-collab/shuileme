@@ -8,6 +8,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.ImageFormat;
 import android.graphics.Paint;
 import android.graphics.RectF;
@@ -2552,6 +2553,10 @@ public class MainActivity extends Activity {
     private View createLiveAvatarStage(String role, String name, String mood, int serial) {
         destroyLiveStageWebView();
         liveStageWebView = null;
+        return createBitmapAvatarFallbackStage(role, name, mood);
+    }
+
+    private View createBitmapAvatarFallbackStage(String role, String name, String mood) {
         liveStageAvatar = new AvatarView(this);
         liveStageAvatar.setRole(role);
         liveStageAvatar.setCharacterResource(roleAvatarResourceId(role));
@@ -2568,38 +2573,68 @@ public class MainActivity extends Activity {
     }
 
     private void applyLiveAvatarState(String mood) {
+        sendLiveStageMoodToWeb(mood);
         if (liveStageAvatar == null) return;
         liveStageAvatar.applyCommand(AvatarCommand.setState(avatarStateForMood(mood)));
     }
 
     private void startAvatarSpeaking() {
-        if (liveStageAvatar == null) return;
-        liveStageAvatar.applyCommand(AvatarCommand.startSpeaking());
+        sendLiveStageMoodToWeb("speaking");
+        if (liveStageAvatar != null) {
+            liveStageAvatar.applyCommand(AvatarCommand.startSpeaking());
+        }
         int serial = ++avatarMouthSerial;
-        liveStageAvatar.postDelayed(() -> driveTtsMouth(serial, 0), 60L);
+        View target = liveStageAvatar != null ? liveStageAvatar : liveStageWebView;
+        if (target != null) {
+            target.postDelayed(() -> driveTtsMouth(serial, 0), 60L);
+        }
     }
 
     private void driveTtsMouth(int serial, int tick) {
-        if (serial != avatarMouthSerial || liveStageAvatar == null || !assistantSpeaking) {
+        if (serial != avatarMouthSerial || (liveStageAvatar == null && liveStageWebView == null) || !assistantSpeaking) {
             return;
         }
         float wave = (float) Math.abs(Math.sin((System.currentTimeMillis() + tick * 47L) / 96d));
-        liveStageAvatar.applyCommand(AvatarCommand.mouthLevel(0.18f + wave * 0.54f));
-        liveStageAvatar.postDelayed(() -> driveTtsMouth(serial, tick + 1), 82L);
+        float level = 0.18f + wave * 0.54f;
+        if (liveStageAvatar != null) {
+            liveStageAvatar.applyCommand(AvatarCommand.mouthLevel(level));
+            liveStageAvatar.postDelayed(() -> driveTtsMouth(serial, tick + 1), 82L);
+        } else if (liveStageWebView != null) {
+            sendLiveMouthToWeb(level);
+            liveStageWebView.postDelayed(() -> driveTtsMouth(serial, tick + 1), 82L);
+        }
     }
 
     private void stopAvatarSpeaking() {
         avatarMouthSerial++;
+        sendLiveMouthToWeb(0f);
+        sendLiveStageMoodToWeb(liveStageMood);
         if (liveStageAvatar == null) return;
         liveStageAvatar.applyCommand(AvatarCommand.stopSpeaking());
         liveStageAvatar.applyCommand(AvatarCommand.mouthLevel(0f));
     }
 
     private void updateAvatarMouthFromPcm(byte[] pcmFrame) {
-        if (liveStageAvatar == null || pcmFrame == null || pcmFrame.length < 2) return;
-        liveStageAvatar.applyCommand(AvatarCommand.startSpeaking());
-        liveStageAvatar.applyCommand(AvatarCommand.mouthLevel(pcm16Level(pcmFrame)));
+        if (pcmFrame == null || pcmFrame.length < 2) return;
+        float level = pcm16Level(pcmFrame);
+        sendLiveStageMoodToWeb("speaking");
+        sendLiveMouthToWeb(level);
         int serial = ++livePcmMouthSerial;
+        if (liveStageAvatar == null) {
+            if (liveStageWebView != null) {
+                liveStageWebView.postDelayed(() -> {
+                    if (serial == livePcmMouthSerial
+                            && System.currentTimeMillis() - lastLiveModelAudioFrameAtMs > 320L
+                            && !assistantSpeaking) {
+                        sendLiveMouthToWeb(0f);
+                        sendLiveStageMoodToWeb(liveStageMood);
+                    }
+                }, 380L);
+            }
+            return;
+        }
+        liveStageAvatar.applyCommand(AvatarCommand.startSpeaking());
+        liveStageAvatar.applyCommand(AvatarCommand.mouthLevel(level));
         liveStageAvatar.postDelayed(() -> {
             if (serial == livePcmMouthSerial && liveStageAvatar != null
                     && System.currentTimeMillis() - lastLiveModelAudioFrameAtMs > 320L
@@ -2682,6 +2717,20 @@ public class MainActivity extends Activity {
             return;
         }
         String script = "window.setMood&&window.setMood('" + escapeJs(safeMood(mood)) + "')";
+        liveStageWebView.post(() -> {
+            try {
+                liveStageWebView.evaluateJavascript(script, null);
+            } catch (Exception ignored) {
+            }
+        });
+    }
+
+    private void sendLiveMouthToWeb(float level) {
+        if (liveStageWebView == null) {
+            return;
+        }
+        float safe = Math.max(0f, Math.min(1f, level));
+        String script = String.format(Locale.US, "window.setMouth&&window.setMouth(%.3f)", safe);
         liveStageWebView.post(() -> {
             try {
                 liveStageWebView.evaluateJavascript(script, null);

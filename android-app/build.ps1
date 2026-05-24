@@ -91,6 +91,18 @@ try {
   $existing = $zip.GetEntry("classes.dex")
   if ($existing) { $existing.Delete() }
   [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, (Join-Path $dex "classes.dex"), "classes.dex") | Out-Null
+
+  $assetsRoot = Join-Path $workRoot "src\main\assets"
+  if (Test-Path $assetsRoot) {
+    $resolvedAssets = (Resolve-Path $assetsRoot).Path
+    foreach ($asset in Get-ChildItem -Path $assetsRoot -Recurse -File) {
+      $relative = $asset.FullName.Substring($resolvedAssets.Length).TrimStart('\', '/')
+      $entryName = ("assets/" + $relative).Replace('\', '/')
+      $existingAsset = $zip.GetEntry($entryName)
+      if ($existingAsset) { $existingAsset.Delete() }
+      [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $asset.FullName, $entryName) | Out-Null
+    }
+  }
 } finally {
   $zip.Dispose()
 }

@@ -1,0 +1,9 @@
+{
+  "selected_id": "L01",
+  "name": "Hiyori Momose",
+  "source": "Live2D official Sample Data / CubismWebSamples",
+  "runtime_model": "live2d/hiyori/Hiyori/Hiyori.model3.json",
+  "preview_page": "live2d/hiyori/index.html",
+  "status": "bundled_for_technical_preview_not_enabled_by_default",
+  "reason": "The first WebView integration caused emulator system unresponsiveness during cold start, so the model is bundled but not used as the default companion renderer until the Live2D runtime path is stabilized."
+}
