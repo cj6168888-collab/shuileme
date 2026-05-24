@@ -1605,6 +1605,7 @@ public class MainActivity extends Activity {
                 + "\n小助手身份：" + prefs.assistantPersonaSummary()
                 + "\n主人档案：\n" + prefs.ownerProfileSummary()
                 + "\n今天状态：\n" + prefs.assistantCheckInSummary()
+                + "\n睡前自检：\n" + preSleepSelfCheckSummary()
                 + "\n基础报告：\n" + sleepReportAnalysis(data);
     }
 
@@ -2401,6 +2402,30 @@ public class MainActivity extends Activity {
                 .show();
     }
 
+    private String preSleepSelfCheckSummary() {
+        if (!prefs.preSleepCheckToday()) {
+            return "昨晚没有完成睡前自检。";
+        }
+        StringBuilder b = new StringBuilder();
+        appendPreSleepSummaryLine(b, "情绪", prefs.preSleepCheckValue("mood"));
+        appendPreSleepSummaryLine(b, "身体", prefs.preSleepCheckValue("body"));
+        appendPreSleepSummaryLine(b, "咖啡因", prefs.preSleepCheckValue("caffeine"));
+        appendPreSleepSummaryLine(b, "晚餐", prefs.preSleepCheckValue("dinner"));
+        appendPreSleepSummaryLine(b, "运动", prefs.preSleepCheckValue("exercise"));
+        appendPreSleepSummaryLine(b, "屏幕", prefs.preSleepCheckValue("screen"));
+        return b.length() == 0 ? "昨晚睡前自检未填写完整。" : b.toString();
+    }
+
+    private void appendPreSleepSummaryLine(StringBuilder b, String label, String value) {
+        if (value == null || value.length() == 0) {
+            return;
+        }
+        if (b.length() > 0) {
+            b.append("；");
+        }
+        b.append(label).append("：").append(value);
+    }
+
     private void addPreSleepSelfCheckRow(String title, String key, int color, String[] choices) {
         String value = prefs.preSleepCheckValue(key);
         boolean ok = value.length() > 0;
@@ -2658,6 +2683,7 @@ public class MainActivity extends Activity {
             b.append("\n\n吃药：您还没告诉我要提醒什么药。等会儿直接说“帮我记一下每天早上吃什么药”，我会慢慢问清楚。");
         }
         b.append("\n\n喝水：白天我会直接叫您喝水，不让您自己找按钮。");
+        b.append("\n\n睡前自检：").append(preSleepSelfCheckSummary());
         if (prefs.healthProfile().length() > 0) {
             b.append("\n\n身体情况我记着：").append(prefs.healthProfile()).append("。睡眠里反复憋醒、胸闷或明显不舒服时，请跟家人或医生说。");
         }
@@ -4589,6 +4615,7 @@ public class MainActivity extends Activity {
         } else {
             b.append(CompanionAssistant.checkInIntro(prefs.companionRole())).append("\n\n");
         }
+        b.append("昨晚睡前自检：\n").append(preSleepSelfCheckSummary()).append("\n\n");
         if (prefs.ownerProfileStarted()) {
             if (prefs.healthProfile().length() > 0) {
                 b.append("身体情况我记着：").append(prefs.healthProfile()).append("。今天如果不舒服，先休息，必要时联系家人或医生。\n");
@@ -6668,6 +6695,7 @@ public class MainActivity extends Activity {
                 + "\n\n小助手身份：\n" + prefs.assistantPersonaSummary()
                 + "\n\n你称呼用户为：" + prefs.ownerAddress()
                 + "\n\n今天状态：\n" + prefs.assistantCheckInSummary()
+                + "\n\n睡前自检：\n" + preSleepSelfCheckSummary()
                 + "\n\n主人档案：\n" + prefs.ownerProfileSummary()
                 + "\n\n小助手自动位置记忆：\n" + db.objectMemorySummary()
                 + "\n\n小助手手动位置备注：\n" + prefs.visualMemorySummary()
