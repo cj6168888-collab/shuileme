@@ -2646,7 +2646,18 @@ public class MainActivity extends Activity {
 
         if (videoMode) {
             View avatarStage = createLiveAvatarStage(role, name, liveStageMood, animationSerial);
-            stage.addView(avatarStage, imageLp(320));
+            stage.addView(avatarStage, imageLp(258));
+            addSpace(stage, 6);
+            LinearLayout bubble = new LinearLayout(this);
+            bubble.setOrientation(LinearLayout.VERTICAL);
+            bubble.setPadding(Theme.dp(this, 14), Theme.dp(this, 7), Theme.dp(this, 14), Theme.dp(this, 7));
+            bubble.setBackground(Theme.rounded(Theme.mix(CompanionAssistant.roleColor(role), Theme.WARM_WHITE, 0.88f), 20, this));
+            TextView line = Theme.text(this, compactLiveBubbleText(speech), 15, Theme.TEXT, Typeface.BOLD);
+            line.setGravity(Gravity.CENTER);
+            line.setMinHeight(Theme.dp(this, 38));
+            liveStageSpeechLabel = line;
+            bubble.addView(line, matchWrap());
+            stage.addView(bubble, matchWrap());
             addSpace(stage, 6);
         } else {
             liveStageStatusLabel = Theme.text(this, status, 19, CompanionAssistant.roleColor(role), Typeface.BOLD);
@@ -2930,6 +2941,14 @@ public class MainActivity extends Activity {
             return clean;
         }
         return clean.substring(0, 86) + "……";
+    }
+
+    private String compactLiveBubbleText(String text) {
+        String clean = text == null ? "" : text.replace("\n", " ").trim();
+        if (clean.length() <= 34) {
+            return clean;
+        }
+        return clean.substring(0, 34) + "……";
     }
 
     private void addRealtimeVoicePanel() {
@@ -6699,7 +6718,7 @@ public class MainActivity extends Activity {
                     startAvatarSpeaking();
                     assistantTts.speak(clean, queueMode, null, utteranceId);
                 } else {
-                    Toast.makeText(this, clean, Toast.LENGTH_LONG).show();
+                    showAssistantSpeechFallback(clean);
                     if (realtimeVoiceEnabled) restartRealtimeListeningSoon(500);
                 }
             });
@@ -6712,9 +6731,19 @@ public class MainActivity extends Activity {
             startAvatarSpeaking();
             assistantTts.speak(clean, queueMode, null, utteranceId);
         } else {
-            Toast.makeText(this, clean, Toast.LENGTH_LONG).show();
+            showAssistantSpeechFallback(clean);
             if (realtimeVoiceEnabled) restartRealtimeListeningSoon(500);
         }
+    }
+
+    private void showAssistantSpeechFallback(String text) {
+        String clean = text == null ? "" : text.trim();
+        if (clean.length() == 0) {
+            return;
+        }
+        updateLiveStageSpeech(prefs.assistantVideoChatMode() ? compactLiveBubbleText(clean) : liveBubbleText(clean));
+        updateVoiceStatus("我在这里。语音暂时没放出来，您可以直接说。");
+        updateLiveStageStatus("我在这里", "comforting");
     }
 
     private void applyAssistantTtsProfileIfNeeded(String speakRole) {
