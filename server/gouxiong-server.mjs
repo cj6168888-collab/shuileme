@@ -494,6 +494,144 @@ function avatarConfigured() {
   return Boolean(config.avatarAppId && config.avatarEndpoint);
 }
 
+function linlyDigitalHumanConfig() {
+  const baseUrl = env('LINLY_TALKER_STREAM_URL', env('GOUXIONG_LINLY_STREAM_URL', ''));
+  const cleanBase = String(baseUrl || '').replace(/\/+$/, '');
+  const webUrl = env('LINLY_TALKER_STREAM_WEB_URL', '');
+  const cleanWeb = String(webUrl || '').replace(/\/+$/, '') || cleanBase;
+  return {
+    enabled: booleanEnv('LINLY_TALKER_STREAM_ENABLED', false),
+    provider: 'linly-talker-stream',
+    base_url: cleanBase,
+    web_url: cleanWeb,
+    transport: env('LINLY_TALKER_STREAM_TRANSPORT', 'webrtc'),
+    avatar_engine: env('LINLY_TALKER_STREAM_AVATAR_ENGINE', 'wav2lip'),
+    offer_endpoint: cleanBase ? `${cleanBase}/offer` : '',
+    text_endpoint: cleanBase ? `${cleanBase}/human` : '',
+    audio_endpoint: cleanBase ? `${cleanBase}/humanaudio` : '',
+    interrupt_endpoint: cleanBase ? `${cleanBase}/interrupt_talk` : '',
+    speaking_endpoint: cleanBase ? `${cleanBase}/is_speaking` : '',
+    health_endpoint: cleanBase ? `${cleanBase}/health` : ''
+  };
+}
+
+function linlyDigitalHumanConfigured() {
+  const config = linlyDigitalHumanConfig();
+  return Boolean(config.enabled && /^https?:\/\//i.test(config.base_url));
+}
+
+function linlyDigitalHumanStatus() {
+  const config = linlyDigitalHumanConfig();
+  const configured = linlyDigitalHumanConfigured();
+  return {
+    configured,
+    enabled: config.enabled,
+    provider: config.provider,
+    transport: config.transport,
+    avatar_engine: config.avatar_engine,
+    base_url: configured ? config.base_url : '',
+    web_url: configured ? config.web_url : '',
+    offer_endpoint: configured ? config.offer_endpoint : '',
+    text_endpoint: configured ? config.text_endpoint : '',
+    audio_endpoint: configured ? config.audio_endpoint : '',
+    interrupt_endpoint: configured ? config.interrupt_endpoint : '',
+    speaking_endpoint: configured ? config.speaking_endpoint : '',
+    health_endpoint: configured ? config.health_endpoint : '',
+    sidecar_required: true,
+    ownership: 'media_only',
+    note: configured
+      ? 'Linly-Talker-Stream sidecar is configured as an optional digital-human media layer. Sleep safety, memory, prompts, and realtime companion control stay in this server/APK.'
+      : 'Linly-Talker-Stream sidecar is not configured. APK should use the local layered 2D Avatar fallback.'
+  };
+}
+
+function assertLinlyDigitalHumanConfigured() {
+  const config = linlyDigitalHumanConfig();
+  if (!linlyDigitalHumanConfigured()) {
+    throw statusError(503, 'Linly-Talker-Stream 数字人服务未配置');
+  }
+  return config;
+}
+
+async function postLinlyJson(endpoint, payload) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Math.round(boundedNumberEnv('LINLY_TALKER_STREAM_TIMEOUT_MS', 12000, 1000, 60000)));
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify(payload || {}),
+      signal: controller.signal
+    });
+    const text = await response.text();
+    let data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (error) {
+      data = { raw: text.slice(0, 500) };
+    }
+    if (!response.ok) {
+      throw statusError(response.status, `Linly-Talker-Stream 请求失败：${response.status}`);
+    }
+    return data;
+  } catch (error) {
+    if (error?.name === 'AbortError') throw statusError(504, 'Linly-Talker-Stream 请求超时');
+    if (error?.status) throw error;
+    throw statusError(502, `Linly-Talker-Stream 连接失败：${String(error?.message || error).slice(0, 160)}`);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function assertLinlyJsonSuccess(data, operation) {
+  if (data && Object.prototype.hasOwnProperty.call(data, 'code') && Number(data.code) !== 0) {
+    throw statusError(502, `${operation || 'Linly-Talker-Stream'} failed: ${String(data.msg || data.error || data.code).slice(0, 160)}`);
+  }
+  return data;
+}
+
+async function getLinlyJson(endpoint) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Math.round(boundedNumberEnv('LINLY_TALKER_STREAM_TIMEOUT_MS', 12000, 1000, 60000)));
+  try {
+    const response = await fetch(endpoint, { method: 'GET', signal: controller.signal });
+    const text = await response.text();
+    let data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (error) {
+      data = { raw: text.slice(0, 500) };
+    }
+    if (!response.ok) {
+      return { reachable: false, status: response.status, error: `Linly-Talker-Stream health failed: ${response.status}`, data };
+    }
+    return { reachable: true, status: response.status, data };
+  } catch (error) {
+    const message = error?.name === 'AbortError' ? 'Linly-Talker-Stream health timed out' : String(error?.message || error).slice(0, 160);
+    return { reachable: false, status: 0, error: message, data: {} };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function linlyDigitalHumanRuntimeStatus() {
+  const status = linlyDigitalHumanStatus();
+  if (!status.configured) {
+    return { ...status, live: false, health: { reachable: false, status: 0, error: 'not_configured' } };
+  }
+  const health = await getLinlyJson(status.health_endpoint);
+  return { ...status, live: health.reachable, health };
+}
+
+function linlySessionIdFromPath(path, suffix) {
+  const pattern = new RegExp(`^/api/avatar/session/([^/]+)/${suffix}$`);
+  const match = pattern.exec(path);
+  if (!match) return null;
+  const id = Number(match[1]);
+  if (!Number.isInteger(id) || id < 0) throw statusError(400, 'Linly 会话 ID 不正确');
+  return id;
+}
+
 function twoDAvatarStatus() {
   return {
     local_2d_avatar_view: true,
@@ -528,6 +666,7 @@ function twoDAvatarStatus() {
 function liveSessionStatus() {
   const realtime = aliyunRealtimeConfig();
   const realtimeReady = aliyunRealtimeConfigured();
+  const linlyReady = linlyDigitalHumanConfigured();
   const apkPlayback = true;
   return {
     websocket_session: true,
@@ -558,7 +697,8 @@ function liveSessionStatus() {
     model_audio_output_forwarding: realtimeReady,
     apk_low_latency_audio_playback: apkPlayback,
     apk_auto_barge_in_detection: true,
-    digital_human_session: avatarConfigured()
+    digital_human_session: avatarConfigured() || linlyReady,
+    digital_human_stream: linlyReady
   };
 }
 
@@ -639,9 +779,9 @@ function truthGateStatus() {
         not_proven: companion.news_briefing.implemented ? 'editorial authority, all-source realtime news coverage' : 'current news; model must not invent news'
       },
       avatar: {
-        status: model.implemented.local_2d_avatar_view ? 'local_2d_runtime' : 'not_proven',
-        proven_by: 'Native AvatarView state machine and role images.',
-        not_proven: model.implemented.live2d_sdk ? '' : 'Live2D SDK physics/rigging is not connected'
+        status: model.implemented.digital_human_stream ? 'linly_stream_configured' : (model.implemented.local_2d_avatar_view ? 'local_2d_runtime' : 'not_proven'),
+        proven_by: model.implemented.digital_human_stream ? 'Linly-Talker-Stream sidecar configuration is present; runtime media still requires WebRTC session verification.' : 'Native AvatarView state machine and role images.',
+        not_proven: model.implemented.digital_human_stream ? 'nonblank WebRTC avatar video on device, interruption latency, long-session stability' : (model.implemented.live2d_sdk ? '' : 'Live2D SDK physics/rigging is not connected')
       },
       health_advice: {
         status: 'life_reminder_only',
@@ -723,6 +863,7 @@ function modelStatus() {
   const deepseek = deepSeekConfigured();
   const live = liveSessionStatus();
   const avatar2d = twoDAvatarStatus();
+  const linly = linlyDigitalHumanStatus();
   return {
     provider: aliyun ? 'aliyun-dashscope' : (deepseek ? 'deepseek-text-fallback' : 'fallback'),
     aliyun_configured: aliyun,
@@ -731,6 +872,7 @@ function modelStatus() {
     vision_model: aliyun ? config.visionModel : env('VISION_MODEL', ''),
     audio_model: aliyun ? config.audioModel : '',
     avatar_configured: avatarConfigured(),
+    linly_digital_human: linly,
     two_d_avatar: avatar2d,
     implemented: {
       text_chat: aliyun || deepseek,
@@ -759,7 +901,8 @@ function modelStatus() {
       apk_low_latency_audio_playback: live.apk_low_latency_audio_playback,
       apk_auto_barge_in_detection: live.apk_auto_barge_in_detection,
       interrupt_response: live.interrupt_response,
-      digital_human_session: live.digital_human_session
+      digital_human_session: live.digital_human_session,
+      digital_human_stream: live.digital_human_stream
     },
     live
   };
@@ -2725,6 +2868,50 @@ async function route(req, res) {
     }
 
     const userId = verifyToken(req.headers.authorization || '');
+
+    if (req.method === 'GET' && path === '/api/avatar/status') {
+      return send(res, 200, { ok: true, linly_digital_human: await linlyDigitalHumanRuntimeStatus(), two_d_avatar: twoDAvatarStatus() });
+    }
+
+    if (req.method === 'POST' && path === '/api/avatar/session/offer') {
+      const config = assertLinlyDigitalHumanConfigured();
+      const body = await readBody(req);
+      if (!body.sdp || !body.type) throw statusError(400, 'WebRTC offer 缺少 sdp 或 type');
+      const data = await postLinlyJson(config.offer_endpoint, { sdp: body.sdp, type: body.type });
+      return send(res, 200, { ok: true, provider: config.provider, transport: config.transport, avatar_engine: config.avatar_engine, ...data });
+    }
+
+    const avatarSaySessionId = linlySessionIdFromPath(path, 'say');
+    if (req.method === 'POST' && avatarSaySessionId !== null) {
+      const config = assertLinlyDigitalHumanConfigured();
+      const body = await readBody(req);
+      const text = compactText(body.text || body.message || '', 1200);
+      if (!text) throw statusError(400, '数字人朗读文本不能为空');
+      const data = await postLinlyJson(config.text_endpoint, {
+        sessionid: avatarSaySessionId,
+        type: body.mode === 'chat' ? 'chat' : 'echo',
+        text,
+        interrupt: body.interrupt !== false
+      });
+      assertLinlyJsonSuccess(data, 'Linly speech');
+      return send(res, 200, { ok: true, provider: config.provider, sessionid: avatarSaySessionId, ...data });
+    }
+
+    const avatarStopSessionId = linlySessionIdFromPath(path, 'stop');
+    if (req.method === 'POST' && avatarStopSessionId !== null) {
+      const config = assertLinlyDigitalHumanConfigured();
+      const data = await postLinlyJson(config.interrupt_endpoint, { sessionid: avatarStopSessionId });
+      assertLinlyJsonSuccess(data, 'Linly interrupt');
+      return send(res, 200, { ok: true, provider: config.provider, sessionid: avatarStopSessionId, ...data });
+    }
+
+    const avatarSpeakingSessionId = linlySessionIdFromPath(path, 'speaking');
+    if (req.method === 'GET' && avatarSpeakingSessionId !== null) {
+      const config = assertLinlyDigitalHumanConfigured();
+      const data = await postLinlyJson(config.speaking_endpoint, { sessionid: avatarSpeakingSessionId });
+      assertLinlyJsonSuccess(data, 'Linly speaking');
+      return send(res, 200, { ok: true, provider: config.provider, sessionid: avatarSpeakingSessionId, ...data });
+    }
 
     if (req.method === 'GET' && path === '/api/me/export') {
       const exported = exportUserData(userId);

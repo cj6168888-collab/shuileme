@@ -74,6 +74,12 @@ http://127.0.0.1:8787/admin
 - `ALIYUN_REALTIME_MODEL`：默认 `qwen3-omni-flash-realtime`，用于 Live 会话的流式 ASR/音频响应桥接。
 - `ALIYUN_REALTIME_ENDPOINT`：默认 `wss://dashscope.aliyuncs.com/api-ws/v1/realtime`；测试可指向本地假 WebSocket 后端。
 - `ALIYUN_AVATAR_APP_ID` / `ALIYUN_AVATAR_ENDPOINT`：预留阿里云数字人会话配置；当前服务端健康检查只标记配置状态，不伪造数字人流媒体会话
+- `LINLY_TALKER_STREAM_ENABLED=1`：启用 Linly-Talker-Stream sidecar 状态上报；它只作为可选数字人媒体层，不接管睡眠安全、记忆或陪伴大脑。
+- `LINLY_TALKER_STREAM_URL`：Linly-Talker-Stream 后端地址，默认示例为 `http://127.0.0.1:8010`，健康检查会派生 `/offer`、`/human`、`/humanaudio` 等 sidecar 入口。
+- `LINLY_TALKER_STREAM_WEB_URL`：Linly-Talker-Stream 前端页面地址。若为空会回退到 `LINLY_TALKER_STREAM_URL`，适用于后端直接托管 `web` 静态目录的部署；若使用 Vite dev server，可设为 `http://127.0.0.1:3000`。
+- `LINLY_TALKER_STREAM_AVATAR_ENGINE`：当前 sidecar 的数字人引擎标识，建议第一版用 `wav2lip`，后续再评估 `musetalk`。
+- `LINLY_TALKER_STREAM_TRANSPORT`：当前固定为 `webrtc`，用于提醒 APK 这是媒体会话，不是普通 HTTP 文本接口。
+- `LINLY_TALKER_STREAM_TIMEOUT_MS`：服务端转发到 Linly sidecar 的超时时间，默认 `12000`。
 - `DEEPSEEK_API_KEY` / `DEEPSEEK_MODEL`：可选文字兜底。阿里多模态已配置时优先使用阿里，不再把 DeepSeek 当作视觉、音频或数字人能力
 - `VISION_API_KEY` / `VISION_ENDPOINT` / `VISION_MODEL`：历史兼容视觉通道；建议迁移到 `ALIYUN_VISION_MODEL`
 
@@ -91,6 +97,11 @@ http://127.0.0.1:8787/admin
 - `POST /api/vision`：服务端代理阿里百炼视觉模型，支持低清自动看一眼和高清仔细看
 - `POST /api/audio`：服务端代理阿里百炼音频模型或声波摘要分析，用于睡眠声音辅助判断，不做诊断
 - `GET /api/live/session`：小智式实时陪伴 WebSocket。默认支持文本轮次、文本流式回复和 PCM16 帧接收；显式开启 `ALIYUN_REALTIME_ENABLED=1` 后，会把 PCM16 桥接到阿里 Realtime，并把转写、模型文本增量和模型音频二进制帧回传到 APK 协议。
+- `GET /api/avatar/status`：返回本机 2D Avatar 与 Linly-Talker-Stream sidecar 状态，并实时探测 Linly `/health`，用 `linly_digital_human.live` 区分“已配置”和“正在运行”。
+- `POST /api/avatar/session/offer`：把 APK 的 WebRTC offer 转发给 Linly-Talker-Stream `/offer`，返回 answer 和 `sessionid`。
+- `POST /api/avatar/session/{id}/say`：把服务端已生成的回复文本转发给 Linly `/human`，默认 `type=echo`，只驱动数字人说话，不让 Linly 再接管 LLM。
+- `POST /api/avatar/session/{id}/stop`：转发到 Linly `/interrupt_talk`，用于用户插话时停止数字人发声。
+- `GET /api/avatar/session/{id}/speaking`：转发到 Linly `/is_speaking`，用于 APK 查询 sidecar 是否仍在说话。
 - `GET /api/messages/pending`：拉取小助手要朗读的消息
 - `POST /api/messages`：创建一条待朗读消息
 - `POST /api/messages/{id}/read`：标记消息已读

@@ -3,6 +3,18 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $sdk = $env:ANDROID_HOME
 if (-not $sdk) { $sdk = $env:ANDROID_SDK_ROOT }
+if (-not $sdk) {
+  $sdkCandidates = @(
+    (Join-Path $env:LOCALAPPDATA "Android\Sdk"),
+    (Join-Path $env:USERPROFILE "AppData\Local\Android\Sdk"),
+    "C:\Android\Sdk",
+    "D:\Android\Sdk",
+    "D:\AndroidSDK"
+  )
+  $sdk = $sdkCandidates |
+    Where-Object { $_ -and (Test-Path (Join-Path $_ "platforms")) -and (Test-Path (Join-Path $_ "build-tools")) } |
+    Select-Object -First 1
+}
 if (-not $sdk) { throw "ANDROID_HOME or ANDROID_SDK_ROOT is not set." }
 
 $platformsRoot = Join-Path $sdk "platforms"

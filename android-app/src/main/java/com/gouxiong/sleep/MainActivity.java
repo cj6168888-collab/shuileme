@@ -149,6 +149,8 @@ public class MainActivity extends Activity {
     private LinearLayout content;
     private LinearLayout navBar;
     private boolean pendingStartAfterPermission;
+    private String activeScreen = "";
+    private boolean pendingRefreshAfterBatterySettings;
     private MediaRecorder voiceRecorder;
     private File voiceFile;
     private MediaPlayer previewPlayer;
@@ -272,6 +274,29 @@ public class MainActivity extends Activity {
         String trendLine;
         String evidenceGrade;
         String evidenceLine;
+    }
+
+    private static class SleepGuardReadiness {
+        final boolean micOk;
+        final boolean notificationOk;
+        final boolean batteryOk;
+        final boolean emergencyOk;
+        final java.util.ArrayList<String> missing = new java.util.ArrayList<>();
+
+        SleepGuardReadiness(boolean micOk, boolean notificationOk, boolean batteryOk, boolean emergencyOk) {
+            this.micOk = micOk;
+            this.notificationOk = notificationOk;
+            this.batteryOk = batteryOk;
+            this.emergencyOk = emergencyOk;
+            if (!micOk) missing.add("麦克风");
+            if (!notificationOk) missing.add("通知");
+            if (!batteryOk) missing.add("电池优化");
+            if (!emergencyOk) missing.add("家人电话");
+        }
+
+        boolean ready() {
+            return missing.isEmpty();
+        }
     }
 
     @Override
@@ -669,10 +694,12 @@ public class MainActivity extends Activity {
     }
 
     private void showHome() {
+        activeScreen = "home";
         content.removeAllViews();
         boolean monitoring = prefs.isMonitoring();
         int integrity = guardIntegrityScore();
-        addHomeHero(monitoring, integrity);
+        SleepGuardReadiness readiness = buildSleepGuardReadiness();
+        addHomeHero(monitoring, integrity, readiness);
 
         Button primary = Theme.button(this, monitoring ? "停止守护" : "▶  开始守护", monitoring ? Theme.RED : Theme.BLUE);
         primary.setTextSize(26);
@@ -686,12 +713,12 @@ public class MainActivity extends Activity {
         });
         content.addView(primary, matchWrap());
         addSpace(content, 10);
-        addHomeTileGrid();
+        addHomeTileGrid(readiness);
         addSpace(content, 10);
         addSleepDashboardCard(monitoring);
     }
 
-    private void addHomeHero(boolean monitoring, int integrity) {
+    private void addHomeHero(boolean monitoring, int integrity, SleepGuardReadiness readiness) {
         LinearLayout hero = cardContainer();
         hero.setGravity(Gravity.CENTER_HORIZONTAL);
         hero.setPadding(Theme.dp(this, 12), Theme.dp(this, 12), Theme.dp(this, 12), Theme.dp(this, 12));
@@ -704,21 +731,33 @@ public class MainActivity extends Activity {
         title.setGravity(Gravity.CENTER);
         hero.addView(title, matchWrap());
         addSpace(hero, 8);
-        addHomeReadyBadge(hero, monitoring, integrity);
+        addHomeReadyBadge(hero, monitoring, integrity, readiness);
         content.addView(hero, matchWrap());
         addSpace(content, 10);
     }
 
-    private void addHomeReadyBadge(LinearLayout hero, boolean monitoring, int integrity) {
-        int color = integrity >= 80 ? Theme.GREEN : Theme.ORANGE;
+    private void addHomeReadyBadge(LinearLayout hero, boolean monitoring, int integrity, SleepGuardReadiness readiness) {
+        java.util.List<String> missing = readiness == null ? new java.util.ArrayList<>() : readiness.missing;
+        boolean ready = readiness == null || readiness.ready();
+        int color = monitoring || ready ? Theme.GREEN : Theme.ORANGE;
         LinearLayout badge = new LinearLayout(this);
+        badge.setOrientation(LinearLayout.VERTICAL);
         badge.setGravity(Gravity.CENTER);
         badge.setPadding(Theme.dp(this, 16), Theme.dp(this, 10), Theme.dp(this, 16), Theme.dp(this, 10));
         badge.setBackground(Theme.rounded(Theme.mix(color, Theme.WARM_WHITE, 0.88f), 28, this));
-        String state = monitoring ? "守护进行中" : (integrity >= 80 ? "守护已就绪" : "先补齐守护");
-        TextView label = Theme.text(this, "✓  " + state + " · 完整性 " + integrity + " 分", 19, Theme.darken(color, 0.28f), Typeface.BOLD);
+        String state = monitoring ? "守护进行中" : (ready ? "守护已就绪" : "还差：" + joinLabels(missing));
+        String prefix = monitoring || ready ? "✓  " : "!  ";
+        TextView label = Theme.text(this, prefix + state, 19, Theme.darken(color, 0.28f), Typeface.BOLD);
         label.setGravity(Gravity.CENTER);
         badge.addView(label, matchWrap());
+        TextView sub = Theme.text(this, "完整性 " + integrity + " 分" + (ready || monitoring ? "" : " · 点这里补齐"), 15, Theme.MUTED, Typeface.BOLD);
+        sub.setGravity(Gravity.CENTER);
+        badge.addView(sub, matchWrap());
+        if (!monitoring && !ready) {
+            badge.setOnClickListener(v -> showPreSleepCheck());
+            badge.setClickable(true);
+            badge.setFocusable(true);
+        }
         hero.addView(badge, matchWrap());
     }
 
@@ -1365,6 +1404,108 @@ public class MainActivity extends Activity {
         return b.toString();
     }
 
+    private String tonightReadinessTitle(java.util.List<String> missing) {
+        return missing == null || missing.isEmpty() ? "今晚可以放心守护" : "今晚还差 " + missing.size() + " 项";
+    }
+
+    private String tonightReadinessText(SleepGuardReadiness readiness) {
+        java.util.List<String> missing = readiness == null ? null : readiness.missing;
+        StringBuilder b = new StringBuilder();
+        if (missing == null || missing.isEmpty()) {
+            b.append("今晚可以直接点开始守护。");
+        } else {
+            b.append("先处理橙色项：").append(joinLabels(missing)).append("。");
+        }
+        b.append("\n");
+        b.append(readiness != null && readiness.micOk ? "麦克风已授权，能听守护声音。" : "还需要打开麦克风。");
+        if (Build.VERSION.SDK_INT >= 33) {
+            b.append("\n").append(readiness != null && readiness.notificationOk ? "通知已授权。" : "建议打开通知，避免提醒被错过。");
+        }
+        b.append("\n").append(batteryOptimizationText(readiness != null && readiness.batteryOk));
+        b.append("\n").append(readiness != null && readiness.emergencyOk ? "紧急联系人已设置。" : "建议先设置家人电话。");
+        return b.toString();
+    }
+
+    private java.util.ArrayList<String> sleepGuardMissingItems() {
+        return new java.util.ArrayList<>(buildSleepGuardReadiness().missing);
+    }
+
+    private boolean sleepGuardReady() {
+        return buildSleepGuardReadiness().ready();
+    }
+
+    private SleepGuardReadiness buildSleepGuardReadiness() {
+        return new SleepGuardReadiness(
+                hasPermission(Manifest.permission.RECORD_AUDIO),
+                Build.VERSION.SDK_INT < 33 || hasPermission(Manifest.permission.POST_NOTIFICATIONS),
+                batteryOptimizationOk(),
+                prefs.emergencyEnabled());
+    }
+
+    private void requestSleepGuardPermissions() {
+        java.util.ArrayList<String> permissions = new java.util.ArrayList<>();
+        if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
+            permissions.add(Manifest.permission.RECORD_AUDIO);
+        }
+        if (Build.VERSION.SDK_INT >= 33 && !hasPermission(Manifest.permission.POST_NOTIFICATIONS)) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS);
+        }
+        if (!permissions.isEmpty()) {
+            requestPermissions(permissions.toArray(new String[0]), 7);
+        }
+    }
+
+    private boolean hasSleepGuardRuntimePermissionMissing() {
+        if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
+            return true;
+        }
+        return Build.VERSION.SDK_INT >= 33 && !hasPermission(Manifest.permission.POST_NOTIFICATIONS);
+    }
+
+    private void showStartGuardReadinessDialog(java.util.ArrayList<String> missing) {
+        StringBuilder message = new StringBuilder();
+        message.append("今晚守护还差：").append(joinLabels(missing)).append("。\n\n");
+        message.append("建议先补齐，夜里更稳。也可以先开始，但提醒、后台运行或联系家人可能受影响。");
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                .setTitle("今晚还差 " + missing.size() + " 项")
+                .setMessage(message.toString())
+                .setPositiveButton("去睡前自检", (d, w) -> showPreSleepCheck())
+                .setNegativeButton("仍然开始", (d, w) -> {
+                    if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
+                        pendingStartAfterPermission = true;
+                        requestSleepGuardPermissions();
+                    } else {
+                        beginMonitoringService();
+                    }
+                });
+        if (hasSleepGuardRuntimePermissionMissing()) {
+            builder.setNeutralButton("只开权限", (d, w) -> {
+                pendingStartAfterPermission = false;
+                requestSleepGuardPermissions();
+            });
+        } else if (Build.VERSION.SDK_INT >= 23) {
+            PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+            if (pm == null || !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                builder.setNeutralButton("去电池设置", (d, w) -> requestIgnoreBatteryOptimization());
+            } else if (!prefs.emergencyEnabled()) {
+                builder.setNeutralButton("设家人电话", (d, w) -> showEmergencyDialog());
+            }
+        } else if (!prefs.emergencyEnabled()) {
+            builder.setNeutralButton("设家人电话", (d, w) -> showEmergencyDialog());
+        }
+        builder.show();
+    }
+
+    private String joinLabels(java.util.List<String> values) {
+        if (values == null || values.isEmpty()) return "";
+        StringBuilder b = new StringBuilder();
+        for (String value : values) {
+            if (b.length() > 0) b.append("、");
+            b.append(value);
+        }
+        return b.toString();
+    }
+
     private int guardIntegrityScore() {
         int score = 100;
         if (!hasPermission(Manifest.permission.RECORD_AUDIO)) score -= 30;
@@ -1449,6 +1590,7 @@ public class MainActivity extends Activity {
     }
 
     private void showSettings() {
+        activeScreen = "settings";
         content.removeAllViews();
         content.addView(Theme.text(this, "设置", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
@@ -1500,7 +1642,7 @@ public class MainActivity extends Activity {
         if (isDebuggableBuild()) {
             addSettingButton("开发者演练测试", this::showDetectionTest);
         }
-        addSettingButton("关闭电池优化", this::requestIgnoreBatteryOptimization);
+        addSettingButton("去电池设置", this::requestIgnoreBatteryOptimization);
         addSettingButton("异常证据", this::showEvidenceSettings);
         addSettingButton("返回设置", this::showSettings);
     }
@@ -1589,7 +1731,17 @@ public class MainActivity extends Activity {
         addSpace(content, 8);
     }
 
+    private void addPrimaryActionButton(String text, int color, Runnable action) {
+        Button button = Theme.button(this, text, color);
+        button.setTextSize(24);
+        button.setMinHeight(Theme.dp(this, 76));
+        button.setOnClickListener(v -> action.run());
+        content.addView(button, matchWrap());
+        addSpace(content, 12);
+    }
+
     private void showEmergencyDialog() {
+        String returnScreen = activeScreen;
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8), Theme.dp(this, 8));
@@ -1604,6 +1756,8 @@ public class MainActivity extends Activity {
             phone.setText(prefs.emergencyPhone(i));
             phone.setHint(i == 0 ? "第 1 联系人电话（优先拨打）" : "第 " + (i + 1) + " 联系人电话（短信通知）");
             phone.setTextSize(20);
+            phone.setSingleLine(true);
+            phone.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
             phones[i] = phone;
             box.addView(phone, matchWrap());
         }
@@ -1643,9 +1797,19 @@ public class MainActivity extends Activity {
             }
             Toast.makeText(this, "已保存紧急联系人", Toast.LENGTH_SHORT).show();
             dialog.dismiss();
-            showSettings();
+            showAfterEmergencySave(returnScreen);
         }));
         dialog.show();
+    }
+
+    private void showAfterEmergencySave(String returnScreen) {
+        if ("pre_sleep".equals(returnScreen)) {
+            showPreSleepCheck();
+        } else if ("home".equals(returnScreen)) {
+            showHome();
+        } else {
+            showSettings();
+        }
     }
 
     private void showEvidenceSettings() {
@@ -1805,20 +1969,41 @@ public class MainActivity extends Activity {
     }
 
     private void showPreSleepCheck() {
+        activeScreen = "pre_sleep";
         content.removeAllViews();
+        SleepGuardReadiness readiness = buildSleepGuardReadiness();
+        boolean ready = readiness.ready();
         content.addView(Theme.text(this, "睡前自检", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
         addAssistantHero("睡前准备", CompanionAssistant.sleepPrepLine(prefs.companionRole()), false);
+        addCheckRow("麦克风", readiness.micOk ? "已打开" : "去打开", readiness.micOk, this::requestSleepGuardPermissions);
+        if (Build.VERSION.SDK_INT >= 33) {
+            addCheckRow("通知", readiness.notificationOk ? "已打开" : "去打开", readiness.notificationOk, this::requestSleepGuardPermissions);
+        }
+        addCheckRow("电池优化", readiness.batteryOk ? "已关闭限制" : "去电池设置", readiness.batteryOk, this::requestIgnoreBatteryOptimization);
+        addCheckRow("家人电话", readiness.emergencyOk ? "已设置" : "设家人电话", readiness.emergencyOk, this::showEmergencyDialog);
+        addCard(tonightReadinessTitle(readiness.missing), tonightReadinessText(readiness), ready ? Theme.GREEN : Theme.ORANGE);
+        addPrimaryActionButton(ready ? "开始今晚守护" : "确认后开始守护", ready ? Theme.GREEN : Theme.ORANGE, this::startMonitoring);
+        addSettingButton("更多检测与测试", this::showPreSleepMoreChecks);
+        addSettingButton("返回首页", () -> showShell("guard"));
+    }
+
+    private void showPreSleepMoreChecks() {
+        activeScreen = "pre_sleep_more";
+        content.removeAllViews();
+        content.addView(Theme.text(this, "更多检测与测试", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(content, 8);
+        addCard("可选项目", "这里用于测试唤醒、输出和诊断。睡前只要主页面四项补齐，就可以开始守护。", Theme.BLUE);
         addCard("守护状态", preSleepStatusText(), Theme.GREEN);
         addCard("守护完整性", guardIntegrityText(), guardIntegrityScore() >= 80 ? Theme.GREEN : Theme.ORANGE);
         addCard("检测可信度", detectionConfidenceText(), Theme.ORANGE);
         addCard("唤醒输出", AudioOutputStatus.inspect(this).routeLine(), AudioOutputStatus.inspect(this).isBluetooth() ? Theme.GREEN : Theme.ORANGE);
-        addSettingButton("申请必要权限", this::requestEssentialPermissions);
-        addSettingButton("关闭电池优化", this::requestIgnoreBatteryOptimization);
+        addSettingButton("去电池设置", this::requestIgnoreBatteryOptimization);
         addSettingButton("测试轻提醒震动", this::testGentleReminder);
         addSettingButton("测试强唤醒", () -> startActivity(alarmDrillIntent("睡前自检")));
         addSettingButton("唤醒输出检测", this::showAudioOutputSettings);
-        addSettingButton("返回首页", () -> showShell("guard"));
+        addSettingButton("高级诊断", this::showServerCapabilityCheck);
+        addSettingButton("返回睡前自检", this::showPreSleepCheck);
     }
 
     private void showMorningCare() {
@@ -3736,7 +3921,8 @@ public class MainActivity extends Activity {
         addSpace(content, 8);
         addCheckRow("账号", prefs.serverRegistered() ? "已登录" : "未登录", prefs.serverRegistered(), null);
         addCheckRow("服务端", compactForCard(prefs.serverBaseUrl(), 24), true, this::showServerUrlDialog);
-        addSettingButton("诚实检查", this::showServerCapabilityCheck);
+        addSettingButton("睡前自检", this::showPreSleepCheck);
+        addSettingButton("高级诊断", this::showServerCapabilityCheck);
         if (prefs.serverRegistered()) {
             content.postDelayed(this::syncOwnerProfileQuietAfterAccountOpen, 450);
             addSettingButton("导出服务端资料", this::exportServerAccountData);
@@ -3812,10 +3998,11 @@ public class MainActivity extends Activity {
 
     private void showServerCapabilityCheck() {
         content.removeAllViews();
-        content.addView(Theme.text(this, "诚实检查", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        content.addView(Theme.text(this, "高级诊断", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
         addCheckRow("本机麦克风", prefs.microphoneProbePassed() ? "通过" : "未证明", prefs.microphoneProbePassed(), this::showMicrophoneHonestCheck);
         addCheckRow("正在连服务端", prefs.serverBaseUrl(), false, null);
+        addSettingButton("返回睡前自检", this::showPreSleepCheck);
         addSettingButton("返回账号", this::showServerAccountSettings);
         new Thread(() -> {
             try {
@@ -3829,7 +4016,7 @@ public class MainActivity extends Activity {
 
     private void showServerCapabilityResult(ServerApiClient.ServerHealth status) {
         content.removeAllViews();
-        content.addView(Theme.text(this, "诚实检查", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        content.addView(Theme.text(this, "高级诊断", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
         addCheckRow("服务端", status.ok ? "通过" : "异常", status.ok, null);
         addCheckRow("短信", status.smsAliyunConfigured && !status.smsDevMode ? "真实阿里短信" : (status.smsDevMode ? "开发模式" : "未配置"), status.smsAliyunConfigured && !status.smsDevMode, null);
@@ -3837,6 +4024,7 @@ public class MainActivity extends Activity {
         boolean realtimePathReady = status.realtimeConfigured && status.modelAudioOutputStreaming && status.apkLowLatencyAudioPlayback;
         addCheckRow("Live2D Preview", "开发预览已过，主入口门控", true, null);
         addCheckRow("实时语音", realtimePathReady ? "链路已配，真机待验" : "未完整证明", realtimePathReady, null);
+        addCheckRow("Linly数字人", status.linlyDigitalHumanConfigured ? status.linlyDigitalHumanAvatarEngine + " / " + status.linlyDigitalHumanTransport : "未配置，2D兜底", status.linlyDigitalHumanConfigured, null);
         addCheckRow("麦克风", prefs.microphoneProbePassed() ? "现场拾音通过" : "未证明真实拾音", prefs.microphoneProbePassed(), this::showMicrophoneHonestCheck);
         addCheckRow("听懂人话", prefs.speechRecognitionShortState(), prefs.speechRecognitionPassed(), this::showCompanionChat);
         addCheckRow("睡眠守护拾音", prefs.sleepGuardAudioShortState(), prefs.sleepGuardAudioPassed(), () -> showShell("guard"));
@@ -3844,19 +4032,27 @@ public class MainActivity extends Activity {
         addCheckRow("故事/助眠音", status.bedtimeStory && status.musicPlayback ? "可用" : "未完整证明", status.bedtimeStory && status.musicPlayback, null);
         addCheckRow("新闻", status.newsBriefing ? "已接真实源" : "未接入，不编", status.newsBriefing, this::showNewsCapabilityStatus);
         addCheckRow("Key安全", "只放服务端", true, null);
+        addCard("数字人说明", status.digitalHumanLine(), status.linlyDigitalHumanConfigured ? Theme.GREEN : Theme.ORANGE);
         addSettingButton("现场验证麦克风拾音", this::showMicrophoneHonestCheck);
         addSettingButton("重新检查", this::showServerCapabilityCheck);
+        addSettingButton("Linly数字人预览", this::showLinlyAvatarPreview);
+        addSettingButton("返回睡前自检", this::showPreSleepCheck);
         addSettingButton("返回账号", this::showServerAccountSettings);
+    }
+
+    private void showLinlyAvatarPreview() {
+        startActivity(new Intent(this, LinlyAvatarPreviewActivity.class));
     }
 
     private void showServerCapabilityError(String message) {
         content.removeAllViews();
-        content.addView(Theme.text(this, "诚实检查", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        content.addView(Theme.text(this, "高级诊断", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
         addCheckRow("服务端", "连接失败", false, null);
         addCard("错误", compactForCard(message, 80), Theme.RED);
         addSettingButton("连接服务设置", this::showServerUrlDialog);
         addSettingButton("重新检查", this::showServerCapabilityCheck);
+        addSettingButton("返回睡前自检", this::showPreSleepCheck);
         addSettingButton("返回账号", this::showServerAccountSettings);
     }
 
@@ -5893,14 +6089,25 @@ public class MainActivity extends Activity {
     }
 
     private String batteryOptimizationText() {
+        return batteryOptimizationText(batteryOptimizationOk());
+    }
+
+    private String batteryOptimizationText(boolean batteryOkSnapshot) {
         if (Build.VERSION.SDK_INT < 23) {
             return "✓ 电池优化无需处理";
         }
-        PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-        if (pm != null && pm.isIgnoringBatteryOptimizations(getPackageName())) {
+        if (batteryOkSnapshot) {
             return "✓ 已允许不受电池优化限制";
         }
         return "! 建议关闭电池优化，避免夜里被系统停止";
+    }
+
+    private boolean batteryOptimizationOk() {
+        if (Build.VERSION.SDK_INT < 23) {
+            return true;
+        }
+        PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+        return pm != null && pm.isIgnoringBatteryOptimizations(getPackageName());
     }
 
     private void requestIgnoreBatteryOptimization() {
@@ -5914,10 +6121,12 @@ public class MainActivity extends Activity {
             return;
         }
         try {
+            pendingRefreshAfterBatterySettings = true;
             Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
             intent.setData(Uri.parse("package:" + getPackageName()));
             startActivity(intent);
         } catch (Exception ex) {
+            pendingRefreshAfterBatterySettings = true;
             Intent intent = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
             startActivity(intent);
         }
@@ -6071,14 +6280,11 @@ public class MainActivity extends Activity {
     }
 
     private void startMonitoring() {
-        if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
-            pendingStartAfterPermission = true;
-            requestEssentialPermissions();
-            Toast.makeText(this, "请先允许麦克风权限，再开始守护", Toast.LENGTH_LONG).show();
+        java.util.ArrayList<String> missing = sleepGuardMissingItems();
+        if (!missing.isEmpty()) {
+            pendingStartAfterPermission = false;
+            showStartGuardReadinessDialog(missing);
             return;
-        }
-        if (Build.VERSION.SDK_INT >= 33 && !hasPermission(Manifest.permission.POST_NOTIFICATIONS)) {
-            requestEssentialPermissions();
         }
         beginMonitoringService();
     }
@@ -6097,14 +6303,14 @@ public class MainActivity extends Activity {
             prefs.setMonitoring(false);
             prefs.recordSleepGuardAudioState(false, 0, 0, 0,
                     "服务启动失败：" + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
-            Toast.makeText(this, "睡眠守护启动失败，请看诚实检查", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "睡眠守护启动失败，请看睡前自检", Toast.LENGTH_LONG).show();
             showHome();
             return;
         }
         Toast.makeText(this, "已开始睡眠守护", Toast.LENGTH_SHORT).show();
         content.postDelayed(() -> {
             if (prefs.isMonitoring() && !prefs.sleepGuardAudioPassed()) {
-                Toast.makeText(this, "守护已启动，但真机拾音未证明，请看诚实检查", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "守护已启动，但真机拾音未证明，请看睡前自检", Toast.LENGTH_LONG).show();
             }
         }, 8000L);
         showHome();
@@ -6245,6 +6451,21 @@ public class MainActivity extends Activity {
             }
             return;
         }
+        if (requestCode == 7) {
+            if (pendingStartAfterPermission) {
+                pendingStartAfterPermission = false;
+                if (hasPermission(Manifest.permission.RECORD_AUDIO)) {
+                    beginMonitoringService();
+                } else {
+                    Toast.makeText(this, "未授权麦克风，无法开始睡眠守护", Toast.LENGTH_LONG).show();
+                    showPreSleepCheck();
+                }
+            } else {
+                Toast.makeText(this, hasSleepGuardRuntimePermissionMissing() ? "权限还没开全，可以稍后再试" : "睡前权限已打开", Toast.LENGTH_SHORT).show();
+                showPreSleepCheck();
+            }
+            return;
+        }
         if (pendingStartAfterPermission) {
             pendingStartAfterPermission = false;
             if (hasPermission(Manifest.permission.RECORD_AUDIO)) {
@@ -6338,6 +6559,24 @@ public class MainActivity extends Activity {
         }
         closeAutoVisionCamera();
         super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (!pendingRefreshAfterBatterySettings) {
+            return;
+        }
+        pendingRefreshAfterBatterySettings = false;
+        if ("pre_sleep".equals(activeScreen)) {
+            showPreSleepCheck();
+        } else if ("pre_sleep_more".equals(activeScreen)) {
+            showPreSleepMoreChecks();
+        } else if ("settings".equals(activeScreen)) {
+            showSettings();
+        } else if ("home".equals(activeScreen)) {
+            showHome();
+        }
     }
 
     private Bitmap decodeVisionBitmap(Uri uri) {
@@ -6749,17 +6988,19 @@ public class MainActivity extends Activity {
         addSpace(content, 12);
     }
 
-    private void addHomeTileGrid() {
+    private void addHomeTileGrid(SleepGuardReadiness readiness) {
+        boolean ready = readiness == null || readiness.ready();
+        boolean emergencyOk = readiness != null && readiness.emergencyOk;
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        addSmallTile(row, "✓\n睡前检查", Theme.GREEN, this::showPreSleepCheck);
+        addSmallTile(row, (ready ? "✓" : "!") + "\n睡前自检", ready ? Theme.GREEN : Theme.ORANGE, this::showPreSleepCheck);
         addSmallTile(row, "▮\n睡眠报告", Theme.BLUE, this::showSleepReport);
         content.addView(row, matchWrap());
         addSpace(content, 10);
         LinearLayout row2 = new LinearLayout(this);
         row2.setOrientation(LinearLayout.HORIZONTAL);
-        addSmallTile(row2, "✓\n诚实检查", prefs.microphoneProbePassed() ? Theme.GREEN : Theme.ORANGE, this::showServerCapabilityCheck);
         addSmallTile(row2, "♡\n小助手", CompanionAssistant.roleColor(prefs.companionRole()), this::showCompanionChat);
+        addSmallTile(row2, (emergencyOk ? "☎" : "!") + "\n家人电话", emergencyOk ? Theme.GREEN : Theme.ORANGE, this::showEmergencyDialog);
         content.addView(row2, matchWrap());
     }
 

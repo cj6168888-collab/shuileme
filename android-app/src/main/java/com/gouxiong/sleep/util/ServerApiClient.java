@@ -164,6 +164,55 @@ public final class ServerApiClient {
         return ServerHealth.from(response);
     }
 
+    public static AvatarStatus avatarStatus(String baseUrl, String token) throws Exception {
+        JSONObject response = request(baseUrl, "GET", "/api/avatar/status", null, token);
+        JSONObject linly = response.optJSONObject("linly_digital_human");
+        JSONObject linlyHealth = linly == null ? null : linly.optJSONObject("health");
+        JSONObject local2d = response.optJSONObject("two_d_avatar");
+        return new AvatarStatus(
+                linly != null && linly.optBoolean("configured", false),
+                linly == null ? "" : linly.optString("provider", ""),
+                linly == null ? "" : linly.optString("transport", ""),
+                linly == null ? "" : linly.optString("avatar_engine", ""),
+                linly == null ? "" : linly.optString("base_url", ""),
+                linly == null ? "" : linly.optString("web_url", ""),
+                linly != null && linly.optBoolean("live", false),
+                linlyHealth == null ? "" : linlyHealth.optString("error", ""),
+                local2d != null && local2d.optBoolean("local_2d_avatar_view", false),
+                local2d != null && local2d.optBoolean("avatar_state_machine", false),
+                local2d != null && local2d.optBoolean("mouth_level_protocol", false));
+    }
+
+    public static AvatarOfferResult avatarOffer(String baseUrl, String token, String sdp, String type) throws Exception {
+        JSONObject body = new JSONObject()
+                .put("sdp", sdp == null ? "" : sdp)
+                .put("type", type == null ? "offer" : type);
+        JSONObject response = request(baseUrl, "POST", "/api/avatar/session/offer", body, token);
+        return new AvatarOfferResult(
+                response.optString("sdp", ""),
+                response.optString("type", ""),
+                response.optInt("sessionid", 0),
+                response.optString("provider", ""),
+                response.optString("avatar_engine", ""));
+    }
+
+    public static String avatarSay(String baseUrl, String token, int sessionId, String text, boolean interrupt) throws Exception {
+        JSONObject body = new JSONObject()
+                .put("text", text == null ? "" : text)
+                .put("interrupt", interrupt);
+        JSONObject response = request(baseUrl, "POST", "/api/avatar/session/" + Math.max(0, sessionId) + "/say", body, token);
+        return response.optString("response", "");
+    }
+
+    public static void avatarStop(String baseUrl, String token, int sessionId) throws Exception {
+        request(baseUrl, "POST", "/api/avatar/session/" + Math.max(0, sessionId) + "/stop", new JSONObject(), token);
+    }
+
+    public static boolean avatarSpeaking(String baseUrl, String token, int sessionId) throws Exception {
+        JSONObject response = request(baseUrl, "GET", "/api/avatar/session/" + Math.max(0, sessionId) + "/speaking", null, token);
+        return response.optBoolean("data", false);
+    }
+
     private static JSONObject request(String baseUrl, String method, String path, JSONObject body, String token) throws Exception {
         HttpURLConnection connection = (HttpURLConnection) new URL(normalizeBaseUrl(baseUrl) + path).openConnection();
         connection.setRequestMethod(method);
@@ -273,6 +322,64 @@ public final class ServerApiClient {
         }
     }
 
+    public static final class AvatarStatus {
+        public final boolean linlyConfigured;
+        public final String provider;
+        public final String transport;
+        public final String avatarEngine;
+        public final String baseUrl;
+        public final String webUrl;
+        public final boolean live;
+        public final String healthError;
+        public final boolean local2dAvatarView;
+        public final boolean avatarStateMachine;
+        public final boolean mouthLevelProtocol;
+
+        private AvatarStatus(boolean linlyConfigured, String provider, String transport, String avatarEngine, String baseUrl, String webUrl,
+                             boolean live, String healthError,
+                             boolean local2dAvatarView, boolean avatarStateMachine, boolean mouthLevelProtocol) {
+            this.linlyConfigured = linlyConfigured;
+            this.provider = provider == null ? "" : provider;
+            this.transport = transport == null ? "" : transport;
+            this.avatarEngine = avatarEngine == null ? "" : avatarEngine;
+            this.baseUrl = baseUrl == null ? "" : baseUrl;
+            this.webUrl = webUrl == null || webUrl.length() == 0 ? this.baseUrl : webUrl;
+            this.live = live;
+            this.healthError = healthError == null ? "" : healthError;
+            this.local2dAvatarView = local2dAvatarView;
+            this.avatarStateMachine = avatarStateMachine;
+            this.mouthLevelProtocol = mouthLevelProtocol;
+        }
+
+        public String line() {
+            if (linlyConfigured) {
+                return live
+                        ? "Linly 数字人已配置且在线：" + avatarEngine + " / " + transport
+                        : "Linly 数字人已配置但未连通：" + (healthError.length() > 0 ? healthError : "health failed");
+            }
+            if (local2dAvatarView && avatarStateMachine) {
+                return "Linly 未配置，当前使用本机 2D Avatar 兜底。";
+            }
+            return "数字人能力未完整证明。";
+        }
+    }
+
+    public static final class AvatarOfferResult {
+        public final String sdp;
+        public final String type;
+        public final int sessionId;
+        public final String provider;
+        public final String avatarEngine;
+
+        private AvatarOfferResult(String sdp, String type, int sessionId, String provider, String avatarEngine) {
+            this.sdp = sdp == null ? "" : sdp;
+            this.type = type == null ? "" : type;
+            this.sessionId = sessionId;
+            this.provider = provider == null ? "" : provider;
+            this.avatarEngine = avatarEngine == null ? "" : avatarEngine;
+        }
+    }
+
     public static final class ServerHealth {
         public final boolean ok;
         public final String service;
@@ -305,6 +412,14 @@ public final class ServerApiClient {
         public final boolean modelAudioOutputForwarding;
         public final boolean apkLowLatencyAudioPlayback;
         public final boolean apkAutoBargeInDetection;
+        public final boolean digitalHumanSession;
+        public final boolean digitalHumanStream;
+        public final boolean linlyDigitalHumanConfigured;
+        public final String linlyDigitalHumanProvider;
+        public final String linlyDigitalHumanTransport;
+        public final String linlyDigitalHumanAvatarEngine;
+        public final String linlyDigitalHumanBaseUrl;
+        public final String linlyDigitalHumanWebUrl;
         public final boolean bedtimeStory;
         public final boolean musicPlayback;
         public final String musicVolumeBehavior;
@@ -323,7 +438,10 @@ public final class ServerApiClient {
                               boolean modelTextStreaming, boolean realtimeConfigured,
                               boolean serverAsrStreaming, boolean modelAudioOutputStreaming,
                               boolean modelAudioOutputForwarding, boolean apkLowLatencyAudioPlayback,
-                              boolean apkAutoBargeInDetection, boolean bedtimeStory,
+                              boolean apkAutoBargeInDetection, boolean digitalHumanSession, boolean digitalHumanStream,
+                              boolean linlyDigitalHumanConfigured, String linlyDigitalHumanProvider,
+                              String linlyDigitalHumanTransport, String linlyDigitalHumanAvatarEngine,
+                              String linlyDigitalHumanBaseUrl, String linlyDigitalHumanWebUrl, boolean bedtimeStory,
                               boolean musicPlayback, String musicVolumeBehavior,
                               boolean newsBriefing, boolean possibleAsleepConfirm,
                               String possibleAsleepAwakeReplyBehavior, boolean voiceShortcuts) {
@@ -358,6 +476,14 @@ public final class ServerApiClient {
             this.modelAudioOutputForwarding = modelAudioOutputForwarding;
             this.apkLowLatencyAudioPlayback = apkLowLatencyAudioPlayback;
             this.apkAutoBargeInDetection = apkAutoBargeInDetection;
+            this.digitalHumanSession = digitalHumanSession;
+            this.digitalHumanStream = digitalHumanStream;
+            this.linlyDigitalHumanConfigured = linlyDigitalHumanConfigured;
+            this.linlyDigitalHumanProvider = linlyDigitalHumanProvider == null ? "" : linlyDigitalHumanProvider;
+            this.linlyDigitalHumanTransport = linlyDigitalHumanTransport == null ? "" : linlyDigitalHumanTransport;
+            this.linlyDigitalHumanAvatarEngine = linlyDigitalHumanAvatarEngine == null ? "" : linlyDigitalHumanAvatarEngine;
+            this.linlyDigitalHumanBaseUrl = linlyDigitalHumanBaseUrl == null ? "" : linlyDigitalHumanBaseUrl;
+            this.linlyDigitalHumanWebUrl = linlyDigitalHumanWebUrl == null || linlyDigitalHumanWebUrl.length() == 0 ? this.linlyDigitalHumanBaseUrl : linlyDigitalHumanWebUrl;
             this.bedtimeStory = bedtimeStory;
             this.musicPlayback = musicPlayback;
             this.musicVolumeBehavior = musicVolumeBehavior == null ? "" : musicVolumeBehavior;
@@ -372,6 +498,7 @@ public final class ServerApiClient {
             JSONObject model = root.optJSONObject("model");
             JSONObject implemented = model == null ? null : model.optJSONObject("implemented");
             JSONObject live = model == null ? null : model.optJSONObject("live");
+            JSONObject linly = model == null ? null : model.optJSONObject("linly_digital_human");
             JSONObject companion = root.optJSONObject("companion");
             JSONObject story = companion == null ? null : companion.optJSONObject("bedtime_story");
             JSONObject music = companion == null ? null : companion.optJSONObject("music_playback");
@@ -410,6 +537,14 @@ public final class ServerApiClient {
                     implemented != null && implemented.optBoolean("model_audio_output_forwarding", live != null && live.optBoolean("model_audio_output_forwarding", false)),
                     implemented != null && implemented.optBoolean("apk_low_latency_audio_playback", live != null && live.optBoolean("apk_low_latency_audio_playback", false)),
                     implemented != null && implemented.optBoolean("apk_auto_barge_in_detection", live != null && live.optBoolean("apk_auto_barge_in_detection", false)),
+                    implemented != null && implemented.optBoolean("digital_human_session", live != null && live.optBoolean("digital_human_session", false)),
+                    implemented != null && implemented.optBoolean("digital_human_stream", live != null && live.optBoolean("digital_human_stream", false)),
+                    linly != null && linly.optBoolean("configured", false),
+                    linly == null ? "" : linly.optString("provider", ""),
+                    linly == null ? "" : linly.optString("transport", ""),
+                    linly == null ? "" : linly.optString("avatar_engine", ""),
+                    linly == null ? "" : linly.optString("base_url", ""),
+                    linly == null ? "" : linly.optString("web_url", ""),
                     story != null && story.optBoolean("implemented", false),
                     music != null && music.optBoolean("implemented", false),
                     music == null ? "" : music.optString("volume_behavior", ""),
@@ -436,6 +571,12 @@ public final class ServerApiClient {
         }
 
         public String avatarLine() {
+            if (linlyDigitalHumanConfigured) {
+                return "Linly-Talker-Stream 数字人媒体层已配置："
+                        + empty(linlyDigitalHumanAvatarEngine, "未知引擎")
+                        + " / " + empty(linlyDigitalHumanTransport, "未知传输")
+                        + "。它只负责数字人音视频，睡眠安全、记忆和陪伴大脑仍在本 App 与服务端。";
+            }
             if (local2dAvatarView && avatarStateMachine && mouthLevelProtocol) {
                 String live2d = live2dSdk ? "Live2D SDK 已接入。" : "Live2D SDK 未接入，当前是本机分层 2D Avatar。";
                 String emotion = modelEmotionTags ? "模型情绪标签已接入。" : "模型情绪 JSON 尚未接入，先用场景和服务端 emotion 事件兜底。";
@@ -472,6 +613,17 @@ public final class ServerApiClient {
             return "实时陪伴 WebSocket 已启用，但协议能力不完整，请检查服务端。";
         }
 
+        public String digitalHumanLine() {
+            if (linlyDigitalHumanConfigured) {
+                return "Linly 数字人流已配置：" + empty(linlyDigitalHumanAvatarEngine, "avatar")
+                        + "，APK 后续可通过 /api/avatar/session/offer 建立 WebRTC。";
+            }
+            if (digitalHumanSession) {
+                return "数字人会话已标记可用，但 Linly Stream 未配置，可能是其他云数字人预留通道。";
+            }
+            return "Linly 数字人流未配置，当前使用本机 2D Avatar 兜底。";
+        }
+
         public String companionLine() {
             StringBuilder b = new StringBuilder();
             b.append(bedtimeStory ? "睡前故事可用" : "睡前故事未接入");
@@ -498,6 +650,10 @@ public final class ServerApiClient {
             b.append("；");
             b.append(voiceShortcuts ? "语音说故事、新闻、雨声会走真实入口" : "自然语音入口仍需检查");
             return b.toString();
+        }
+
+        private static String empty(String value, String fallback) {
+            return value == null || value.length() == 0 ? fallback : value;
         }
     }
 }

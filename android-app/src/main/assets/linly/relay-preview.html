@@ -1,0 +1,173 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Linly Relay Preview</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #0d1424;
+      color: #eef4ff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+    video {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+      background: #050814;
+      object-fit: contain;
+    }
+    .panel {
+      padding: 12px;
+      background: #17233a;
+      border-top: 1px solid #314466;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    input {
+      flex: 1;
+      min-width: 0;
+      border: 1px solid #4a5f82;
+      border-radius: 8px;
+      padding: 10px;
+      color: #eef4ff;
+      background: #0d1424;
+      font-size: 15px;
+    }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: white;
+      background: #2b68e2;
+      font-weight: 700;
+      font-size: 15px;
+    }
+    button.stop {
+      background: #eb4634;
+    }
+    #log {
+      min-height: 42px;
+      max-height: 90px;
+      overflow: auto;
+      color: #bcc9df;
+      font-size: 13px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <video id="remote" autoplay playsinline controls></video>
+  <div class="panel">
+    <div id="log">Preparing relay preview...</div>
+    <div class="row">
+      <input id="text" value="奶奶别急，我在这里。" aria-label="speech text">
+      <button id="say">Say</button>
+      <button id="stop" class="stop">Stop</button>
+    </div>
+  </div>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const bridge = window.AndroidLinlyRelay || null;
+    const server = (params.get('server') || (bridge && bridge.serverBaseUrl ? bridge.serverBaseUrl() : '')).replace(/\/+$/, '');
+    const token = params.get('token') || (bridge && bridge.authToken ? bridge.authToken() : '');
+    const logEl = document.getElementById('log');
+    const video = document.getElementById('remote');
+    let pc = null;
+    let sessionId = 0;
+
+    function log(message) {
+      logEl.textContent = `${new Date().toLocaleTimeString()}  ${message}\n` + logEl.textContent;
+      if (bridge && bridge.onRelayLog) {
+        bridge.onRelayLog(String(message));
+      }
+    }
+
+    async function api(path, options = {}) {
+      const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const response = await fetch(`${server}${path}`, Object.assign({}, options, { headers }));
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : {};
+      if (!response.ok || data.ok === false) {
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+      return data;
+    }
+
+    function waitForIceGathering(peer) {
+      if (peer.iceGatheringState === 'complete') return Promise.resolve();
+      return new Promise(resolve => {
+        const timer = setTimeout(resolve, 2500);
+        peer.addEventListener('icegatheringstatechange', () => {
+          if (peer.iceGatheringState === 'complete') {
+            clearTimeout(timer);
+            resolve();
+          }
+        });
+      });
+    }
+
+    async function connect() {
+      if (!server || !token) {
+        log('Missing server or token. Login in the APK first.');
+        return;
+      }
+      pc = new RTCPeerConnection({ iceServers: [] });
+      pc.addTransceiver('video', { direction: 'recvonly' });
+      pc.addTransceiver('audio', { direction: 'recvonly' });
+      pc.ontrack = event => {
+        const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
+        video.srcObject = stream;
+        video.play().catch(error => log(`video play: ${error.message}`));
+        log(`remote ${event.track.kind} track received`);
+      };
+      pc.onconnectionstatechange = () => log(`pc: ${pc.connectionState}`);
+      pc.oniceconnectionstatechange = () => log(`ice: ${pc.iceConnectionState}`);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await waitForIceGathering(pc);
+      log('Sending offer through Gouxiong server...');
+      const answer = await api('/api/avatar/session/offer', {
+        method: 'POST',
+        body: JSON.stringify({ sdp: pc.localDescription.sdp, type: pc.localDescription.type })
+      });
+      sessionId = answer.sessionid || answer.sessionId || 0;
+      await pc.setRemoteDescription({ sdp: answer.sdp, type: answer.type || 'answer' });
+      log(`Connected. session=${sessionId || 'unknown'}`);
+    }
+
+    async function say() {
+      if (!sessionId) {
+        log('No session yet.');
+        return;
+      }
+      const text = document.getElementById('text').value || '';
+      await api(`/api/avatar/session/${sessionId}/say`, {
+        method: 'POST',
+        body: JSON.stringify({ text, interrupt: true })
+      });
+      log('Sent speech text.');
+    }
+
+    async function stop() {
+      if (!sessionId) return;
+      await api(`/api/avatar/session/${sessionId}/stop`, { method: 'POST', body: '{}' });
+      log('Sent stop.');
+    }
+
+    document.getElementById('say').addEventListener('click', () => say().catch(error => log(`say failed: ${error.message}`)));
+    document.getElementById('stop').addEventListener('click', () => stop().catch(error => log(`stop failed: ${error.message}`)));
+    connect().catch(error => log(`connect failed: ${error.message}`));
+  </script>
+</body>
+</html>

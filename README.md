@@ -27,6 +27,7 @@
 - [小助手设计文件](docs/companion-assistant-design.md)
 - [小助手 Live 实时陪伴架构](docs/live-companion-architecture.md)
 - [Gemini Live 接入路线](docs/gemini-live-integration-roadmap.md)
+- [Linly-Talker 数字人接入方案](docs/linly-talker-integration-plan.md)
 - [小智开源项目吸收方案](docs/xiaozhi-open-source-integration.md)
 - [开源发布清单](docs/open-source-release-checklist.md)
 - [APK 交付说明](docs/apk-delivery-notes.md)

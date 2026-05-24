@@ -23,6 +23,9 @@ process.env.ALIYUN_REALTIME_ENABLED = '';
 process.env.ALIYUN_REALTIME_API_KEY = '';
 process.env.ALIYUN_REALTIME_ENDPOINT = '';
 process.env.GOUXIONG_NEWS_RSS_URL = '';
+process.env.LINLY_TALKER_STREAM_ENABLED = '';
+process.env.LINLY_TALKER_STREAM_URL = '';
+process.env.LINLY_TALKER_STREAM_WEB_URL = '';
 
 const { createServer } = await import('./gouxiong-server.mjs');
 
@@ -309,6 +312,59 @@ async function startFakeRealtimeServer() {
   };
 }
 
+async function startFakeLinlyServer() {
+  const received = { offers: 0, human: 0, interrupts: 0, speaking: 0, lastHuman: null };
+  const server = createHttpServer((req, res) => {
+    let raw = '';
+    req.setEncoding('utf8');
+    req.on('data', chunk => { raw += chunk; });
+    req.on('end', () => {
+      const body = raw ? JSON.parse(raw) : {};
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      if (req.method === 'GET' && req.url === '/health') {
+        res.end(JSON.stringify({ ok: true, service: 'fake-linly' }));
+        return;
+      }
+      if (req.method === 'POST' && req.url === '/offer') {
+        received.offers++;
+        res.end(JSON.stringify({ code: 0, sdp: `answer:${body.sdp}`, type: 'answer', sessionid: 42 }));
+        return;
+      }
+      if (req.method === 'POST' && req.url === '/human') {
+        received.human++;
+        received.lastHuman = body;
+        if (body.text === 'force-linly-error') {
+          res.end(JSON.stringify({ code: -1, msg: 'forced failure' }));
+          return;
+        }
+        res.end(JSON.stringify({ code: 0, msg: 'ok', response: body.text || '' }));
+        return;
+      }
+      if (req.method === 'POST' && req.url === '/interrupt_talk') {
+        received.interrupts++;
+        res.end(JSON.stringify({ code: 0, msg: 'ok' }));
+        return;
+      }
+      if (req.method === 'POST' && req.url === '/is_speaking') {
+        received.speaking++;
+        res.end(JSON.stringify({ code: 0, data: false }));
+        return;
+      }
+      res.statusCode = 404;
+      res.end(JSON.stringify({ code: -1, msg: 'not found' }));
+    });
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  return {
+    server,
+    port: server.address().port,
+    received,
+    close() {
+      server.close();
+    }
+  };
+}
+
 async function liveWebSocketAudioProbe(port, token) {
   return new Promise((resolve, reject) => {
     const socket = net.connect(port, '127.0.0.1');
@@ -405,6 +461,19 @@ try {
   if (!health.model.live || health.model.live.fallback_text_turns !== true || health.model.live.model_audio_output_streaming !== false || health.model.live.apk_low_latency_audio_playback !== true || health.model.live.apk_auto_barge_in_detection !== true || health.model.live.interrupt_response !== true || health.model.live.accepted_audio_format !== 'pcm16' || health.model.live.accepted_frame_duration_ms !== 30 || health.model.live.opus_audio_transport !== false || health.model.live.model_text_streaming !== false || !health.model.live.apk_barge_in_policy || health.model.live.apk_barge_in_policy.source !== 'adaptive_rms_vad' || health.model.live.apk_barge_in_policy.min_speech_ms !== 240) {
     throw new Error('live capability detail failed');
   }
+  if (health.model.implemented.digital_human_stream !== false || health.model.live.digital_human_stream !== false || !health.model.linly_digital_human || health.model.linly_digital_human.configured !== false) {
+    throw new Error('linly digital human default status failed');
+  }
+  process.env.LINLY_TALKER_STREAM_ENABLED = '1';
+  process.env.LINLY_TALKER_STREAM_URL = 'http://127.0.0.1:8010/';
+  process.env.LINLY_TALKER_STREAM_WEB_URL = 'http://127.0.0.1:3000/';
+  const linlyHealth = await request(base, 'GET', '/health');
+  if (linlyHealth.model.implemented.digital_human_stream !== true || linlyHealth.model.live.digital_human_stream !== true || linlyHealth.model.live.digital_human_session !== true || linlyHealth.model.linly_digital_human?.provider !== 'linly-talker-stream' || linlyHealth.model.linly_digital_human?.offer_endpoint !== 'http://127.0.0.1:8010/offer' || linlyHealth.model.linly_digital_human?.web_url !== 'http://127.0.0.1:3000') {
+    throw new Error('linly digital human configured status failed');
+  }
+  process.env.LINLY_TALKER_STREAM_ENABLED = '';
+  process.env.LINLY_TALKER_STREAM_URL = '';
+  process.env.LINLY_TALKER_STREAM_WEB_URL = '';
   if (!health.companion || health.companion.bedtime_story?.implemented !== true || health.companion.music_playback?.implemented !== true || health.companion.music_playback?.source !== 'apk_local_audiotrack_generated_rain' || health.companion.music_playback?.volume_behavior !== 'fade_in_start_duck_during_sleep_check_restore_if_awake_fade_out_before_guard' || health.companion.news_briefing?.implemented !== false || health.companion.possible_asleep_confirm?.implemented !== true || health.companion.possible_asleep_confirm?.prompt !== '您睡了么？' || health.companion.possible_asleep_confirm?.awake_reply_behavior !== 'continue_companion_playback' || health.companion.possible_asleep_confirm?.no_reply_behavior !== 'enter_sleep_guard' || health.companion.voice_shortcuts?.implemented !== true || !health.companion.voice_shortcuts?.routes?.includes('music_playback')) {
     throw new Error('companion capability truth flags failed');
   }
@@ -463,6 +532,49 @@ try {
   });
   const token = verified.token;
   if (!token) throw new Error('token missing');
+
+  const avatarStatus = await request(base, 'GET', '/api/avatar/status', undefined, token);
+  if (!avatarStatus.linly_digital_human || avatarStatus.linly_digital_human.configured !== false || avatarStatus.linly_digital_human.live !== false || avatarStatus.linly_digital_human.health?.error !== 'not_configured' || !avatarStatus.two_d_avatar?.local_2d_avatar_view) {
+    throw new Error('avatar status fallback failed');
+  }
+
+  const fakeLinly = await startFakeLinlyServer();
+  try {
+    process.env.LINLY_TALKER_STREAM_ENABLED = '1';
+    process.env.LINLY_TALKER_STREAM_URL = `http://127.0.0.1:${fakeLinly.port}`;
+    process.env.LINLY_TALKER_STREAM_WEB_URL = `http://127.0.0.1:${fakeLinly.port}/`;
+    const liveAvatarStatus = await request(base, 'GET', '/api/avatar/status', undefined, token);
+    if (liveAvatarStatus.linly_digital_human?.live !== true || liveAvatarStatus.linly_digital_human?.health?.data?.service !== 'fake-linly' || liveAvatarStatus.linly_digital_human?.web_url !== `http://127.0.0.1:${fakeLinly.port}`) {
+      throw new Error('avatar status linly health probe failed');
+    }
+    const avatarOffer = await request(base, 'POST', '/api/avatar/session/offer', { sdp: 'fake-offer', type: 'offer' }, token);
+    if (avatarOffer.sessionid !== 42 || avatarOffer.type !== 'answer' || !String(avatarOffer.sdp || '').includes('fake-offer')) {
+      throw new Error('avatar offer proxy failed');
+    }
+    const avatarSay = await request(base, 'POST', '/api/avatar/session/42/say', { text: '奶奶别急，我在这里。' }, token);
+    if (avatarSay.response !== '奶奶别急，我在这里。' || fakeLinly.received.lastHuman?.type !== 'echo' || fakeLinly.received.lastHuman?.sessionid !== 42 || fakeLinly.received.lastHuman?.interrupt !== true) {
+      throw new Error('avatar say proxy failed');
+    }
+    const avatarSpeaking = await request(base, 'GET', '/api/avatar/session/42/speaking', undefined, token);
+    if (avatarSpeaking.data !== false) throw new Error('avatar speaking proxy failed');
+    let linlyBusinessError = false;
+    try {
+      await request(base, 'POST', '/api/avatar/session/42/say', { text: 'force-linly-error' }, token);
+    } catch (error) {
+      linlyBusinessError = String(error.message || '').includes('502') && String(error.message || '').includes('forced failure');
+    }
+    if (!linlyBusinessError) throw new Error('avatar say linly business error handling failed');
+    const avatarStop = await request(base, 'POST', '/api/avatar/session/42/stop', undefined, token);
+    if (avatarStop.code !== 0 || fakeLinly.received.interrupts !== 1) throw new Error('avatar stop proxy failed');
+    if (fakeLinly.received.offers !== 1 || fakeLinly.received.human !== 2 || fakeLinly.received.speaking !== 1) {
+      throw new Error(`fake linly counts failed: ${JSON.stringify(fakeLinly.received)}`);
+    }
+  } finally {
+    process.env.LINLY_TALKER_STREAM_ENABLED = '';
+    process.env.LINLY_TALKER_STREAM_URL = '';
+    process.env.LINLY_TALKER_STREAM_WEB_URL = '';
+    fakeLinly.close();
+  }
 
   await request(base, 'PUT', '/api/profile', {
     owner_address: '奶奶',
