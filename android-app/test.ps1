@@ -85,7 +85,7 @@ $newsSourceMissingLabel = -join ([char[]](0x65b0, 0x95fb, 0x6e90, 0x8fd8, 0x6ca1
 foreach ($needle in @("sleepCheckPending", "maybeAskIfUserAsleep", $sleepCheckQuestion, "looksLikeStillAwakeReply", "looksLikeReadyToSleepReply", "not_asleep", "still_awake", "asleep_now", "sleepCheckContinueLine", "enterSleepGuardFromCompanion", "restoreSleepSoundAfterAwakeReply", "duckForSpeech", "restoreGentleVolume", "settleCompanionAvatarAfterSpeech", "startMonitoring", "askBedtimeStory", "localBedtimeStory", "startCompanionModelAnswer", "startHttpVoiceAnswerWithPrompt", "looksLikeBedtimeStoryRequest", "looksLikeNewsRequest", "looksLikeSleepSoundStartRequest", "looksLikeSleepSoundStopRequest", "tell_bedtime_story", "read_news", "play_rain_sound", "stop_rain_sound", "startSleepSound", "stopSleepSound", "toggleSleepSound", "SleepSoundPlayer", "fadeOutAndStop", "showNewsCapabilityStatus", $localSleepSoundLabel, $newsSourceMissingLabel)) {
   if ($main -notmatch [regex]::Escape($needle)) { throw "Assistant bedtime companion static check failed: $needle" }
 }
-$liveAvatarFactory = [regex]::Match($main, 'private View createLiveAvatarStage[\s\S]*?private void destroyLiveStageWebView').Value
+$liveAvatarFactory = [regex]::Match($main, 'private View createLiveAvatarStage[\s\S]*?private AvatarState avatarStateForMood').Value
 foreach ($needle in @("new AvatarView", "AvatarCommand.setState", "setRole", "setCharacterResource", "setCharacterBitmapMode", "setOnClickListener")) {
   if ($liveAvatarFactory -notmatch [regex]::Escape($needle)) { throw "Assistant 2D avatar factory static check failed: $needle" }
 }

@@ -57,8 +57,6 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
 
 import android.app.Activity;
 
@@ -213,7 +211,6 @@ public class MainActivity extends Activity {
     private TextView liveStageStatusLabel;
     private TextView liveStageSpeechLabel;
     private AvatarView liveStageAvatar;
-    private WebView liveStageWebView;
     private String liveStageMood = "listening";
     private int liveStageAnimationSerial;
     private int avatarMouthSerial;
@@ -2547,7 +2544,6 @@ public class MainActivity extends Activity {
             liveStageStatusLabel.setText(status == null ? "" : status);
         }
         applyLiveAvatarState(liveStageMood);
-        sendLiveStageMoodToWeb(liveStageMood);
         if (liveStageAvatar != null) {
             liveStageAvatar.setContentDescription(assistantDisplayName() + "，" + liveMoodText(liveStageMood));
         }
@@ -2560,8 +2556,6 @@ public class MainActivity extends Activity {
     }
 
     private View createLiveAvatarStage(String role, String name, String mood, int serial) {
-        destroyLiveStageWebView();
-        liveStageWebView = null;
         return createBitmapAvatarFallbackStage(role, name, mood);
     }
 
@@ -2582,42 +2576,30 @@ public class MainActivity extends Activity {
     }
 
     private void applyLiveAvatarState(String mood) {
-        sendLiveStageMoodToWeb(mood);
         if (liveStageAvatar == null) return;
         liveStageAvatar.applyCommand(AvatarCommand.setState(avatarStateForMood(mood)));
     }
 
     private void startAvatarSpeaking() {
-        sendLiveStageMoodToWeb("speaking");
         if (liveStageAvatar != null) {
             liveStageAvatar.applyCommand(AvatarCommand.startSpeaking());
-        }
-        int serial = ++avatarMouthSerial;
-        View target = liveStageAvatar != null ? liveStageAvatar : liveStageWebView;
-        if (target != null) {
-            target.postDelayed(() -> driveTtsMouth(serial, 0), 60L);
+            int serial = ++avatarMouthSerial;
+            liveStageAvatar.postDelayed(() -> driveTtsMouth(serial, 0), 60L);
         }
     }
 
     private void driveTtsMouth(int serial, int tick) {
-        if (serial != avatarMouthSerial || (liveStageAvatar == null && liveStageWebView == null) || !assistantSpeaking) {
+        if (serial != avatarMouthSerial || liveStageAvatar == null || !assistantSpeaking) {
             return;
         }
         float wave = (float) Math.abs(Math.sin((System.currentTimeMillis() + tick * 47L) / 96d));
         float level = 0.18f + wave * 0.54f;
-        if (liveStageAvatar != null) {
-            liveStageAvatar.applyCommand(AvatarCommand.mouthLevel(level));
-            liveStageAvatar.postDelayed(() -> driveTtsMouth(serial, tick + 1), 82L);
-        } else if (liveStageWebView != null) {
-            sendLiveMouthToWeb(level);
-            liveStageWebView.postDelayed(() -> driveTtsMouth(serial, tick + 1), 82L);
-        }
+        liveStageAvatar.applyCommand(AvatarCommand.mouthLevel(level));
+        liveStageAvatar.postDelayed(() -> driveTtsMouth(serial, tick + 1), 82L);
     }
 
     private void stopAvatarSpeaking() {
         avatarMouthSerial++;
-        sendLiveMouthToWeb(0f);
-        sendLiveStageMoodToWeb(liveStageMood);
         if (liveStageAvatar == null) return;
         liveStageAvatar.applyCommand(AvatarCommand.stopSpeaking());
         liveStageAvatar.applyCommand(AvatarCommand.mouthLevel(0f));
@@ -2626,22 +2608,8 @@ public class MainActivity extends Activity {
     private void updateAvatarMouthFromPcm(byte[] pcmFrame) {
         if (pcmFrame == null || pcmFrame.length < 2) return;
         float level = pcm16Level(pcmFrame);
-        sendLiveStageMoodToWeb("speaking");
-        sendLiveMouthToWeb(level);
         int serial = ++livePcmMouthSerial;
-        if (liveStageAvatar == null) {
-            if (liveStageWebView != null) {
-                liveStageWebView.postDelayed(() -> {
-                    if (serial == livePcmMouthSerial
-                            && System.currentTimeMillis() - lastLiveModelAudioFrameAtMs > 320L
-                            && !assistantSpeaking) {
-                        sendLiveMouthToWeb(0f);
-                        sendLiveStageMoodToWeb(liveStageMood);
-                    }
-                }, 380L);
-            }
-            return;
-        }
+        if (liveStageAvatar == null) return;
         liveStageAvatar.applyCommand(AvatarCommand.startSpeaking());
         liveStageAvatar.applyCommand(AvatarCommand.mouthLevel(level));
         liveStageAvatar.postDelayed(() -> {
@@ -2668,117 +2636,6 @@ public class MainActivity extends Activity {
         if (count == 0) return 0f;
         double rms = Math.sqrt(sum / (double) count) / 32768d;
         return Math.max(0f, Math.min(1f, (float) (rms * 5.2d)));
-    }
-
-    private void destroyLiveStageWebView() {
-        if (liveStageWebView == null) {
-            return;
-        }
-        try {
-            liveStageWebView.stopLoading();
-            liveStageWebView.loadUrl("about:blank");
-            liveStageWebView.destroy();
-        } catch (Exception ignored) {
-        }
-        liveStageWebView = null;
-    }
-
-    private String liveAvatarHtml(String role, String mood) {
-        int color = CompanionAssistant.roleColor(role);
-        String avatar = drawableDataUri(roleLiveAssetName(role));
-        String accent = cssColor(color);
-        String soft = cssColor(Theme.mix(color, Theme.WARM_WHITE, 0.78f));
-        String safeMood = safeMood(mood);
-        return "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1'>"
-                + "<style>"
-                + "html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;}"
-                + "body{display:flex;align-items:center;justify-content:center;font-family:sans-serif;}"
-                + ".stage{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;perspective:900px;}"
-                + ".halo{position:absolute;width:74%;height:74%;border-radius:50%;background:radial-gradient(circle," + soft + " 0%,rgba(255,255,255,.18) 54%,rgba(255,255,255,0) 72%);filter:blur(1px);animation:halo 2.6s ease-in-out infinite;}"
-                + ".ring{position:absolute;width:64%;height:64%;border:3px solid " + accent + ";border-radius:50%;opacity:.18;animation:ring 2.4s ease-in-out infinite;}"
-                + ".avatar{position:relative;z-index:2;max-width:92%;max-height:95%;object-fit:contain;filter:drop-shadow(0 12px 18px rgba(40,35,25,.16));transform-origin:50% 72%;}"
-                + ".shine{position:absolute;z-index:3;left:20%;top:5%;width:18%;height:16%;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.75),rgba(255,255,255,0) 70%);animation:shine 3.4s ease-in-out infinite;}"
-                + ".dots{position:absolute;z-index:4;right:12%;bottom:10%;display:flex;gap:7px;padding:8px 10px;border-radius:999px;background:rgba(255,255,255,.72);box-shadow:0 5px 14px rgba(0,0,0,.08);}"
-                + ".dots i{display:block;width:10px;height:10px;border-radius:999px;background:" + accent + ";animation:dot 1s ease-in-out infinite;}"
-                + ".dots i:nth-child(2){animation-delay:.14s}.dots i:nth-child(3){animation-delay:.28s}"
-                + "body.listening .avatar{animation:breathe 1.8s ease-in-out infinite;}"
-                + "body.speaking .avatar{animation:speak .34s ease-in-out infinite;} body.speaking .ring{animation-duration:1.1s;opacity:.3}"
-                + "body.thinking .avatar{animation:think 1.1s ease-in-out infinite;} body.thinking .dots i{animation-duration:.72s}"
-                + "body.seeing .avatar{animation:look 1.05s ease-in-out infinite;} body.comforting .avatar{animation:comfort 1.7s ease-in-out infinite;}"
-                + "@keyframes breathe{0%,100%{transform:translateY(0) scale(1) rotateY(0)}50%{transform:translateY(-4px) scale(1.025) rotateY(2deg)}}"
-                + "@keyframes speak{0%,100%{transform:translateY(0) scale(1.012) rotateZ(-.4deg)}50%{transform:translateY(-8px) scale(1.055) rotateZ(.7deg)}}"
-                + "@keyframes think{0%,100%{transform:translateY(5px) rotateZ(-1.3deg) scale(1.01)}55%{transform:translateY(0) rotateZ(.8deg) scale(1.025)}}"
-                + "@keyframes look{0%,100%{transform:translateX(-8px) rotateZ(-1.2deg)}50%{transform:translateX(8px) rotateZ(1.2deg)}}"
-                + "@keyframes comfort{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.018)}}"
-                + "@keyframes ring{0%{transform:scale(.9);opacity:.18}70%{transform:scale(1.18);opacity:.03}100%{transform:scale(.9);opacity:.18}}"
-                + "@keyframes halo{0%,100%{transform:scale(.96);opacity:.65}50%{transform:scale(1.04);opacity:.95}}"
-                + "@keyframes dot{0%,100%{transform:scale(.74);opacity:.5}50%{transform:scale(1.25);opacity:1}}"
-                + "@keyframes shine{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:.85;transform:translateY(7px)}}"
-                + "</style></head><body class='" + safeMood + "'>"
-                + "<div class='stage'><div class='halo'></div><div class='ring'></div><img class='avatar' src='" + avatar + "'/>"
-                + "<div class='shine'></div><div class='dots'><i></i><i></i><i></i></div></div>"
-                + "<script>window.setMood=function(m){document.body.className=(m||'listening').replace(/[^a-z_]/g,'')};</script>"
-                + "</body></html>";
-    }
-
-    private void sendLiveStageMoodToWeb(String mood) {
-        if (liveStageWebView == null) {
-            return;
-        }
-        String script = "window.setMood&&window.setMood('" + escapeJs(safeMood(mood)) + "')";
-        liveStageWebView.post(() -> {
-            try {
-                liveStageWebView.evaluateJavascript(script, null);
-            } catch (Exception ignored) {
-            }
-        });
-    }
-
-    private void sendLiveMouthToWeb(float level) {
-        if (liveStageWebView == null) {
-            return;
-        }
-        float safe = Math.max(0f, Math.min(1f, level));
-        String script = String.format(Locale.US, "window.setMouth&&window.setMouth(%.3f)", safe);
-        liveStageWebView.post(() -> {
-            try {
-                liveStageWebView.evaluateJavascript(script, null);
-            } catch (Exception ignored) {
-            }
-        });
-    }
-
-    private String safeMood(String mood) {
-        if ("thinking".equals(mood) || "speaking".equals(mood) || "seeing".equals(mood) || "comforting".equals(mood)) {
-            return mood;
-        }
-        return "listening";
-    }
-
-    private String cssColor(int color) {
-        return String.format(Locale.US, "#%06X", 0xFFFFFF & color);
-    }
-
-    private String escapeJs(String text) {
-        return (text == null ? "" : text).replace("\\", "\\\\").replace("'", "\\'");
-    }
-
-    private String drawableDataUri(String drawableName) {
-        int id = getResources().getIdentifier(drawableName, "drawable", getPackageName());
-        if (id == 0) {
-            id = getResources().getIdentifier("ic_launcher", "drawable", getPackageName());
-        }
-        try (InputStream in = getResources().openRawResource(id);
-             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = in.read(buffer)) != -1) {
-                out.write(buffer, 0, read);
-            }
-            return "data:image/png;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP);
-        } catch (Exception ignored) {
-            return "";
-        }
     }
 
     private void addLiveStateDots(LinearLayout stage, int color, int serial) {
@@ -6687,7 +6544,6 @@ public class MainActivity extends Activity {
             visionThread = null;
             visionHandler = null;
         }
-        destroyLiveStageWebView();
         if (assistantTts != null) {
             assistantTts.stop();
             assistantTts.shutdown();
@@ -6906,11 +6762,6 @@ public class MainActivity extends Activity {
         if (CompanionAssistant.ROLE_BROTHER.equals(role)) return "avatar_2d_brother";
         if (CompanionAssistant.ROLE_YOUNG_MAN.equals(role)) return "avatar_2d_young_man";
         return "avatar_2d_gentle_woman";
-    }
-
-    private String roleLiveAssetName(String role) {
-        if (CompanionAssistant.ROLE_GENTLE_WOMAN.equals(role)) return "gxs_role_gentle_woman_live_stage";
-        return roleAvatarAssetName(role);
     }
 
     private void addStatusPill(String text, int color) {
