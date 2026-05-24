@@ -686,7 +686,9 @@ public class MainActivity extends Activity {
         setContentView(root);
         if ("records".equals(tab)) {
             showRecords();
-        } else if ("assistant".equals(tab) || "morning".equals(tab)) {
+        } else if ("morning".equals(tab)) {
+            showMorningCare();
+        } else if ("assistant".equals(tab)) {
             showCompanionChat();
         } else if ("settings".equals(tab)) {
             showSettings();
@@ -2457,9 +2459,20 @@ public class MainActivity extends Activity {
     }
 
     private void showMorningCare() {
+        activeScreen = "morning";
         if (prefs.isMonitoring()) {
             stopMonitoring();
         }
+        content.removeAllViews();
+        addSimplePageHeader("早安简报", "", null);
+        SleepDashboardData data = buildSleepDashboardData();
+        addMorningBriefHeroCard();
+        addMorningSleepReviewCard(data);
+        addTodayCareAdviceCard(data);
+        addMorningQuickActions();
+    }
+
+    private void requestMorningBriefVoice() {
         if (!prefs.serverRegistered()) {
             showCompanionVoiceReply("晨间简报", morningBriefText());
             return;
@@ -2477,6 +2490,114 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> showCompanionVoiceReply("晨间简报", morningBriefText()));
             }
         }, "GouXiongMorningBrief").start();
+    }
+
+    private void addMorningBriefHeroCard() {
+        LinearLayout card = cardContainer();
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setBackground(Theme.tintedCard(this, Theme.ORANGE));
+        TextView sun = Theme.text(this, "☀", 34, Theme.ORANGE, Typeface.BOLD);
+        sun.setGravity(Gravity.CENTER);
+        sun.setBackground(Theme.rounded(Color.WHITE, 22, this));
+        card.addView(sun, new LinearLayout.LayoutParams(Theme.dp(this, 58), Theme.dp(this, 58)));
+        LinearLayout words = new LinearLayout(this);
+        words.setOrientation(LinearLayout.VERTICAL);
+        String owner = prefs.ownerAddress();
+        if (owner == null || owner.trim().length() == 0) {
+            owner = "主人";
+        }
+        words.addView(Theme.text(this, "早上好，" + owner, 21, Theme.TEXT, Typeface.BOLD), matchWrap());
+        words.addView(Theme.text(this, "昨晚睡眠和今天关怀，我已经整理好了。", 14, Theme.MUTED, Typeface.BOLD), matchWrap());
+        LinearLayout.LayoutParams wordsLp = new LinearLayout.LayoutParams(0, -2, 1);
+        wordsLp.setMargins(Theme.dp(this, 12), 0, 0, 0);
+        card.addView(words, wordsLp);
+        content.addView(card, matchWrap());
+        addSpace(content, 10);
+    }
+
+    private void addMorningSleepReviewCard(SleepDashboardData data) {
+        LinearLayout card = cardContainer();
+        card.setPadding(Theme.dp(this, 14), Theme.dp(this, 12), Theme.dp(this, 14), Theme.dp(this, 12));
+        card.addView(Theme.text(this, "昨晚睡眠回顾", 19, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(card, 8);
+        LinearLayout metrics = new LinearLayout(this);
+        metrics.setOrientation(LinearLayout.HORIZONTAL);
+        addSleepMetric(metrics, "睡眠时长", sleepDurationText(data.totalSleepMinutes), Theme.BLUE);
+        addSleepMetric(metrics, "睡眠质量", sleepQualityPhrase(data), data.highRiskCount > 0 ? Theme.RED : Theme.GREEN);
+        addSleepMetric(metrics, "熟睡粗估", sleepDurationText(data.estimatedDeepSleepMinutes), Theme.GREEN);
+        card.addView(metrics, matchWrap());
+        addSpace(card, 8);
+        TextView link = Theme.text(this, "查看完整报告 ›", 15, Theme.BLUE, Typeface.BOLD);
+        link.setGravity(Gravity.RIGHT);
+        link.setOnClickListener(v -> showSleepReport());
+        card.addView(link, matchWrap());
+        content.addView(card, matchWrap());
+        addSpace(content, 10);
+    }
+
+    private void addTodayCareAdviceCard(SleepDashboardData data) {
+        LinearLayout card = cardContainer();
+        card.setPadding(Theme.dp(this, 14), Theme.dp(this, 12), Theme.dp(this, 14), Theme.dp(this, 12));
+        card.addView(Theme.text(this, "今日关怀建议", 19, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(card, 8);
+        addCareAdviceLine(card, "今日气温", "18-26°C，适量饮水，注意保暖", Theme.BLUE);
+        String med = prefs.medicationEnabled()
+                ? formatMedicationTime() + " " + prefs.medicationName() + (prefs.medicationConfirmedToday() ? " 已确认" : " 待确认")
+                : "还未设置吃药提醒";
+        addCareAdviceLine(card, "吃药提醒", med, prefs.medicationEnabled() ? Theme.ORANGE : Theme.BLUE);
+        addCareAdviceLine(card, "活动建议", data.highRiskCount > 0 ? "今天动作慢一点，必要时联系家人" : "散步 30 分钟，睡前少看屏幕", data.highRiskCount > 0 ? Theme.ORANGE : Theme.GREEN);
+        content.addView(card, matchWrap());
+        addSpace(content, 10);
+    }
+
+    private void addCareAdviceLine(LinearLayout card, String title, String body, int color) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        TextView icon = Theme.text(this, "✓", 15, color, Typeface.BOLD);
+        icon.setGravity(Gravity.CENTER);
+        icon.setBackground(Theme.rounded(Theme.mix(color, Color.WHITE, 0.86f), 12, this));
+        row.addView(icon, new LinearLayout.LayoutParams(Theme.dp(this, 30), Theme.dp(this, 30)));
+        LinearLayout words = new LinearLayout(this);
+        words.setOrientation(LinearLayout.VERTICAL);
+        words.addView(Theme.text(this, title, 15, Theme.TEXT, Typeface.BOLD), matchWrap());
+        words.addView(Theme.text(this, body, 13, Theme.MUTED, Typeface.NORMAL), matchWrap());
+        LinearLayout.LayoutParams wordsLp = new LinearLayout.LayoutParams(0, -2, 1);
+        wordsLp.setMargins(Theme.dp(this, 10), 0, 0, 0);
+        row.addView(words, wordsLp);
+        card.addView(row, matchWrap());
+        addSpace(card, 8);
+    }
+
+    private void addMorningQuickActions() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        addMorningActionButton(row, "喝水了", Theme.GREEN, () -> {
+            prefs.markHydrationAcknowledgedNow();
+            Toast.makeText(this, "我记下了，今天慢慢喝水。", Toast.LENGTH_SHORT).show();
+            showMorningCare();
+        });
+        addMorningActionButton(row, "已吃药", Theme.ORANGE, () -> {
+            prefs.confirmMedicationNow();
+            Toast.makeText(this, "已记录今天吃药", Toast.LENGTH_SHORT).show();
+            showMorningCare();
+        });
+        content.addView(row, matchWrap());
+        addSpace(content, 10);
+        addSettingButton("小助手读给我听", this::requestMorningBriefVoice);
+        addSettingButton("记录今天状态", this::showAssistantCheckIn);
+        addSettingButton("返回首页", () -> showShell("guard"));
+    }
+
+    private void addMorningActionButton(LinearLayout row, String text, int color, Runnable action) {
+        Button button = Theme.softButton(this, text, color);
+        button.setTextSize(20);
+        button.setMinHeight(Theme.dp(this, 64));
+        button.setOnClickListener(v -> action.run());
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
+        lp.setMargins(Theme.dp(this, 4), 0, Theme.dp(this, 4), 0);
+        row.addView(button, lp);
     }
 
     private String morningBriefText() {
