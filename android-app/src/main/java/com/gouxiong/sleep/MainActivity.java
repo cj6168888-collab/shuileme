@@ -1325,7 +1325,7 @@ public class MainActivity extends Activity {
         LinearLayout metrics = new LinearLayout(this);
         metrics.setOrientation(LinearLayout.HORIZONTAL);
         addSleepMetric(metrics, "睡眠时长", sleepDurationText(data.totalSleepMinutes), Theme.BLUE);
-        addSleepMetric(metrics, "入睡时长", data.totalSleepMinutes > 0 ? "18 分" : "待生成", Theme.ORANGE);
+        addSleepMetric(metrics, "入睡时长", sleepOnsetText(data), Theme.ORANGE);
         addSleepMetric(metrics, "熟睡粗估", sleepDurationText(data.estimatedDeepSleepMinutes), Theme.GREEN);
         card.addView(metrics, matchWrap());
         content.addView(card, matchWrap());
@@ -1396,6 +1396,13 @@ public class MainActivity extends Activity {
         if (data.highRiskCount > 0) return "睡眠有风险，建议复盘";
         if (data.eventCount > 0) return "睡眠有波动";
         return "睡眠良好";
+    }
+
+    private String sleepOnsetText(SleepDashboardData data) {
+        if (data.totalSleepMinutes <= 0) {
+            return "待生成";
+        }
+        return "待接入";
     }
 
     private String reportDateText(SleepDashboardData data) {
@@ -2361,12 +2368,12 @@ public class MainActivity extends Activity {
         addPreSleepHeader();
         addSpace(content, 8);
         addPreSleepNotice(readiness);
-        addPreSleepDesignRow("情绪状态", "平静", true, Theme.GREEN, null);
-        addPreSleepDesignRow("身体不适", "无", true, Theme.GREEN, null);
-        addPreSleepDesignRow("咖啡因摄入", "未摄入", true, Theme.BLUE, null);
-        addPreSleepDesignRow("晚餐时间", "2小时前", true, Theme.ORANGE, null);
-        addPreSleepDesignRow("运动情况", "适量", true, Theme.GREEN, null);
-        addPreSleepDesignRow("屏幕使用", "30分钟前", true, Theme.BLUE, null);
+        addPreSleepDesignRow("情绪状态", "待确认", false, Theme.GREEN, null);
+        addPreSleepDesignRow("身体不适", "待确认", false, Theme.GREEN, null);
+        addPreSleepDesignRow("咖啡因摄入", "待确认", false, Theme.BLUE, null);
+        addPreSleepDesignRow("晚餐时间", "待确认", false, Theme.ORANGE, null);
+        addPreSleepDesignRow("运动情况", "待确认", false, Theme.GREEN, null);
+        addPreSleepDesignRow("屏幕使用", "待确认", false, Theme.BLUE, null);
         addPreSleepDesignRow("麦克风授权", readiness.micOk ? "已打开" : "去打开", readiness.micOk, readiness.micOk ? Theme.GREEN : Theme.ORANGE, this::requestSleepGuardPermissions);
         addPreSleepDesignRow("通知权限", readiness.notificationOk ? "已打开" : "去打开", readiness.notificationOk, readiness.notificationOk ? Theme.GREEN : Theme.ORANGE, this::requestSleepGuardPermissions);
         addPrimaryActionButton(ready ? "开始今晚守护" : "确认后开始守护", ready ? Theme.GREEN : Theme.ORANGE, this::startMonitoring);
@@ -2541,7 +2548,7 @@ public class MainActivity extends Activity {
         card.setPadding(Theme.dp(this, 14), Theme.dp(this, 12), Theme.dp(this, 14), Theme.dp(this, 12));
         card.addView(Theme.text(this, "今日关怀建议", 19, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(card, 8);
-        addCareAdviceLine(card, "今日气温", "18-26°C，适量饮水，注意保暖", Theme.BLUE);
+        addCareAdviceLine(card, "今日天气", "天气服务待接入，先按体感增减衣物", Theme.BLUE);
         String med = prefs.medicationEnabled()
                 ? formatMedicationTime() + " " + prefs.medicationName() + (prefs.medicationConfirmedToday() ? " 已确认" : " 待确认")
                 : "还未设置吃药提醒";
