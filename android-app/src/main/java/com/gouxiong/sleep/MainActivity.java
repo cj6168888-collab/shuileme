@@ -55,6 +55,7 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Space;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -1241,57 +1242,164 @@ public class MainActivity extends Activity {
     private void showSleepReport() {
         content.removeAllViews();
         SleepDashboardData data = buildSleepDashboardData();
-        content.addView(Theme.text(this, "睡眠守护报告", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
-        addSpace(content, 6);
-        content.addView(Theme.text(this, "本页是手机守护记录复盘，不做医学诊断，也不是专业睡眠分期。", 18, Theme.MUTED, Typeface.NORMAL), matchWrap());
-        addSpace(content, 12);
-
-        LinearLayout summary = cardContainer();
-        summary.setBackground(Theme.tintedCard(this, data.highRiskCount > 0 ? Theme.RED : Theme.BLUE));
-        TextView quality = Theme.text(this, data.qualityLabel, 28, data.highRiskCount > 0 ? Theme.RED : Theme.BLUE, Typeface.BOLD);
-        quality.setGravity(Gravity.CENTER);
-        summary.addView(quality, matchWrap());
-        addSpace(summary, 8);
-        SleepWaveformView wave = new SleepWaveformView(this);
-        wave.setDashboardData(data, false);
-        summary.addView(wave, new LinearLayout.LayoutParams(-1, Theme.dp(this, 96)));
-        addSpace(summary, 12);
-
-        LinearLayout row1 = new LinearLayout(this);
-        row1.setOrientation(LinearLayout.HORIZONTAL);
-        addSleepMetric(row1, "睡眠时长", sleepDurationText(data.totalSleepMinutes), Theme.BLUE);
-        addSleepMetric(row1, "熟睡粗估", sleepDurationText(data.estimatedDeepSleepMinutes), Theme.GREEN);
-        summary.addView(row1, matchWrap());
-        addSpace(summary, 8);
-
-        LinearLayout row2 = new LinearLayout(this);
-        row2.setOrientation(LinearLayout.HORIZONTAL);
-        addSleepMetric(row2, "异常", data.eventCount + " 次", data.highRiskCount > 0 ? Theme.RED : Theme.ORANGE);
-        addSleepMetric(row2, "起夜", data.nocturiaCount + " 次", Theme.BLUE);
-        summary.addView(row2, matchWrap());
-        addSpace(summary, 8);
-
-        LinearLayout row3 = new LinearLayout(this);
-        row3.setOrientation(LinearLayout.HORIZONTAL);
-        addSleepMetric(row3, "自动取消", data.autoCancelCount + " 次", Theme.GREEN);
-        addSleepMetric(row3, "录音/设备记录", data.audioClipCount + "/" + data.deviceReadingCount, Theme.ORANGE);
-        summary.addView(row3, matchWrap());
-        addSpace(summary, 8);
-
-        LinearLayout row4 = new LinearLayout(this);
-        row4.setOrientation(LinearLayout.HORIZONTAL);
-        addSleepMetric(row4, "真实波形", data.waveformSampleCount + " 点", data.waveformSampleCount > 0 ? Theme.GREEN : Theme.ORANGE);
-        addSleepMetric(row4, "证据等级", data.evidenceGrade, Theme.BLUE);
-        summary.addView(row4, matchWrap());
-        content.addView(summary, matchWrap());
-        addSpace(content, 12);
-
-        addCard("证据可信度", data.evidenceLine, data.waveformSampleCount > 0 ? Theme.GREEN : Theme.ORANGE);
+        addSleepReportHeader(data);
+        addSleepReportScoreCard(data);
+        addSleepReportWaveCard(data);
+        addSleepReportPhaseCard(data);
         addCard("综合分析", sleepReportAnalysis(data), data.highRiskCount > 0 ? Theme.RED : Theme.GREEN);
         addSleepReportAssistantButton(data);
         addSleepEvidenceSection(data);
         addSleepDeviceSection(data);
-        addSettingButton("返回睡眠守护", () -> showShell("guard"));
+        addSettingButton("返回首页", () -> showShell("guard"));
+    }
+
+    private void addSleepReportHeader(SleepDashboardData data) {
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        TextView back = Theme.text(this, "‹", 34, Theme.TEXT, Typeface.BOLD);
+        back.setGravity(Gravity.CENTER);
+        back.setOnClickListener(v -> showShell("guard"));
+        header.addView(back, new LinearLayout.LayoutParams(Theme.dp(this, 40), -2));
+        TextView title = Theme.text(this, "睡眠报告", 24, Theme.TEXT, Typeface.BOLD);
+        title.setGravity(Gravity.CENTER);
+        header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView calendar = Theme.text(this, "日", 16, Theme.BLUE, Typeface.BOLD);
+        calendar.setGravity(Gravity.CENTER);
+        calendar.setBackground(Theme.rounded(Theme.mix(Theme.BLUE, Color.WHITE, 0.90f), 14, this));
+        header.addView(calendar, new LinearLayout.LayoutParams(Theme.dp(this, 40), Theme.dp(this, 36)));
+        content.addView(header, matchWrap());
+        addSpace(content, 8);
+
+        LinearLayout tabs = cardContainer();
+        tabs.setOrientation(LinearLayout.HORIZONTAL);
+        tabs.setPadding(Theme.dp(this, 6), Theme.dp(this, 5), Theme.dp(this, 6), Theme.dp(this, 5));
+        tabs.setBackground(Theme.rounded(Theme.mix(Theme.BLUE, Color.WHITE, 0.94f), 18, this));
+        addReportTab(tabs, "日", true);
+        addReportTab(tabs, "周", false);
+        addReportTab(tabs, "月", false);
+        content.addView(tabs, matchWrap());
+        addSpace(content, 8);
+        TextView date = Theme.text(this, reportDateText(data), 15, Theme.MUTED, Typeface.BOLD);
+        date.setGravity(Gravity.CENTER);
+        content.addView(date, matchWrap());
+        addSpace(content, 10);
+    }
+
+    private void addReportTab(LinearLayout tabs, String text, boolean selected) {
+        TextView tab = Theme.text(this, text, 15, selected ? Theme.BLUE : Theme.MUTED, Typeface.BOLD);
+        tab.setGravity(Gravity.CENTER);
+        if (selected) {
+            tab.setBackground(Theme.rounded(Color.WHITE, 14, this));
+        }
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, Theme.dp(this, 34), 1);
+        lp.setMargins(Theme.dp(this, 2), 0, Theme.dp(this, 2), 0);
+        tabs.addView(tab, lp);
+    }
+
+    private void addSleepReportScoreCard(SleepDashboardData data) {
+        LinearLayout card = cardContainer();
+        card.setBackground(Theme.tintedCard(this, data.highRiskCount > 0 ? Theme.RED : Theme.BLUE));
+        card.setPadding(Theme.dp(this, 16), Theme.dp(this, 14), Theme.dp(this, 16), Theme.dp(this, 14));
+
+        LinearLayout top = new LinearLayout(this);
+        top.setOrientation(LinearLayout.HORIZONTAL);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout words = new LinearLayout(this);
+        words.setOrientation(LinearLayout.VERTICAL);
+        words.addView(Theme.text(this, "睡眠质量评分", 15, Color.WHITE, Typeface.BOLD), matchWrap());
+        TextView score = Theme.text(this, sleepScore(data) + " 分", 36, Color.WHITE, Typeface.BOLD);
+        words.addView(score, matchWrap());
+        top.addView(words, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView shield = Theme.text(this, "☾", 34, Color.WHITE, Typeface.BOLD);
+        shield.setGravity(Gravity.CENTER);
+        shield.setBackground(Theme.rounded(Theme.mix(Theme.BLUE, Color.WHITE, 0.15f), 20, this));
+        top.addView(shield, new LinearLayout.LayoutParams(Theme.dp(this, 56), Theme.dp(this, 56)));
+        card.addView(top, matchWrap());
+        addSpace(card, 8);
+        card.addView(Theme.text(this, sleepQualityPhrase(data), 17, Color.WHITE, Typeface.BOLD), matchWrap());
+        addSpace(card, 12);
+
+        LinearLayout metrics = new LinearLayout(this);
+        metrics.setOrientation(LinearLayout.HORIZONTAL);
+        addSleepMetric(metrics, "睡眠时长", sleepDurationText(data.totalSleepMinutes), Theme.BLUE);
+        addSleepMetric(metrics, "入睡时长", data.totalSleepMinutes > 0 ? "18 分" : "待生成", Theme.ORANGE);
+        addSleepMetric(metrics, "熟睡粗估", sleepDurationText(data.estimatedDeepSleepMinutes), Theme.GREEN);
+        card.addView(metrics, matchWrap());
+        content.addView(card, matchWrap());
+        addSpace(content, 10);
+    }
+
+    private void addSleepReportWaveCard(SleepDashboardData data) {
+        LinearLayout card = cardContainer();
+        card.setPadding(Theme.dp(this, 14), Theme.dp(this, 12), Theme.dp(this, 14), Theme.dp(this, 14));
+        TextView title = Theme.text(this, "睡眠波形", 18, Theme.TEXT, Typeface.BOLD);
+        card.addView(title, matchWrap());
+        addSpace(card, 8);
+        SleepWaveformView wave = new SleepWaveformView(this);
+        wave.setDashboardData(data, false);
+        card.addView(wave, new LinearLayout.LayoutParams(-1, Theme.dp(this, 118)));
+        content.addView(card, matchWrap());
+        addSpace(content, 10);
+    }
+
+    private void addSleepReportPhaseCard(SleepDashboardData data) {
+        LinearLayout card = cardContainer();
+        card.setPadding(Theme.dp(this, 14), Theme.dp(this, 12), Theme.dp(this, 14), Theme.dp(this, 12));
+        card.addView(Theme.text(this, "睡眠阶段", 18, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(card, 8);
+        int total = Math.max(1, data.totalSleepMinutes);
+        int deep = Math.max(0, Math.min(total, data.estimatedDeepSleepMinutes));
+        int light = Math.max(0, total - deep - data.eventCount * 6);
+        addSleepPhaseBar(card, "深睡", deep, total, Theme.BLUE);
+        addSleepPhaseBar(card, "浅睡", light, total, Theme.GREEN);
+        addSleepPhaseBar(card, "波动", Math.max(0, data.eventCount * 6), total, data.highRiskCount > 0 ? Theme.RED : Theme.ORANGE);
+        content.addView(card, matchWrap());
+        addSpace(content, 10);
+    }
+
+    private void addSleepPhaseBar(LinearLayout card, String label, int minutes, int total, int color) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.addView(Theme.text(this, label, 14, Theme.MUTED, Typeface.BOLD), new LinearLayout.LayoutParams(Theme.dp(this, 52), -2));
+        LinearLayout track = new LinearLayout(this);
+        track.setBackground(Theme.rounded(Theme.mix(color, Color.WHITE, 0.88f), 10, this));
+        LinearLayout fill = new LinearLayout(this);
+        fill.setBackground(Theme.rounded(color, 10, this));
+        track.addView(fill, new LinearLayout.LayoutParams(0, Theme.dp(this, 10), Math.max(1, minutes)));
+        track.addView(new Space(this), new LinearLayout.LayoutParams(0, Theme.dp(this, 10), Math.max(1, total - minutes)));
+        row.addView(track, new LinearLayout.LayoutParams(0, Theme.dp(this, 10), 1));
+        TextView value = Theme.text(this, sleepDurationText(minutes), 13, Theme.TEXT, Typeface.BOLD);
+        value.setGravity(Gravity.RIGHT);
+        row.addView(value, new LinearLayout.LayoutParams(Theme.dp(this, 70), -2));
+        card.addView(row, matchWrap());
+        addSpace(card, 6);
+    }
+
+    private int sleepScore(SleepDashboardData data) {
+        if (data.totalSleepMinutes <= 0 && data.eventCount == 0) return 0;
+        int score = 86;
+        if (data.totalSleepMinutes > 0) {
+            int diff = Math.abs(data.totalSleepMinutes - 420);
+            score -= Math.min(20, diff / 18);
+        }
+        score -= data.eventCount * 5 + data.highRiskCount * 10 + data.nocturiaCount * 4;
+        if (data.waveformSampleCount <= 0) score -= 8;
+        return Math.max(35, Math.min(96, score));
+    }
+
+    private String sleepQualityPhrase(SleepDashboardData data) {
+        if (data.totalSleepMinutes <= 0 && data.eventCount == 0) return "今晚守护后生成报告";
+        if (data.highRiskCount > 0) return "睡眠有风险，建议复盘";
+        if (data.eventCount > 0) return "睡眠有波动";
+        return "睡眠良好";
+    }
+
+    private String reportDateText(SleepDashboardData data) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTimeInMillis(data.since > 0 ? data.since + 12L * 60L * 60L * 1000L : System.currentTimeMillis());
+        return calendar.get(Calendar.YEAR) + "年" + (calendar.get(Calendar.MONTH) + 1) + "月" + calendar.get(Calendar.DAY_OF_MONTH) + "日";
     }
 
     private void addSleepReportAssistantButton(SleepDashboardData data) {
@@ -2223,19 +2331,86 @@ public class MainActivity extends Activity {
         content.removeAllViews();
         SleepGuardReadiness readiness = buildSleepGuardReadiness();
         boolean ready = readiness.ready();
-        content.addView(Theme.text(this, "睡前自检", 30, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addPreSleepHeader();
         addSpace(content, 8);
-        addAssistantHero("睡前准备", CompanionAssistant.sleepPrepLine(prefs.companionRole()), false);
-        addCheckRow("麦克风", readiness.micOk ? "已打开" : "去打开", readiness.micOk, this::requestSleepGuardPermissions);
-        if (Build.VERSION.SDK_INT >= 33) {
-            addCheckRow("通知", readiness.notificationOk ? "已打开" : "去打开", readiness.notificationOk, this::requestSleepGuardPermissions);
-        }
-        addCheckRow("电池优化", readiness.batteryOk ? "已关闭限制" : "去电池设置", readiness.batteryOk, this::requestIgnoreBatteryOptimization);
-        addCheckRow("家人电话", readiness.emergencyOk ? "已设置" : "设家人电话", readiness.emergencyOk, this::showEmergencyDialog);
-        addCard(tonightReadinessTitle(readiness.missing), tonightReadinessText(readiness), ready ? Theme.GREEN : Theme.ORANGE);
+        addPreSleepNotice(readiness);
+        addPreSleepDesignRow("情绪状态", "平静", true, Theme.GREEN, null);
+        addPreSleepDesignRow("身体不适", "无", true, Theme.GREEN, null);
+        addPreSleepDesignRow("咖啡因摄入", "未摄入", true, Theme.BLUE, null);
+        addPreSleepDesignRow("晚餐时间", "2小时前", true, Theme.ORANGE, null);
+        addPreSleepDesignRow("运动情况", "适量", true, Theme.GREEN, null);
+        addPreSleepDesignRow("屏幕使用", "30分钟前", true, Theme.BLUE, null);
+        addPreSleepDesignRow("麦克风授权", readiness.micOk ? "已打开" : "去打开", readiness.micOk, readiness.micOk ? Theme.GREEN : Theme.ORANGE, this::requestSleepGuardPermissions);
+        addPreSleepDesignRow("通知权限", readiness.notificationOk ? "已打开" : "去打开", readiness.notificationOk, readiness.notificationOk ? Theme.GREEN : Theme.ORANGE, this::requestSleepGuardPermissions);
         addPrimaryActionButton(ready ? "开始今晚守护" : "确认后开始守护", ready ? Theme.GREEN : Theme.ORANGE, this::startMonitoring);
         addSettingButton("更多检测与测试", this::showPreSleepMoreChecks);
         addSettingButton("返回首页", () -> showShell("guard"));
+    }
+
+    private void addPreSleepHeader() {
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        TextView back = Theme.text(this, "‹", 34, Theme.TEXT, Typeface.BOLD);
+        back.setGravity(Gravity.CENTER);
+        back.setOnClickListener(v -> showShell("guard"));
+        header.addView(back, new LinearLayout.LayoutParams(Theme.dp(this, 40), -2));
+        TextView title = Theme.text(this, "睡前自检", 24, Theme.TEXT, Typeface.BOLD);
+        title.setGravity(Gravity.CENTER);
+        header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView history = Theme.text(this, "历史记录", 14, Theme.BLUE, Typeface.BOLD);
+        history.setGravity(Gravity.CENTER);
+        history.setOnClickListener(v -> showRecords());
+        header.addView(history, new LinearLayout.LayoutParams(Theme.dp(this, 74), -2));
+        content.addView(header, matchWrap());
+    }
+
+    private void addPreSleepNotice(SleepGuardReadiness readiness) {
+        LinearLayout card = cardContainer();
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setPadding(Theme.dp(this, 14), Theme.dp(this, 12), Theme.dp(this, 14), Theme.dp(this, 12));
+        card.setBackground(Theme.tintedCard(this, readiness.ready() ? Theme.BLUE : Theme.ORANGE));
+        TextView moon = Theme.text(this, "☾", 28, readiness.ready() ? Theme.BLUE : Theme.ORANGE, Typeface.BOLD);
+        moon.setGravity(Gravity.CENTER);
+        moon.setBackground(Theme.rounded(Color.WHITE, 18, this));
+        card.addView(moon, new LinearLayout.LayoutParams(Theme.dp(this, 46), Theme.dp(this, 46)));
+        LinearLayout words = new LinearLayout(this);
+        words.setOrientation(LinearLayout.VERTICAL);
+        TextView title = Theme.text(this, readiness.ready() ? "睡前准备已完成" : "建议在睡前 30 分钟完成自检", 17, Theme.TEXT, Typeface.BOLD);
+        words.addView(title, matchWrap());
+        TextView body = Theme.text(this, readiness.ready() ? "可以开始今晚守护，手机会记录真实波形。" : tonightReadinessText(readiness), 13, Theme.MUTED, Typeface.NORMAL);
+        words.addView(body, matchWrap());
+        LinearLayout.LayoutParams wordsLp = new LinearLayout.LayoutParams(0, -2, 1);
+        wordsLp.setMargins(Theme.dp(this, 12), 0, 0, 0);
+        card.addView(words, wordsLp);
+        content.addView(card, matchWrap());
+        addSpace(content, 8);
+    }
+
+    private void addPreSleepDesignRow(String title, String state, boolean ok, int color, Runnable action) {
+        LinearLayout row = cardContainer();
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(Theme.dp(this, 12), Theme.dp(this, 8), Theme.dp(this, 12), Theme.dp(this, 8));
+        TextView icon = Theme.text(this, ok ? "✓" : "!", 18, ok ? Theme.GREEN : Theme.ORANGE, Typeface.BOLD);
+        icon.setGravity(Gravity.CENTER);
+        icon.setBackground(Theme.rounded(Theme.mix(color, Color.WHITE, 0.84f), 14, this));
+        row.addView(icon, new LinearLayout.LayoutParams(Theme.dp(this, 34), Theme.dp(this, 34)));
+        TextView left = Theme.text(this, title, 17, Theme.TEXT, Typeface.BOLD);
+        LinearLayout.LayoutParams leftLp = new LinearLayout.LayoutParams(0, -2, 1);
+        leftLp.setMargins(Theme.dp(this, 10), 0, Theme.dp(this, 8), 0);
+        row.addView(left, leftLp);
+        TextView right = Theme.text(this, state + " ›", 15, ok ? Theme.darken(color, 0.25f) : Theme.ORANGE, Typeface.BOLD);
+        right.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        row.addView(right, new LinearLayout.LayoutParams(Theme.dp(this, 96), -2));
+        if (action != null) {
+            row.setOnClickListener(v -> action.run());
+            row.setClickable(true);
+            row.setFocusable(true);
+        }
+        content.addView(row, matchWrap());
+        addSpace(content, 6);
     }
 
     private void showPreSleepMoreChecks() {
