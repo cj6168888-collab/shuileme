@@ -1318,46 +1318,65 @@ public class MainActivity extends Activity {
 
     private void addSleepReportScoreCard(SleepDashboardData data) {
         LinearLayout card = cardContainer();
-        card.setBackground(Theme.tintedCard(this, data.highRiskCount > 0 ? Theme.RED : Theme.BLUE));
-        card.setPadding(Theme.dp(this, 16), Theme.dp(this, 14), Theme.dp(this, 16), Theme.dp(this, 14));
+        card.setPadding(0, 0, 0, Theme.dp(this, 12));
 
-        LinearLayout top = new LinearLayout(this);
-        top.setOrientation(LinearLayout.HORIZONTAL);
-        top.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout scoreBand = new LinearLayout(this);
+        scoreBand.setOrientation(LinearLayout.HORIZONTAL);
+        scoreBand.setGravity(Gravity.CENTER_VERTICAL);
+        scoreBand.setPadding(Theme.dp(this, 18), Theme.dp(this, 16), Theme.dp(this, 18), Theme.dp(this, 16));
+        scoreBand.setBackground(Theme.rounded(data.highRiskCount > 0 ? Theme.RED : Color.rgb(24, 88, 214), 24, this));
+
         LinearLayout words = new LinearLayout(this);
         words.setOrientation(LinearLayout.VERTICAL);
-        words.addView(Theme.text(this, "睡眠质量评分", 15, Color.WHITE, Typeface.BOLD), matchWrap());
-        TextView score = Theme.text(this, sleepScore(data) + " 分", 36, Color.WHITE, Typeface.BOLD);
+        words.addView(Theme.text(this, "睡眠质量评分", 16, Color.WHITE, Typeface.BOLD), matchWrap());
+        TextView score = Theme.text(this, sleepScore(data) + " 分", 40, Color.WHITE, Typeface.BOLD);
         words.addView(score, matchWrap());
-        top.addView(words, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView shield = Theme.text(this, "☾", 34, Color.WHITE, Typeface.BOLD);
+        scoreBand.addView(words, new LinearLayout.LayoutParams(0, -2, 1));
+
+        TextView quality = Theme.text(this, sleepQualityPhrase(data), 18, Color.WHITE, Typeface.BOLD);
+        quality.setGravity(Gravity.CENTER);
+        scoreBand.addView(quality, new LinearLayout.LayoutParams(Theme.dp(this, 98), -2));
+
+        TextView shield = Theme.text(this, "☾", 38, Color.WHITE, Typeface.BOLD);
         shield.setGravity(Gravity.CENTER);
-        shield.setBackground(Theme.rounded(Theme.mix(Theme.BLUE, Color.WHITE, 0.15f), 20, this));
-        top.addView(shield, new LinearLayout.LayoutParams(Theme.dp(this, 56), Theme.dp(this, 56)));
-        card.addView(top, matchWrap());
-        addSpace(card, 8);
-        card.addView(Theme.text(this, sleepQualityPhrase(data), 17, Color.WHITE, Typeface.BOLD), matchWrap());
-        addSpace(card, 12);
+        shield.setBackground(Theme.rounded(Theme.mix(Theme.ORANGE, Color.WHITE, 0.12f), 22, this));
+        scoreBand.addView(shield, new LinearLayout.LayoutParams(Theme.dp(this, 62), Theme.dp(this, 62)));
+        card.addView(scoreBand, matchWrap());
+        addSpace(card, 10);
 
         LinearLayout metrics = new LinearLayout(this);
         metrics.setOrientation(LinearLayout.HORIZONTAL);
-        addSleepMetric(metrics, "睡眠时长", sleepDurationText(data.totalSleepMinutes), Theme.BLUE);
-        addSleepMetric(metrics, "入睡时长", sleepOnsetText(data), Theme.ORANGE);
-        addSleepMetric(metrics, "熟睡粗估", sleepDurationText(data.estimatedDeepSleepMinutes), Theme.GREEN);
+        metrics.setPadding(Theme.dp(this, 8), 0, Theme.dp(this, 8), 0);
+        addReportSummaryMetric(metrics, "睡眠时长", sleepDurationText(data.totalSleepMinutes));
+        addReportSummaryMetric(metrics, "入睡时长", sleepOnsetText(data));
+        addReportSummaryMetric(metrics, "深睡时长", sleepDurationText(data.estimatedDeepSleepMinutes));
         card.addView(metrics, matchWrap());
         content.addView(card, matchWrap());
         addSpace(content, 10);
     }
 
+    private void addReportSummaryMetric(LinearLayout row, String label, String value) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER);
+        TextView top = Theme.text(this, label, 14, Theme.MUTED, Typeface.BOLD);
+        top.setGravity(Gravity.CENTER);
+        box.addView(top, matchWrap());
+        TextView bottom = Theme.text(this, value, 20, Theme.TEXT, Typeface.BOLD);
+        bottom.setGravity(Gravity.CENTER);
+        box.addView(bottom, matchWrap());
+        row.addView(box, new LinearLayout.LayoutParams(0, Theme.dp(this, 58), 1));
+    }
+
     private void addSleepReportWaveCard(SleepDashboardData data) {
         LinearLayout card = cardContainer();
-        card.setPadding(Theme.dp(this, 14), Theme.dp(this, 12), Theme.dp(this, 14), Theme.dp(this, 14));
-        TextView title = Theme.text(this, "睡眠波形", 18, Theme.TEXT, Typeface.BOLD);
+        card.setPadding(Theme.dp(this, 16), Theme.dp(this, 14), Theme.dp(this, 16), Theme.dp(this, 16));
+        TextView title = Theme.text(this, "睡眠波形", 21, Theme.TEXT, Typeface.BOLD);
         card.addView(title, matchWrap());
         addSpace(card, 8);
         SleepWaveformView wave = new SleepWaveformView(this);
         wave.setDashboardData(data, false);
-        card.addView(wave, new LinearLayout.LayoutParams(-1, Theme.dp(this, 118)));
+        card.addView(wave, new LinearLayout.LayoutParams(-1, Theme.dp(this, 132)));
         content.addView(card, matchWrap());
         addSpace(content, 10);
     }
@@ -1365,14 +1384,13 @@ public class MainActivity extends Activity {
     private void addSleepReportPhaseCard(SleepDashboardData data) {
         LinearLayout card = cardContainer();
         card.setPadding(Theme.dp(this, 14), Theme.dp(this, 12), Theme.dp(this, 14), Theme.dp(this, 12));
-        card.addView(Theme.text(this, "睡眠阶段", 18, Theme.TEXT, Typeface.BOLD), matchWrap());
-        addSpace(card, 8);
+        card.addView(Theme.text(this, "睡眠阶段", 21, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(card, 10);
         int total = Math.max(1, data.totalSleepMinutes);
         int deep = Math.max(0, Math.min(total, data.estimatedDeepSleepMinutes));
         int light = Math.max(0, total - deep - data.eventCount * 6);
         addSleepPhaseBar(card, "深睡", deep, total, Theme.BLUE);
         addSleepPhaseBar(card, "浅睡", light, total, Theme.GREEN);
-        addSleepPhaseBar(card, "波动", Math.max(0, data.eventCount * 6), total, data.highRiskCount > 0 ? Theme.RED : Theme.ORANGE);
         content.addView(card, matchWrap());
         addSpace(content, 10);
     }
@@ -1398,19 +1416,20 @@ public class MainActivity extends Activity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.addView(Theme.text(this, label, 14, Theme.MUTED, Typeface.BOLD), new LinearLayout.LayoutParams(Theme.dp(this, 52), -2));
+        row.addView(Theme.text(this, label, 16, Theme.TEXT, Typeface.BOLD), new LinearLayout.LayoutParams(Theme.dp(this, 58), -2));
         LinearLayout track = new LinearLayout(this);
         track.setBackground(Theme.rounded(Theme.mix(color, Color.WHITE, 0.88f), 10, this));
         LinearLayout fill = new LinearLayout(this);
         fill.setBackground(Theme.rounded(color, 10, this));
-        track.addView(fill, new LinearLayout.LayoutParams(0, Theme.dp(this, 10), Math.max(1, minutes)));
-        track.addView(new Space(this), new LinearLayout.LayoutParams(0, Theme.dp(this, 10), Math.max(1, total - minutes)));
-        row.addView(track, new LinearLayout.LayoutParams(0, Theme.dp(this, 10), 1));
-        TextView value = Theme.text(this, sleepDurationText(minutes), 13, Theme.TEXT, Typeface.BOLD);
+        track.addView(fill, new LinearLayout.LayoutParams(0, Theme.dp(this, 12), Math.max(1, minutes)));
+        track.addView(new Space(this), new LinearLayout.LayoutParams(0, Theme.dp(this, 12), Math.max(1, total - minutes)));
+        row.addView(track, new LinearLayout.LayoutParams(0, Theme.dp(this, 12), 1));
+        String percent = total <= 0 ? "0%" : Math.round(minutes * 100f / Math.max(1, total)) + "%";
+        TextView value = Theme.text(this, sleepDurationText(minutes) + "  " + percent, 13, Theme.TEXT, Typeface.BOLD);
         value.setGravity(Gravity.RIGHT);
-        row.addView(value, new LinearLayout.LayoutParams(Theme.dp(this, 70), -2));
+        row.addView(value, new LinearLayout.LayoutParams(Theme.dp(this, 104), -2));
         card.addView(row, matchWrap());
-        addSpace(card, 6);
+        addSpace(card, 10);
     }
 
     private int sleepScore(SleepDashboardData data) {
