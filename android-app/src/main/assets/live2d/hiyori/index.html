@@ -49,6 +49,13 @@
 
     function setStatus(text) {
       status.textContent = text;
+      notifyStatus(text);
+    }
+
+    function notifyStatus(message) {
+      try {
+        if (window.AndroidLive2D && window.AndroidLive2D.onStatus) window.AndroidLive2D.onStatus(String(message || ''));
+      } catch (e) {}
     }
 
     function notifyReady() {
@@ -163,9 +170,11 @@
 
     async function boot() {
       try {
+        setStatus('Checking Live2D runtime');
         if (!window.PIXI || !PIXI.live2d || !PIXI.live2d.Live2DModel) {
           throw new Error('Live2D runtime not loaded');
         }
+        setStatus('Creating Pixi WebGL stage');
         app = new PIXI.Application({
           view: document.createElement('canvas'),
           autoStart: true,
@@ -175,7 +184,9 @@
           backgroundAlpha: 0
         });
         document.getElementById('stage').appendChild(app.view);
+        setStatus('Loading Hiyori model files');
         model = await PIXI.live2d.Live2DModel.from('Hiyori/Hiyori.model3.json');
+        setStatus('Binding Hiyori model to stage');
         app.stage.addChild(model);
         model.interactive = true;
         fitModel();

@@ -22,7 +22,7 @@ Current status:
 - Emulator validation produced a real Hiyori render, not a placeholder screenshot: `artifacts/debug-ui/live2d-preview-scaled-final.png`.
 
 Next acceptance target:
-- Reduce cold WebView/Live2D load time. The emulator can take roughly 60-90 seconds before the first render.
+- Reduce cold WebView/Live2D load time. Emulator validation has ranged from roughly 60-91 seconds before the first render, so the preview remains gated and uses a 120-second timeout.
 - Verify WebView/WebGL load time, memory, CPU, and rendering on a real device.
 - Only after that, promote it from technical preview to the main companion renderer.
 

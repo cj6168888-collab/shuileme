@@ -7,6 +7,7 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
@@ -36,8 +37,12 @@ public class Live2DPreviewActivity extends Activity {
     private final Handler main = new Handler(Looper.getMainLooper());
     private FrameLayout previewHost;
     private TextView status;
+    private Button loadButton;
+    private Button speakButton;
     private WebView webView;
     private boolean bridgeAnswered;
+    private boolean loading;
+    private long loadStartedAt;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -85,17 +90,18 @@ public class Live2DPreviewActivity extends Activity {
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.setGravity(Gravity.CENTER);
 
-        Button load = Theme.button(this, "Load", Theme.LILAC);
-        load.setTextSize(20);
-        load.setMinHeight(Theme.dp(this, 58));
-        load.setOnClickListener(v -> loadLive2D());
-        actions.addView(load, weightedButtonLp());
+        loadButton = Theme.button(this, "Load", Theme.LILAC);
+        loadButton.setTextSize(20);
+        loadButton.setMinHeight(Theme.dp(this, 58));
+        loadButton.setOnClickListener(v -> loadLive2D());
+        actions.addView(loadButton, weightedButtonLp());
 
-        Button mood = Theme.softButton(this, "Speak", Theme.GREEN);
-        mood.setTextSize(20);
-        mood.setMinHeight(Theme.dp(this, 58));
-        mood.setOnClickListener(v -> sendToLive2D("window.setMood && window.setMood('speaking'); window.setMouth && window.setMouth(0.9);"));
-        actions.addView(mood, weightedButtonLp());
+        speakButton = Theme.softButton(this, "Speak", Theme.GREEN);
+        speakButton.setTextSize(20);
+        speakButton.setMinHeight(Theme.dp(this, 58));
+        speakButton.setEnabled(false);
+        speakButton.setOnClickListener(v -> sendToLive2D("window.setMood && window.setMood('speaking'); window.setMouth && window.setMouth(0.9);"));
+        actions.addView(speakButton, weightedButtonLp());
 
         Button close = Theme.softButton(this, "Close", Theme.ORANGE);
         close.setTextSize(20);
@@ -109,12 +115,20 @@ public class Live2DPreviewActivity extends Activity {
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     private void loadLive2D() {
+        if (loading) {
+            status.setText("Live2D is still loading. Please wait for a pass or fail result.");
+            return;
+        }
         destroyWebView();
+        loading = true;
         bridgeAnswered = false;
+        loadStartedAt = SystemClock.elapsedRealtime();
+        setLoadButtons(true, false);
         status.setText("Loading local Live2D assets...");
         previewHost.removeAllViews();
 
         webView = new WebView(this);
+        status.setText("Starting Android WebView...");
         webView.setBackgroundColor(Color.TRANSPARENT);
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         WebSettings settings = webView.getSettings();
@@ -131,16 +145,26 @@ public class Live2DPreviewActivity extends Activity {
         previewHost.addView(webView, frameMatch());
         String html = readAssetText("live2d/hiyori/index.html");
         if (html.length() == 0) {
+            loading = false;
+            setLoadButtons(false, false);
             status.setText("Live2D failed: preview html missing");
             return;
         }
+        status.setText("Injecting Live2D preview HTML...");
         webView.loadDataWithBaseURL(LIVE2D_BASE_URL, html, "text/html", "UTF-8", null);
 
         main.postDelayed(() -> {
             if (!bridgeAnswered && webView != null) {
-                status.setText("Still waiting. If the model is blank, this device has not passed Live2D validation.");
+                status.setText("Still waiting after " + elapsedSeconds() + "s. WebView is alive, model not ready yet.");
             }
         }, 12000);
+        main.postDelayed(() -> {
+            if (!bridgeAnswered && webView != null) {
+                status.setText("Validation timeout after " + elapsedSeconds() + "s. Do not promote this to the main avatar on this device.");
+                loading = false;
+                setLoadButtons(false, false);
+            }
+        }, 120000);
     }
 
     private void sendToLive2D(String script) {
@@ -149,6 +173,21 @@ public class Live2DPreviewActivity extends Activity {
             return;
         }
         webView.evaluateJavascript(script, null);
+    }
+
+    private void setLoadButtons(boolean busy, boolean canSpeak) {
+        if (loadButton != null) {
+            loadButton.setEnabled(!busy);
+            loadButton.setText(busy ? "Loading" : "Load");
+        }
+        if (speakButton != null) {
+            speakButton.setEnabled(canSpeak);
+        }
+    }
+
+    private long elapsedSeconds() {
+        if (loadStartedAt <= 0) return 0;
+        return Math.max(0, (SystemClock.elapsedRealtime() - loadStartedAt) / 1000);
     }
 
     private void destroyWebView() {
@@ -190,14 +229,33 @@ public class Live2DPreviewActivity extends Activity {
         @JavascriptInterface
         public void onReady() {
             bridgeAnswered = true;
-            main.post(() -> status.setText("Loaded. L01 is rendering in WebView preview."));
+            main.post(() -> {
+                loading = false;
+                setLoadButtons(false, true);
+                status.setText("Loaded in " + elapsedSeconds() + "s. L01 is rendering in WebView preview.");
+            });
         }
 
         @JavascriptInterface
         public void onError(String message) {
             bridgeAnswered = true;
             final String clean = message == null ? "unknown error" : message;
-            main.post(() -> status.setText("Live2D failed: " + clean));
+            main.post(() -> {
+                loading = false;
+                setLoadButtons(false, false);
+                status.setText("Live2D failed after " + elapsedSeconds() + "s: " + clean);
+            });
+        }
+
+        @JavascriptInterface
+        public void onStatus(String message) {
+            final String clean = message == null ? "" : message;
+            if (clean.length() == 0) return;
+            main.post(() -> {
+                if (!bridgeAnswered && webView != null) {
+                    status.setText(clean + " (" + elapsedSeconds() + "s)");
+                }
+            });
         }
     }
 
