@@ -877,14 +877,28 @@ public class PreferenceStore {
         return prefs.getInt("medication_repeat_minutes", 30);
     }
 
+    public int medicationHour() {
+        return prefs.getInt("medication_hour", 7);
+    }
+
+    public int medicationMinute() {
+        return prefs.getInt("medication_minute", 30);
+    }
+
     public long medicationConfirmedAt() {
         return prefs.getLong("medication_confirmed_at", 0L);
     }
 
     public void setMedication(String name, int repeatMinutes) {
+        setMedication(name, medicationHour(), medicationMinute(), repeatMinutes);
+    }
+
+    public void setMedication(String name, int hour, int minute, int repeatMinutes) {
         prefs.edit()
                 .putBoolean("medication_enabled", name != null && name.trim().length() > 0)
                 .putString("medication_name", name == null ? "" : name.trim())
+                .putInt("medication_hour", Math.max(0, Math.min(23, hour)))
+                .putInt("medication_minute", Math.max(0, Math.min(59, minute)))
                 .putInt("medication_repeat_minutes", repeatMinutes)
                 .apply();
     }
@@ -911,12 +925,46 @@ public class PreferenceStore {
         prefs.edit().putBoolean("hydration_reminder_enabled", enabled).apply();
     }
 
+    public int hydrationIntervalMinutes() {
+        return prefs.getInt("hydration_interval_minutes", 60);
+    }
+
+    public void setHydrationReminder(boolean enabled, int intervalMinutes) {
+        prefs.edit()
+                .putBoolean("hydration_reminder_enabled", enabled)
+                .putInt("hydration_interval_minutes", Math.max(30, Math.min(180, intervalMinutes)))
+                .apply();
+    }
+
     public long hydrationAcknowledgedAt() {
         return prefs.getLong("hydration_acknowledged_at", 0L);
     }
 
     public void markHydrationAcknowledgedNow() {
         prefs.edit().putLong("hydration_acknowledged_at", System.currentTimeMillis()).apply();
+    }
+
+    public boolean sedentaryReminderEnabled() {
+        return prefs.getBoolean("sedentary_reminder_enabled", false);
+    }
+
+    public int sedentaryIntervalMinutes() {
+        return prefs.getInt("sedentary_interval_minutes", 60);
+    }
+
+    public void setSedentaryReminder(boolean enabled, int intervalMinutes) {
+        prefs.edit()
+                .putBoolean("sedentary_reminder_enabled", enabled)
+                .putInt("sedentary_interval_minutes", Math.max(30, Math.min(240, intervalMinutes)))
+                .apply();
+    }
+
+    public long sedentaryAcknowledgedAt() {
+        return prefs.getLong("sedentary_acknowledged_at", 0L);
+    }
+
+    public void markSedentaryAcknowledgedNow() {
+        prefs.edit().putLong("sedentary_acknowledged_at", System.currentTimeMillis()).apply();
     }
 
     public String importantObjectMemory() {

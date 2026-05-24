@@ -91,6 +91,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".SedentaryReminderReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".ServerMessageReceiver"
             android:exported="false" />
 
