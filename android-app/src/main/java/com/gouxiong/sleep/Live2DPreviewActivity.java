@@ -49,7 +49,7 @@ public class Live2DPreviewActivity extends Activity {
         super.onCreate(savedInstanceState);
         buildUi();
         if (getIntent() != null && getIntent().getBooleanExtra("auto_load", false)) {
-            main.postDelayed(this::loadLive2D, 450);
+            main.postDelayed(this::loadLive2D, 8000);
         }
     }
 
@@ -232,6 +232,7 @@ public class Live2DPreviewActivity extends Activity {
             main.post(() -> {
                 loading = false;
                 setLoadButtons(false, true);
+                Log.i(TAG, "bridge ready after " + elapsedSeconds() + "s");
                 status.setText("Loaded in " + elapsedSeconds() + "s. L01 is rendering in WebView preview.");
             });
         }
@@ -243,6 +244,7 @@ public class Live2DPreviewActivity extends Activity {
             main.post(() -> {
                 loading = false;
                 setLoadButtons(false, false);
+                Log.w(TAG, "bridge error after " + elapsedSeconds() + "s: " + clean);
                 status.setText("Live2D failed after " + elapsedSeconds() + "s: " + clean);
             });
         }
@@ -253,6 +255,7 @@ public class Live2DPreviewActivity extends Activity {
             if (clean.length() == 0) return;
             main.post(() -> {
                 if (!bridgeAnswered && webView != null) {
+                    Log.i(TAG, "bridge status after " + elapsedSeconds() + "s: " + clean);
                     status.setText(clean + " (" + elapsedSeconds() + "s)");
                 }
             });

@@ -20,9 +20,12 @@ Current status:
 - `Live2DPreviewActivity` now opens L01 as an isolated, user-triggered preview in the `:live2d` process.
 - The preview uses `loadDataWithBaseURL` plus a local asset WebView interceptor because plain `file://` and a direct custom URL did not reliably start the Pixi/Live2D loader in emulator validation.
 - Emulator validation produced a real Hiyori render, not a placeholder screenshot: `artifacts/debug-ui/live2d-preview-scaled-final.png`.
+- `android-app/e2e-live2d-preview.ps1` provides a repeatable honest validation path: install/start the isolated preview, wait for a loaded status, capture screenshot/logcat, and run a simple pixel check so a blank WebView is not counted as passing.
+- 2026-05-24 follow-up validation failed on the emulator: the isolated `:live2d` process can show Android's not-responding dialog during WebView/Live2D cold loading. Because of that, the main companion UI no longer exposes a user-facing Live2D button. The preview remains a development-only validation target until it passes without ANR.
 
 Next acceptance target:
 - Reduce cold WebView/Live2D load time. Emulator validation has ranged from roughly 60-91 seconds before the first render, so the preview remains gated and uses a 120-second timeout.
+- Make the isolated preview pass `android-app/e2e-live2d-preview.ps1` without ANR/not-responding dialogs.
 - Verify WebView/WebGL load time, memory, CPU, and rendering on a real device.
 - Only after that, promote it from technical preview to the main companion renderer.
 
