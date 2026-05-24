@@ -3242,7 +3242,7 @@ public class MainActivity extends Activity {
 
         if (videoMode) {
             View avatarStage = createLiveAvatarStage(role, name, liveStageMood, animationSerial);
-            stage.addView(avatarStage, imageLp(258));
+            stage.addView(avatarStage, imageLp(226));
             addSpace(stage, 6);
             LinearLayout bubble = new LinearLayout(this);
             bubble.setOrientation(LinearLayout.VERTICAL);
@@ -3283,19 +3283,54 @@ public class MainActivity extends Activity {
         addXiaozhiVoiceMeter(stage, CompanionAssistant.roleColor(role));
         addSpace(stage, 8);
 
-        LinearLayout actions = new LinearLayout(this);
-        actions.setOrientation(LinearLayout.HORIZONTAL);
-        addLiveActionButton(actions, "暂停", Theme.ORANGE, () -> {
-            stopRealtimeVoiceChat(true);
-            stopAssistantSpeech();
-            updateVoiceStatus("我先安静等您。要继续时点小助手。");
-            updateLiveStageStatus("我先安静等您", "comforting");
-        }, false);
-        addLiveActionButton(actions, "看一眼", Theme.GREEN, this::startQuickVisionGlance, false);
-        stage.addView(actions, matchWrap());
+        addLiveConversationControls(stage);
 
         content.addView(stage, matchWrap());
         addSpace(content, 6);
+    }
+
+    private void addLiveConversationControls(LinearLayout stage) {
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+
+        Button talk = Theme.button(this, "按住说话", Theme.GREEN);
+        talk.setTextSize(20);
+        talk.setMinHeight(Theme.dp(this, 60));
+        talk.setOnTouchListener((v, event) -> {
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                interruptForUserSpeech();
+                updateVoiceStatus("我在听，您慢慢说。");
+                return true;
+            }
+            if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
+                restartRealtimeListeningSoon(120);
+                return true;
+            }
+            return true;
+        });
+        LinearLayout.LayoutParams talkLp = new LinearLayout.LayoutParams(0, -2, 1);
+        talkLp.setMargins(0, 0, Theme.dp(this, 6), 0);
+        actions.addView(talk, talkLp);
+
+        Button end = Theme.softButton(this, "结束对话", Theme.RED);
+        end.setTextSize(20);
+        end.setMinHeight(Theme.dp(this, 60));
+        end.setOnClickListener(v -> {
+            stopRealtimeVoiceChat(true);
+            stopAssistantSpeech();
+            showShell("guard");
+        });
+        LinearLayout.LayoutParams endLp = new LinearLayout.LayoutParams(0, -2, 1);
+        endLp.setMargins(Theme.dp(this, 6), 0, 0, 0);
+        actions.addView(end, endLp);
+        stage.addView(actions, matchWrap());
+
+        addSpace(stage, 6);
+        LinearLayout shortcuts = new LinearLayout(this);
+        shortcuts.setOrientation(LinearLayout.HORIZONTAL);
+        addLiveActionButton(shortcuts, "看一眼", Theme.GREEN, this::startQuickVisionGlance, false);
+        addLiveActionButton(shortcuts, "简报", Theme.BLUE, this::showMorningCare, false);
+        stage.addView(shortcuts, matchWrap());
     }
 
     private void refreshLiveDigitalHumanLabel(int serial) {
