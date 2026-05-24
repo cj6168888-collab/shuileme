@@ -1249,6 +1249,7 @@ public class MainActivity extends Activity {
         addSleepReportScoreCard(data);
         addSleepReportWaveCard(data);
         addSleepReportPhaseCard(data);
+        addPreSleepSummaryCard();
         addCard("综合分析", sleepReportAnalysis(data), data.highRiskCount > 0 ? Theme.RED : Theme.GREEN);
         addSleepReportAssistantButton(data);
         addSleepEvidenceSection(data);
@@ -1357,6 +1358,23 @@ public class MainActivity extends Activity {
         addSleepPhaseBar(card, "深睡", deep, total, Theme.BLUE);
         addSleepPhaseBar(card, "浅睡", light, total, Theme.GREEN);
         addSleepPhaseBar(card, "波动", Math.max(0, data.eventCount * 6), total, data.highRiskCount > 0 ? Theme.RED : Theme.ORANGE);
+        content.addView(card, matchWrap());
+        addSpace(content, 10);
+    }
+
+    private void addPreSleepSummaryCard() {
+        LinearLayout card = cardContainer();
+        card.setPadding(Theme.dp(this, 14), Theme.dp(this, 12), Theme.dp(this, 14), Theme.dp(this, 12));
+        card.addView(Theme.text(this, "睡前自检", 18, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(card, 8);
+        TextView summary = Theme.text(this, preSleepSelfCheckSummary(), 15, Theme.MUTED, Typeface.BOLD);
+        summary.setGravity(Gravity.LEFT);
+        card.addView(summary, matchWrap());
+        addSpace(card, 8);
+        TextView link = Theme.text(this, "今晚重新自检 ›", 15, Theme.BLUE, Typeface.BOLD);
+        link.setGravity(Gravity.RIGHT);
+        link.setOnClickListener(v -> showPreSleepCheck());
+        card.addView(link, matchWrap());
         content.addView(card, matchWrap());
         addSpace(content, 10);
     }
@@ -2600,6 +2618,7 @@ public class MainActivity extends Activity {
         addSleepMetric(metrics, "熟睡粗估", sleepDurationText(data.estimatedDeepSleepMinutes), Theme.GREEN);
         card.addView(metrics, matchWrap());
         addSpace(card, 8);
+        addCareAdviceLine(card, "睡前自检", preSleepSelfCheckSummary(), preSleepSubjectiveReady() ? Theme.GREEN : Theme.ORANGE);
         TextView link = Theme.text(this, "查看完整报告 ›", 15, Theme.BLUE, Typeface.BOLD);
         link.setGravity(Gravity.RIGHT);
         link.setOnClickListener(v -> showSleepReport());
