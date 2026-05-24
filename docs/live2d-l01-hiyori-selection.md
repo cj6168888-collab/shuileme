@@ -17,10 +17,13 @@ Current status:
 - Hiyori resources are bundled for technical preview.
 - The APK build now supports packaging `src/main/assets`.
 - Directly enabling the Live2D WebView as the default companion renderer caused emulator system unresponsiveness during cold start, so it is not enabled by default yet.
+- `Live2DPreviewActivity` now opens L01 as an isolated, user-triggered preview in the `:live2d` process.
+- The preview uses `loadDataWithBaseURL` plus a local asset WebView interceptor because plain `file://` and a direct custom URL did not reliably start the Pixi/Live2D loader in emulator validation.
+- Emulator validation produced a real Hiyori render, not a placeholder screenshot: `artifacts/debug-ui/live2d-preview-scaled-final.png`.
 
 Next acceptance target:
-- Open Hiyori in an isolated preview screen without blocking app launch.
-- Verify WebView/WebGL load time, memory, CPU, and rendering on emulator and real device.
+- Reduce cold WebView/Live2D load time. The emulator can take roughly 60-90 seconds before the first render.
+- Verify WebView/WebGL load time, memory, CPU, and rendering on a real device.
 - Only after that, promote it from technical preview to the main companion renderer.
 
 License boundary:

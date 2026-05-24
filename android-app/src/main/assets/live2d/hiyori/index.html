@@ -45,20 +45,42 @@
     let currentMood = 'listening';
     let mouth = 0;
     let blinkTick = 0;
+    let bootDone = false;
 
     function setStatus(text) {
       status.textContent = text;
     }
+
+    function notifyReady() {
+      try {
+        if (window.AndroidLive2D && window.AndroidLive2D.onReady) window.AndroidLive2D.onReady();
+      } catch (e) {}
+    }
+
+    function notifyError(message) {
+      try {
+        if (window.AndroidLive2D && window.AndroidLive2D.onError) window.AndroidLive2D.onError(String(message || 'unknown'));
+      } catch (e) {}
+    }
+
+    window.addEventListener('error', event => {
+      notifyError(event && event.message ? event.message : 'window error');
+    });
+
+    window.addEventListener('unhandledrejection', event => {
+      const reason = event && event.reason ? event.reason : 'unhandled rejection';
+      notifyError(reason && reason.message ? reason.message : String(reason));
+    });
 
     function fitModel() {
       if (!app || !model) return;
       const w = window.innerWidth || 1;
       const h = window.innerHeight || 1;
       app.renderer.resize(w, h);
-      const scale = Math.min(w / Math.max(1, model.width), h / Math.max(1, model.height)) * 1.52;
+      const scale = Math.min(w / Math.max(1, model.width), h / Math.max(1, model.height)) * 0.98;
       model.scale.set(scale);
       model.x = w * 0.50;
-      model.y = h * 0.92;
+      model.y = h * 0.96;
       model.anchor.set(0.5, 1.0);
     }
 
@@ -160,12 +182,18 @@
         startMotionForMood(currentMood);
         app.ticker.add(tick);
         window.addEventListener('resize', fitModel);
+        bootDone = true;
         setStatus('Live2D Hiyori 已加载');
+        notifyReady();
         setTimeout(() => status.style.opacity = '0', 2400);
       } catch (e) {
         setStatus('Live2D 加载失败：' + (e && e.message ? e.message : e));
+        notifyError(e && e.message ? e.message : e);
       }
     }
+    setTimeout(() => {
+      if (!bootDone) notifyError('timeout while loading model');
+    }, 15000);
     boot();
   </script>
 </body>

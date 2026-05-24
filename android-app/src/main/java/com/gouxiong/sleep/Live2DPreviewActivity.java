@@ -1,0 +1,261 @@
+package com.gouxiong.sleep;
+
+import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
+import android.view.Gravity;
+import android.view.View;
+import android.webkit.ConsoleMessage;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+import com.gouxiong.sleep.util.Theme;
+
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+
+public class Live2DPreviewActivity extends Activity {
+    private static final String TAG = "Live2DPreview";
+    private static final String ASSET_HOST = "sleep.local";
+    private static final String LIVE2D_BASE_URL = "https://" + ASSET_HOST + "/live2d/hiyori/";
+
+    private final Handler main = new Handler(Looper.getMainLooper());
+    private FrameLayout previewHost;
+    private TextView status;
+    private WebView webView;
+    private boolean bridgeAnswered;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        buildUi();
+        if (getIntent() != null && getIntent().getBooleanExtra("auto_load", false)) {
+            main.postDelayed(this::loadLive2D, 450);
+        }
+    }
+
+    private void buildUi() {
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(Theme.dp(this, 14), Theme.dp(this, 22), Theme.dp(this, 14), Theme.dp(this, 14));
+        root.setGravity(Gravity.CENTER_HORIZONTAL);
+        root.setBackgroundColor(Theme.WARM_WHITE);
+
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.VERTICAL);
+        header.setGravity(Gravity.CENTER_HORIZONTAL);
+        header.setPadding(Theme.dp(this, 12), Theme.dp(this, 8), Theme.dp(this, 12), Theme.dp(this, 8));
+        TextView title = Theme.text(this, "L01 Hiyori Live2D", 28, Theme.TEXT, Typeface.BOLD);
+        title.setGravity(Gravity.CENTER);
+        header.addView(title, matchWrap());
+        TextView sub = Theme.text(this, "Independent preview. Main chat stays stable until this passes.", 15, Theme.MUTED, Typeface.NORMAL);
+        sub.setGravity(Gravity.CENTER);
+        header.addView(sub, matchWrap());
+        root.addView(header, matchWrap());
+
+        previewHost = new FrameLayout(this);
+        previewHost.setBackground(Theme.tintedCard(this, Theme.LILAC));
+        TextView placeholder = Theme.text(this, "Tap Load to test L01.", 22, Theme.LILAC, Typeface.BOLD);
+        placeholder.setGravity(Gravity.CENTER);
+        previewHost.addView(placeholder, frameMatch());
+        LinearLayout.LayoutParams previewLp = new LinearLayout.LayoutParams(-1, 0, 1);
+        previewLp.setMargins(0, Theme.dp(this, 8), 0, Theme.dp(this, 10));
+        root.addView(previewHost, previewLp);
+
+        status = Theme.text(this, "Not loaded. This is a gated technical preview.", 16, Theme.MUTED, Typeface.NORMAL);
+        status.setGravity(Gravity.CENTER);
+        status.setMinHeight(Theme.dp(this, 36));
+        root.addView(status, matchWrap());
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setGravity(Gravity.CENTER);
+
+        Button load = Theme.button(this, "Load", Theme.LILAC);
+        load.setTextSize(20);
+        load.setMinHeight(Theme.dp(this, 58));
+        load.setOnClickListener(v -> loadLive2D());
+        actions.addView(load, weightedButtonLp());
+
+        Button mood = Theme.softButton(this, "Speak", Theme.GREEN);
+        mood.setTextSize(20);
+        mood.setMinHeight(Theme.dp(this, 58));
+        mood.setOnClickListener(v -> sendToLive2D("window.setMood && window.setMood('speaking'); window.setMouth && window.setMouth(0.9);"));
+        actions.addView(mood, weightedButtonLp());
+
+        Button close = Theme.softButton(this, "Close", Theme.ORANGE);
+        close.setTextSize(20);
+        close.setMinHeight(Theme.dp(this, 58));
+        close.setOnClickListener(v -> finish());
+        actions.addView(close, weightedButtonLp());
+
+        root.addView(actions, matchWrap());
+        setContentView(root);
+    }
+
+    @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
+    private void loadLive2D() {
+        destroyWebView();
+        bridgeAnswered = false;
+        status.setText("Loading local Live2D assets...");
+        previewHost.removeAllViews();
+
+        webView = new WebView(this);
+        webView.setBackgroundColor(Color.TRANSPARENT);
+        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
+        settings.setAllowFileAccessFromFileURLs(true);
+        settings.setAllowUniversalAccessFromFileURLs(false);
+        settings.setMediaPlaybackRequiresUserGesture(false);
+        webView.setWebViewClient(new AssetClient());
+        webView.setWebChromeClient(new ConsoleClient());
+        webView.addJavascriptInterface(new Bridge(), "AndroidLive2D");
+        previewHost.addView(webView, frameMatch());
+        String html = readAssetText("live2d/hiyori/index.html");
+        if (html.length() == 0) {
+            status.setText("Live2D failed: preview html missing");
+            return;
+        }
+        webView.loadDataWithBaseURL(LIVE2D_BASE_URL, html, "text/html", "UTF-8", null);
+
+        main.postDelayed(() -> {
+            if (!bridgeAnswered && webView != null) {
+                status.setText("Still waiting. If the model is blank, this device has not passed Live2D validation.");
+            }
+        }, 12000);
+    }
+
+    private void sendToLive2D(String script) {
+        if (webView == null) {
+            status.setText("Load the preview first.");
+            return;
+        }
+        webView.evaluateJavascript(script, null);
+    }
+
+    private void destroyWebView() {
+        if (webView == null) return;
+        try {
+            previewHost.removeView(webView);
+            webView.stopLoading();
+            webView.loadUrl("about:blank");
+            webView.removeAllViews();
+            webView.destroy();
+        } catch (Exception e) {
+            Log.w(TAG, "destroy webview failed", e);
+        }
+        webView = null;
+    }
+
+    @Override
+    protected void onDestroy() {
+        destroyWebView();
+        main.removeCallbacksAndMessages(null);
+        super.onDestroy();
+    }
+
+    private LinearLayout.LayoutParams matchWrap() {
+        return new LinearLayout.LayoutParams(-1, -2);
+    }
+
+    private FrameLayout.LayoutParams frameMatch() {
+        return new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER);
+    }
+
+    private LinearLayout.LayoutParams weightedButtonLp() {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
+        lp.setMargins(Theme.dp(this, 3), 0, Theme.dp(this, 3), 0);
+        return lp;
+    }
+
+    private final class Bridge {
+        @JavascriptInterface
+        public void onReady() {
+            bridgeAnswered = true;
+            main.post(() -> status.setText("Loaded. L01 is rendering in WebView preview."));
+        }
+
+        @JavascriptInterface
+        public void onError(String message) {
+            bridgeAnswered = true;
+            final String clean = message == null ? "unknown error" : message;
+            main.post(() -> status.setText("Live2D failed: " + clean));
+        }
+    }
+
+    private final class ConsoleClient extends WebChromeClient {
+        @Override
+        public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
+            if (consoleMessage != null) {
+                Log.d(TAG, "console " + consoleMessage.messageLevel() + ": " + consoleMessage.message());
+            }
+            return true;
+        }
+    }
+
+    private final class AssetClient extends WebViewClient {
+        @Override
+        public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+            if (request == null || request.getUrl() == null) return null;
+            if (!ASSET_HOST.equals(request.getUrl().getHost())) return null;
+            String path = request.getUrl().getPath();
+            if (path == null || !path.startsWith("/live2d/")) return null;
+            String assetPath = path.substring(1);
+            try {
+                InputStream in = getAssets().open(assetPath);
+                return new WebResourceResponse(mimeType(assetPath), encoding(assetPath), in);
+            } catch (Exception e) {
+                Log.w(TAG, "asset not found: " + assetPath, e);
+                return null;
+            }
+        }
+    }
+
+    private String mimeType(String path) {
+        String clean = path == null ? "" : path.toLowerCase();
+        if (clean.endsWith(".html")) return "text/html";
+        if (clean.endsWith(".js")) return "application/javascript";
+        if (clean.endsWith(".json")) return "application/json";
+        if (clean.endsWith(".png")) return "image/png";
+        return "application/octet-stream";
+    }
+
+    private String encoding(String path) {
+        String clean = path == null ? "" : path.toLowerCase();
+        if (clean.endsWith(".png") || clean.endsWith(".moc3")) return null;
+        return "UTF-8";
+    }
+
+    private String readAssetText(String path) {
+        try (InputStream in = getAssets().open(path);
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+            return out.toString("UTF-8");
+        } catch (Exception e) {
+            Log.w(TAG, "read asset failed: " + path, e);
+            return "";
+        }
+    }
+}

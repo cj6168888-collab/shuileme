@@ -2461,6 +2461,7 @@ public class MainActivity extends Activity {
 
         LinearLayout careActions = new LinearLayout(this);
         careActions.setOrientation(LinearLayout.HORIZONTAL);
+        addLiveActionButton(careActions, "Live2D", Theme.LILAC, this::openLive2DPreview, false);
         addLiveActionButton(careActions, "故事", Theme.BLUE, this::askBedtimeStory, false);
         addLiveActionButton(careActions, "助眠音", Theme.GREEN, this::toggleSleepSound, false);
         addLiveActionButton(careActions, "设置", Theme.BLUE, this::showCompanionSettings, false);
@@ -2888,6 +2889,14 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
         lp.setMargins(Theme.dp(this, 3), 0, Theme.dp(this, 3), 0);
         row.addView(button, lp);
+    }
+
+    private void openLive2DPreview() {
+        try {
+            startActivity(new Intent(this, Live2DPreviewActivity.class));
+        } catch (Exception e) {
+            Toast.makeText(this, "Live2D preview cannot open", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void startQuickVisionGlance() {
