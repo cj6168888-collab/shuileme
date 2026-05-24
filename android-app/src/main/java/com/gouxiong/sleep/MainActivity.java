@@ -285,7 +285,7 @@ public class MainActivity extends Activity {
         final boolean emergencyOk;
         final java.util.ArrayList<String> missing = new java.util.ArrayList<>();
 
-        SleepGuardReadiness(boolean micOk, boolean notificationOk, boolean batteryOk, boolean emergencyOk) {
+        SleepGuardReadiness(boolean micOk, boolean notificationOk, boolean batteryOk, boolean emergencyOk, boolean selfCheckOk) {
             this.micOk = micOk;
             this.notificationOk = notificationOk;
             this.batteryOk = batteryOk;
@@ -294,6 +294,7 @@ public class MainActivity extends Activity {
             if (!notificationOk) missing.add("通知");
             if (!batteryOk) missing.add("电池优化");
             if (!emergencyOk) missing.add("家人电话");
+            if (!selfCheckOk) missing.add("睡前自检");
         }
 
         boolean ready() {
@@ -1790,6 +1791,7 @@ public class MainActivity extends Activity {
         }
         b.append("\n").append(batteryOptimizationText(readiness != null && readiness.batteryOk));
         b.append("\n").append(readiness != null && readiness.emergencyOk ? "紧急联系人已设置。" : "建议先设置家人电话。");
+        b.append("\n").append(preSleepSubjectiveReady() ? "睡前自检已完成。" : "请确认情绪、身体、咖啡因、晚餐、运动和屏幕使用。");
         return b.toString();
     }
 
@@ -1806,7 +1808,8 @@ public class MainActivity extends Activity {
                 hasPermission(Manifest.permission.RECORD_AUDIO),
                 Build.VERSION.SDK_INT < 33 || hasPermission(Manifest.permission.POST_NOTIFICATIONS),
                 batteryOptimizationOk(),
-                prefs.emergencyEnabled());
+                prefs.emergencyEnabled(),
+                preSleepSubjectiveReady());
     }
 
     private void requestSleepGuardPermissions() {
@@ -2364,8 +2367,7 @@ public class MainActivity extends Activity {
         activeScreen = "pre_sleep";
         content.removeAllViews();
         SleepGuardReadiness readiness = buildSleepGuardReadiness();
-        boolean subjectiveReady = preSleepSubjectiveReady();
-        boolean ready = readiness.ready() && subjectiveReady;
+        boolean ready = readiness.ready();
         addPreSleepHeader();
         addSpace(content, 8);
         addPreSleepNotice(readiness);
