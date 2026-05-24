@@ -42,6 +42,8 @@ public class Live2DWebViewActivity extends Activity {
     private WebView webView;
     private boolean bridgeAnswered;
     private boolean loading;
+    private boolean autoLoadRequested;
+    private boolean autoLoadScheduled;
     private long loadStartedAt;
 
     @Override
@@ -49,7 +51,18 @@ public class Live2DWebViewActivity extends Activity {
         super.onCreate(savedInstanceState);
         buildUi();
         if (getIntent() != null && getIntent().getBooleanExtra("auto_load", false)) {
-            main.postDelayed(this::loadLive2D, 8000);
+            autoLoadRequested = true;
+            status.setText("Waiting for the preview window to settle before loading.");
+        }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus && autoLoadRequested && !autoLoadScheduled) {
+            autoLoadScheduled = true;
+            status.setText("Window ready. Loading Live2D shortly...");
+            main.postDelayed(this::loadLive2D, 12000);
         }
     }
 

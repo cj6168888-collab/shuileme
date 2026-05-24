@@ -84,7 +84,10 @@
       const w = window.innerWidth || 1;
       const h = window.innerHeight || 1;
       app.renderer.resize(w, h);
-      const scale = Math.min(w / Math.max(1, model.width), h / Math.max(1, model.height)) * 0.98;
+      model.scale.set(1);
+      const naturalWidth = Math.max(1, model.width);
+      const naturalHeight = Math.max(1, model.height);
+      const scale = Math.min(w / naturalWidth, h / naturalHeight) * 0.98;
       model.scale.set(scale);
       model.x = w * 0.50;
       model.y = h * 0.96;

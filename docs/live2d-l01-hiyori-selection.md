@@ -25,10 +25,12 @@ Current status:
 - `Live2DPreviewActivity` is not exported. External apps and direct `adb shell am start -n com.gouxiong.sleep/.Live2DPreviewActivity` are denied; debug validation must enter through the small `DebugLive2DEntryActivity`, which exists only to avoid MainActivity startup cost while testing the gated preview.
 - `android-app/e2e-live2d-gate.ps1` checks the gate itself: direct Activity start must be denied, while the internal debug entry may open the non-loading preview shell without ANR. This passed on 2026-05-24 with evidence in `artifacts/debug-ui/live2d-gate-20260524-095513`.
 - The preview is now split into a lightweight native shell (`Live2DPreviewActivity`) and a separate WebView renderer (`Live2DWebViewActivity`) that only starts after pressing Load.
+- 2026-05-24 rendering validation passed with the original Hiyori 2048 textures after two fixes: large Live2D asset types are stored uncompressed in the APK, and `Live2DWebViewActivity` waits for window focus before starting WebView/Live2D loading. Evidence: `artifacts/debug-ui/live2d-e2e-20260524-102339`.
+- A 1024 texture experiment was rejected because it could report ready while failing the pixel render check; the app uses the original atlas for honest rendering.
 
 Next acceptance target:
-- Reduce cold WebView/Live2D load time. Emulator validation has ranged from roughly 60-91 seconds before the first render, so the preview remains gated and uses a 120-second timeout.
-- Make the isolated preview pass `android-app/e2e-live2d-preview.ps1` without ANR/not-responding dialogs.
+- Reduce cold WebView/Live2D load time. The current honest preview pass still needs roughly 90 seconds before first render on the emulator, so the preview remains gated and uses a 180-second timeout.
+- Promote only after repeated passes and after the main companion integration can drive mood and mouth movement without blocking voice interaction.
 - Verify WebView/WebGL load time, memory, CPU, and rendering on a real device.
 - Only after that, promote it from technical preview to the main companion renderer.
 

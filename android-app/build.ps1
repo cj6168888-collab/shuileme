@@ -86,6 +86,15 @@ if ($LASTEXITCODE -ne 0) { throw "d8 failed" }
 Copy-Item -LiteralPath $unsigned -Destination $withDex
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+function CompressionForZipEntry($path) {
+  $extension = [System.IO.Path]::GetExtension($path).ToLowerInvariant()
+  if ($extension -in @(".png", ".moc3", ".json", ".motion3", ".cdi3", ".physics3", ".pose3", ".userdata3")) {
+    return [System.IO.Compression.CompressionLevel]::NoCompression
+  }
+  return [System.IO.Compression.CompressionLevel]::Optimal
+}
+
 $zip = [System.IO.Compression.ZipFile]::Open($withDex, [System.IO.Compression.ZipArchiveMode]::Update)
 try {
   $existing = $zip.GetEntry("classes.dex")
@@ -100,7 +109,8 @@ try {
       $entryName = ("assets/" + $relative).Replace('\', '/')
       $existingAsset = $zip.GetEntry($entryName)
       if ($existingAsset) { $existingAsset.Delete() }
-      [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $asset.FullName, $entryName) | Out-Null
+      $compression = CompressionForZipEntry $asset.FullName
+      [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $asset.FullName, $entryName, $compression) | Out-Null
     }
   }
 } finally {

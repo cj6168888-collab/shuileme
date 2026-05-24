@@ -33,6 +33,20 @@ function PullScreenshot($device, $remote, $local) {
   if (-not (Test-Path $local)) { throw "Screenshot pull failed: $local" }
 }
 
+function DismissAnrDialog($device) {
+  $remote = "/sdcard/live2d_preview_anr_check.xml"
+  $local = Join-Path $env:TEMP "live2d_preview_anr_check.xml"
+  & $adb -s $device shell rm -f $remote 2>$null | Out-Null
+  & $adb -s $device shell uiautomator dump $remote 2>$null | Out-Null
+  & $adb -s $device pull $remote $local 2>$null | Out-Null
+  if (-not (Test-Path $local)) { return }
+  $xml = [System.IO.File]::ReadAllText((Resolve-Path $local), [System.Text.Encoding]::UTF8)
+  if ($xml -match "aerr_close|Close app|isn.?t responding") {
+    & $adb -s $device shell input tap 540 1180 | Out-Null
+    Start-Sleep -Seconds 2
+  }
+}
+
 function Test-ModelPixels($path) {
   Add-Type -AssemblyName System.Drawing
   $bitmap = [System.Drawing.Bitmap]::FromFile($path)
@@ -67,7 +81,7 @@ function Test-ModelPixels($path) {
 }
 
 function ReadLive2DLog($device) {
-  return (& $adb -s $device logcat -d -t 3000 | Select-String -Pattern "Live2DPreview|Cubism|ANR|FATAL|crash|timeout|failed|AndroidRuntime") -join "`n"
+  return (& $adb -s $device logcat -d -t 3000 | Select-String -Pattern "Live2DPreview|Cubism|ANR|FATAL EXCEPTION|crash|timeout|failed|not responding") -join "`n"
 }
 
 function DumpFinalWindowXml($device, $local) {
@@ -75,8 +89,9 @@ function DumpFinalWindowXml($device, $local) {
   $oldPreference = $ErrorActionPreference
   $ErrorActionPreference = "Continue"
   try {
-    & $adb -s $device shell uiautomator dump $remote | Out-Null
-    & $adb -s $device pull $remote $local | Out-Null
+    & $adb -s $device shell rm -f $remote 2>$null | Out-Null
+    & $adb -s $device shell uiautomator dump $remote 2>$null | Out-Null
+    & $adb -s $device pull $remote $local 2>$null | Out-Null
     if (Test-Path $local) {
       return [System.IO.File]::ReadAllText((Resolve-Path $local), [System.Text.Encoding]::UTF8)
     }
@@ -109,12 +124,13 @@ if (-not $SkipInstall) {
 
 & $adb -s $device shell am force-stop com.gouxiong.sleep | Out-Null
 & $adb -s $device logcat -c | Out-Null
+DismissAnrDialog $device
 if ($AutoLoad) {
-  & $adb -s $device shell am start -n com.gouxiong.sleep/.MainActivity -a com.gouxiong.sleep.action.DEBUG_LIVE2D_PREVIEW --ez auto_load true | Write-Output
+  & $adb -s $device shell am start -n com.gouxiong.sleep/.DebugLive2DEntryActivity --ez auto_load true | Write-Output
 } else {
-  & $adb -s $device shell am start -n com.gouxiong.sleep/.MainActivity -a com.gouxiong.sleep.action.DEBUG_LIVE2D_PREVIEW | Write-Output
-  Start-Sleep -Seconds 10
-  & $adb -s $device shell input tap 205 2078 | Out-Null
+  & $adb -s $device shell am start -n com.gouxiong.sleep/.DebugLive2DEntryActivity | Write-Output
+  Start-Sleep -Seconds 18
+  & $adb -s $device shell input tap 270 2078 | Out-Null
 }
 
 $deadline = (Get-Date).AddSeconds($TimeoutSec)
@@ -142,7 +158,7 @@ while ((Get-Date) -lt $deadline) {
   }
 }
 
-Start-Sleep -Seconds 3
+Start-Sleep -Seconds 15
 $screenshot = Join-Path $outDir "final.png"
 PullScreenshot $device "/sdcard/live2d_preview_final.png" $screenshot
 $windowXmlPath = Join-Path $outDir "final-window.xml"
@@ -153,7 +169,7 @@ $lastLog = ReadLive2DLog $device
 $lastLog | Set-Content -Encoding UTF8 $logPath
 
 $pixels = Test-ModelPixels $screenshot
-$hasAnr = $lastLog -match "ANR in com\.gouxiong\.sleep:live2d|FATAL EXCEPTION|AndroidRuntime"
+$hasAnr = $lastLog -match "ANR in com\.gouxiong\.sleep|FATAL EXCEPTION|not responding"
 $hasAnrDialog = $windowXml -match "isn.?t responding|aerr_close|aerr_wait|Close app"
 $summary = [pscustomobject]@{
   Device = $device

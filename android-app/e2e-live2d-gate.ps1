@@ -27,9 +27,9 @@ function FirstDevice() {
 
 function DumpWindowXml($device, $local) {
   $remote = "/sdcard/live2d_gate_window.xml"
-  & $adb -s $device shell rm -f $remote | Out-Null
-  & $adb -s $device shell uiautomator dump $remote | Out-Null
-  & $adb -s $device pull $remote $local | Out-Null
+  & $adb -s $device shell rm -f $remote 2>$null | Out-Null
+  & $adb -s $device shell uiautomator dump $remote 2>$null | Out-Null
+  & $adb -s $device pull $remote $local 2>$null | Out-Null
   if (-not (Test-Path $local)) { throw "Window XML pull failed: $local" }
   return [System.IO.File]::ReadAllText((Resolve-Path $local), [System.Text.Encoding]::UTF8)
 }
@@ -37,9 +37,9 @@ function DumpWindowXml($device, $local) {
 function DismissAnrDialog($device) {
   $remote = "/sdcard/live2d_gate_anr_check.xml"
   $local = Join-Path $env:TEMP "live2d_gate_anr_check.xml"
-  & $adb -s $device shell rm -f $remote | Out-Null
-  & $adb -s $device shell uiautomator dump $remote | Out-Null
-  & $adb -s $device pull $remote $local | Out-Null
+  & $adb -s $device shell rm -f $remote 2>$null | Out-Null
+  & $adb -s $device shell uiautomator dump $remote 2>$null | Out-Null
+  & $adb -s $device pull $remote $local 2>$null | Out-Null
   if (-not (Test-Path $local)) { return }
   $xml = [System.IO.File]::ReadAllText((Resolve-Path $local), [System.Text.Encoding]::UTF8)
   if ($xml -match "aerr_close|Close app|isn.?t responding") {
