@@ -30,17 +30,10 @@ public class MedicationReminderReceiver extends BroadcastReceiver {
             CareReminderScheduler.scheduleNextMedicationMorning(context);
             return;
         }
-        Intent voice = new Intent(context, ProactiveCareActivity.class);
-        voice.putExtra(ProactiveCareActivity.EXTRA_TYPE, ProactiveCareActivity.TYPE_MEDICATION);
-        voice.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        try {
-            context.startActivity(voice);
-        } catch (Exception ignored) {
-        }
 
         CareReminderScheduler.createChannel(context);
-        Intent open = new Intent(context, MainActivity.class);
-        open.putExtra("open_morning_care", true);
+        Intent open = new Intent(context, ProactiveCareActivity.class);
+        open.putExtra(ProactiveCareActivity.EXTRA_TYPE, ProactiveCareActivity.TYPE_MEDICATION);
         PendingIntent pi = PendingIntent.getActivity(context, 4401, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
@@ -55,13 +48,14 @@ public class MedicationReminderReceiver extends BroadcastReceiver {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         int icon = context.getResources().getIdentifier("ic_launcher", "drawable", context.getPackageName());
+        String medication = store.medicationName().length() > 0 ? store.medicationName() : "您设定的早晨用药";
         Notification notification = new Notification.Builder(context, CareReminderScheduler.CHANNEL)
                 .setSmallIcon(icon)
-                .setContentTitle("记得吃药哦")
-                .setContentText(store.medicationName().length() > 0 ? store.medicationName() : "按您自己设定的早晨用药")
+                .setContentTitle("记得吃药")
+                .setContentText(medication + "，点“吃过了”后今天不再提醒。")
                 .setContentIntent(pi)
                 .addAction(icon, "吃过了", donePi)
-                .addAction(icon, "晚点儿吃", laterPi)
+                .addAction(icon, "晚点吃", laterPi)
                 .setAutoCancel(true)
                 .build();
         if (manager != null) {

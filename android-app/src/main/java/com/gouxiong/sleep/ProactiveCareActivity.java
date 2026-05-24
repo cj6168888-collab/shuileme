@@ -258,17 +258,19 @@ public class ProactiveCareActivity extends Activity {
     }
 
     private void confirmDone() {
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (TYPE_MEDICATION.equals(type)) {
             prefs.confirmMedicationNow();
+            if (manager != null) manager.cancel(CareReminderScheduler.NOTIFICATION_MEDICATION);
             CareReminderScheduler.scheduleNextMedicationMorning(this);
             Toast.makeText(this, "我记下了，今天不再催您吃药。", Toast.LENGTH_SHORT).show();
         } else if (TYPE_HYDRATION.equals(type)) {
             prefs.markHydrationAcknowledgedNow();
+            if (manager != null) manager.cancel(CareReminderScheduler.NOTIFICATION_HYDRATION);
             CareReminderScheduler.scheduleNextHydration(this);
             Toast.makeText(this, "我记下了，等会儿再提醒喝水。", Toast.LENGTH_SHORT).show();
         } else if (TYPE_SERVER_MESSAGE.equals(type)) {
             markServerMessageReadAsync();
-            NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
             if (manager != null) manager.cancel(CareReminderScheduler.NOTIFICATION_SERVER_MESSAGE);
             Toast.makeText(this, "我记下了。", Toast.LENGTH_SHORT).show();
         }
@@ -276,11 +278,15 @@ public class ProactiveCareActivity extends Activity {
     }
 
     private void remindLater() {
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (TYPE_MEDICATION.equals(type)) {
+            if (manager != null) manager.cancel(CareReminderScheduler.NOTIFICATION_MEDICATION);
             CareReminderScheduler.scheduleMedicationLater(this, prefs.medicationRepeatMinutes());
         } else if (TYPE_SERVER_MESSAGE.equals(type)) {
+            if (manager != null) manager.cancel(CareReminderScheduler.NOTIFICATION_SERVER_MESSAGE);
             CareReminderScheduler.scheduleServerMessagePollLater(this, 15);
         } else {
+            if (manager != null) manager.cancel(CareReminderScheduler.NOTIFICATION_HYDRATION);
             CareReminderScheduler.scheduleHydrationLater(this, 30);
         }
         Toast.makeText(this, "好，我等会儿再来叫您。", Toast.LENGTH_SHORT).show();

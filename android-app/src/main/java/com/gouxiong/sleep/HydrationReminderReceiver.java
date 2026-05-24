@@ -31,15 +31,12 @@ public class HydrationReminderReceiver extends BroadcastReceiver {
             return;
         }
 
-        Intent voice = new Intent(context, ProactiveCareActivity.class);
-        voice.putExtra(ProactiveCareActivity.EXTRA_TYPE, ProactiveCareActivity.TYPE_HYDRATION);
-        voice.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        try {
-            context.startActivity(voice);
-        } catch (Exception ignored) {
-        }
-
         CareReminderScheduler.createChannel(context);
+        Intent open = new Intent(context, ProactiveCareActivity.class);
+        open.putExtra(ProactiveCareActivity.EXTRA_TYPE, ProactiveCareActivity.TYPE_HYDRATION);
+        PendingIntent openPi = PendingIntent.getActivity(context, 4501, open,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
         Intent ok = new Intent(context, HydrationReminderReceiver.class);
         ok.setAction(CareReminderScheduler.ACTION_HYDRATION_OK);
         PendingIntent okPi = PendingIntent.getBroadcast(context, 4503, ok,
@@ -54,8 +51,9 @@ public class HydrationReminderReceiver extends BroadcastReceiver {
         Notification notification = new Notification.Builder(context, CareReminderScheduler.CHANNEL)
                 .setSmallIcon(icon)
                 .setContentTitle("小助手正在叫您喝水")
-                .setContentText("如果没听见，也可以在这里点“喝了”或“等会儿”。")
-                .addAction(icon, "好", okPi)
+                .setContentText("点“喝了”后提醒会消失，等下一次再提醒。")
+                .setContentIntent(openPi)
+                .addAction(icon, "喝了", okPi)
                 .addAction(icon, "等会儿", laterPi)
                 .setAutoCancel(true)
                 .build();
