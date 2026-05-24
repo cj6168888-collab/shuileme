@@ -4,7 +4,7 @@
 
 ## 当前定位
 
-本阶段先落地原生分层 2D Avatar，不直接接入 Live2D SDK。目标是把小助手从“单张头像动画”升级为可验证的数字人状态机：听、想、说、插话、看东西、安慰和紧急叫醒都由状态驱动。
+本阶段先落地原生 2D Avatar 状态机，不把 Live2D 预览冒充成主小助手。目标是把小助手从“单张头像动画”升级为可验证的数字人状态机：听、想、说、插话、看东西、安慰和紧急叫醒都由状态驱动。
 
 ## 已实现
 
@@ -12,7 +12,7 @@
 - `AvatarCommand`：定义 `setState/setEmotion/startSpeaking/stopSpeaking/mouthLevel/blink/nod/lookAtUser/lookDown/wave/urgentWake`。
 - `AvatarView`：原生 Canvas 分层绘制头部、头发、眼睛、眉毛、嘴、脸颊、身体和手势；同时支持载入 `avatar_2d_*` 大半身 PNG，在视频聊天模式下作为主视觉，并把说话动效贴近脸部/嘴部而不是落在身体区域。
 - 自主微动作：`AvatarView` 会按状态自动眨眼、呼吸、点头、挥手、嘴型变化和轻微眼神移动。听用户说话时眼神会缓慢找声源，思考/阅读时会低头，安慰状态会放软视线；这些动作由 `seedStateGaze` 和 `updateAutonomousGaze` 驱动，纳入 `android-app/test.ps1` 静态验收。
-- 小助手 Live 页面：`createLiveAvatarStage` 已改为创建 `AvatarView`，并按当前角色绑定对应生成半身资产。
+- 小助手 Live 页面：`createLiveAvatarStage` 当前创建 `AvatarView`，并按当前角色绑定对应半身 PNG 资产。这里不是 Live2D SDK，也不是 L01 Hiyori；L01 只在独立开发预览入口验证。
 - 说话落点：TTS 播报结束后会通过 `settleCompanionAvatarAfterSpeech` 回到真实状态。实时语音回到 `listening`；本地助眠音播放中回到 `comforting`；睡着确认中回到等待用户回应，避免 Avatar 假停在“说话中”。
 - 显示模式切换：小助手页默认视频聊天模式，显示大半身 2D 角色、声波和必要控制，不显示对话文字气泡；点击右上角小“文”按钮可切到文字聊天模式，显示大字文本气泡并隐藏大半身角色。
 - 实时语音状态：
@@ -48,6 +48,8 @@
 
 这表示当前已完成本机 2D Avatar 状态机，并且服务端 Live 回复会向 APK 发送结构化情绪事件：`emotion/intensity/gesture/safety_level/speech_text/source`。APK 会记录这些字段，并映射到 `AvatarCommand.setEmotion`、`wave/nod/lookAtUser/lookDown/urgentWake` 等手势指令。当前还没有接入 Live2D SDK，结构化情绪主要由服务端对模型回复与用户语义做稳定推断，不等同于完整 Live2D 表情包或模型原生动画控制。
 
+L01 Hiyori 的 Live2D 技术预览已经通过独立 E2E 验证：能真实渲染，并能接收 `thinking/speaking/comforting` mood 命令和嘴型数值命令。但冷启动仍约 90 秒，主聊天入口继续门控，不能算用户可用的主 Avatar。
+
 ## 验收
 
 - `android-app/test.ps1` 会检查：
@@ -64,7 +66,8 @@
 ## 当前限制
 
 - 当前视频模式已接入生成半身 PNG，但这些 PNG 尚未拆层；它是可运行的视频聊天主视觉，不是完整 Live2D。
-- Live2D SDK 未接入，暂不具备专业 Live2D 物理摆动、模型绑定和美术表情包。
+- 主聊天 Live2D SDK 未接入，暂不具备专业 Live2D 物理摆动、模型绑定和美术表情包。
+- L01 Hiyori 只是开发预览模型，不是用户已选择的小助手形象，也不是正式商用角色。
 - 系统 TTS 的嘴型不是音频能量真驱动；模型 PCM 音频帧才是能量驱动。
 - 模型情绪标签已通过服务端 `emotion` 事件进入 APK，并能驱动 Avatar 状态与手势；但它仍是服务端稳定推断层，不是模型直接输出的完整动画剧本。
 

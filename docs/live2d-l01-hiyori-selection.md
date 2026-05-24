@@ -28,6 +28,7 @@ Current status:
 - 2026-05-24 rendering validation passed with the original Hiyori 2048 textures after two fixes: large Live2D asset types are stored uncompressed in the APK, and `Live2DWebViewActivity` waits for window focus before starting WebView/Live2D loading. Evidence: `artifacts/debug-ui/live2d-e2e-20260524-102339`.
 - 2026-05-24 command validation passed: `android-app/e2e-live2d-preview.ps1 -AutoLoad -CommandCheck` verified native-to-JS mood commands (`thinking`, `speaking`, `comforting`) and mouth level commands after a real render. Evidence: `artifacts/debug-ui/live2d-e2e-20260524-104130`.
 - A 1024 texture experiment was rejected because it could report ready while failing the pixel render check; the app uses the original atlas for honest rendering.
+- This preview is intentionally separate from the user's selected assistant character. It validates the Live2D runtime path only; the main companion stage still uses the selected role through native `AvatarView` plus role PNG assets.
 
 Next acceptance target:
 - Reduce cold WebView/Live2D load time. The current honest preview pass still needs roughly 90 seconds before first render on the emulator, so the preview remains gated and uses a 180-second timeout.
