@@ -3324,7 +3324,6 @@ public class MainActivity extends Activity {
     private void addLiveCompanionStage(String status, String speech, String mood) {
         String role = prefs.companionRole();
         String name = assistantDisplayName();
-        boolean videoMode = prefs.assistantVideoChatMode();
         liveStageMood = mood == null ? "listening" : mood;
         liveStageStatusLabel = null;
         liveStageSpeechLabel = null;
@@ -3333,76 +3332,66 @@ public class MainActivity extends Activity {
         liveStageAvatar = null;
         int animationSerial = ++liveStageAnimationSerial;
         LinearLayout stage = cardContainer();
-        stage.setPadding(Theme.dp(this, 16), Theme.dp(this, 14), Theme.dp(this, 16), Theme.dp(this, 16));
+        stage.setPadding(Theme.dp(this, 12), Theme.dp(this, 10), Theme.dp(this, 12), Theme.dp(this, 14));
         stage.setBackground(Theme.tintedCard(this, CompanionAssistant.roleColor(role)));
         stage.setOnClickListener(v -> interruptForUserSpeech());
 
-        addAssistantChatModeSwitch(stage, videoMode, name);
-        liveDigitalHumanLabel = Theme.text(this,
-                videoMode ? "动画已开 · Linly-Talker 检测中" : "语音陪伴 · 可切视频数字人",
-                14, Theme.MUTED, Typeface.BOLD);
-        liveDigitalHumanLabel.setGravity(Gravity.CENTER);
-        stage.addView(liveDigitalHumanLabel, matchWrap());
-        refreshLiveDigitalHumanLabel(animationSerial);
-        addLiveStateDots(stage, CompanionAssistant.roleColor(role), animationSerial);
-        addSpace(stage, 6);
+        addLiveCompanionTopBar(stage);
 
-        if (videoMode) {
-            View avatarStage = createLiveAvatarStage(role, name, liveStageMood, animationSerial);
-            stage.addView(avatarStage, imageLp(226));
-            addSpace(stage, 6);
-            LinearLayout bubble = new LinearLayout(this);
-            bubble.setOrientation(LinearLayout.VERTICAL);
-            bubble.setPadding(Theme.dp(this, 14), Theme.dp(this, 7), Theme.dp(this, 14), Theme.dp(this, 7));
-            bubble.setBackground(Theme.rounded(Theme.mix(CompanionAssistant.roleColor(role), Theme.WARM_WHITE, 0.88f), 20, this));
-            TextView line = Theme.text(this, compactLiveBubbleText(speech), 15, Theme.TEXT, Typeface.BOLD);
-            line.setGravity(Gravity.CENTER);
-            line.setMinHeight(Theme.dp(this, 38));
-            liveStageSpeechLabel = line;
-            bubble.addView(line, matchWrap());
-            stage.addView(bubble, matchWrap());
-            addSpace(stage, 6);
-        } else {
-            liveStageStatusLabel = Theme.text(this, status, 19, CompanionAssistant.roleColor(role), Typeface.BOLD);
-            liveStageStatusLabel.setGravity(Gravity.CENTER);
-            liveStageStatusLabel.setMinHeight(Theme.dp(this, 28));
-            stage.addView(liveStageStatusLabel, matchWrap());
-            addSpace(stage, 8);
-
-            LinearLayout bubble = new LinearLayout(this);
-            bubble.setOrientation(LinearLayout.VERTICAL);
-            bubble.setPadding(Theme.dp(this, 16), Theme.dp(this, 12), Theme.dp(this, 16), Theme.dp(this, 12));
-            bubble.setBackground(Theme.rounded(Theme.mix(CompanionAssistant.roleColor(role), Theme.WARM_WHITE, 0.86f), 22, this));
-            TextView line = Theme.text(this, speech, 20, Theme.TEXT, Typeface.BOLD);
-            line.setGravity(Gravity.CENTER);
-            line.setMinHeight(Theme.dp(this, 86));
-            liveStageSpeechLabel = line;
-            bubble.addView(line, matchWrap());
-            stage.addView(bubble, matchWrap());
-            addSpace(stage, 8);
-
-            voiceStatusLabel = Theme.text(this, "我在听您说话，不用按发送。", 17, Theme.MUTED, Typeface.NORMAL);
-            voiceStatusLabel.setGravity(Gravity.CENTER);
-            voiceStatusLabel.setMinHeight(Theme.dp(this, 28));
-            stage.addView(voiceStatusLabel, matchWrap());
-            addSpace(stage, 6);
-        }
-        addXiaozhiVoiceMeter(stage, CompanionAssistant.roleColor(role));
+        View avatarStage = createLiveAvatarStage(role, name, liveStageMood, animationSerial);
+        stage.addView(avatarStage, imageLp(318));
         addSpace(stage, 8);
 
+        LinearLayout bubble = new LinearLayout(this);
+        bubble.setOrientation(LinearLayout.VERTICAL);
+        bubble.setPadding(Theme.dp(this, 18), Theme.dp(this, 13), Theme.dp(this, 18), Theme.dp(this, 13));
+        bubble.setBackground(Theme.rounded(Theme.mix(CompanionAssistant.roleColor(role), Theme.WARM_WHITE, 0.90f), 22, this));
+        TextView line = Theme.text(this, compactLiveBubbleText(speech), 22, Theme.TEXT, Typeface.BOLD);
+        line.setGravity(Gravity.CENTER);
+        line.setMinHeight(Theme.dp(this, 82));
+        liveStageSpeechLabel = line;
+        bubble.addView(line, matchWrap());
+        stage.addView(bubble, matchWrap());
+        addSpace(stage, 12);
+
+        addXiaozhiVoiceMeter(stage, CompanionAssistant.roleColor(role));
+        addSpace(stage, 10);
+
         addLiveConversationControls(stage);
+        addSpace(stage, 8);
+        voiceStatusLabel = Theme.text(this, status, 18, Theme.MUTED, Typeface.BOLD);
+        voiceStatusLabel.setGravity(Gravity.CENTER);
+        voiceStatusLabel.setMinHeight(Theme.dp(this, 28));
+        stage.addView(voiceStatusLabel, matchWrap());
 
         content.addView(stage, matchWrap());
-        addSpace(content, 6);
+    }
+
+    private void addLiveCompanionTopBar(LinearLayout stage) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        TextView menu = Theme.text(this, "☰", 22, Theme.TEXT, Typeface.BOLD);
+        menu.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
+        row.addView(menu, new LinearLayout.LayoutParams(Theme.dp(this, 42), Theme.dp(this, 38)));
+        TextView title = Theme.text(this, assistantDisplayName(), 20, Theme.TEXT, Typeface.BOLD);
+        title.setGravity(Gravity.CENTER);
+        row.addView(title, new LinearLayout.LayoutParams(0, Theme.dp(this, 38), 1));
+        TextView sound = Theme.text(this, "●", 18, Color.WHITE, Typeface.BOLD);
+        sound.setGravity(Gravity.CENTER);
+        sound.setBackground(Theme.rounded(Theme.MUTED, 20, this));
+        row.addView(sound, new LinearLayout.LayoutParams(Theme.dp(this, 38), Theme.dp(this, 38)));
+        stage.addView(row, matchWrap());
+        addSpace(stage, 4);
     }
 
     private void addLiveConversationControls(LinearLayout stage) {
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
 
-        Button talk = Theme.button(this, "按住说话", Theme.GREEN);
-        talk.setTextSize(20);
-        talk.setMinHeight(Theme.dp(this, 60));
+        Button talk = Theme.button(this, "🎙  按住说话", Theme.GREEN);
+        talk.setTextSize(24);
+        talk.setMinHeight(Theme.dp(this, 70));
         talk.setOnTouchListener((v, event) -> {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 interruptForUserSpeech();
@@ -3419,9 +3408,9 @@ public class MainActivity extends Activity {
         talkLp.setMargins(0, 0, Theme.dp(this, 6), 0);
         actions.addView(talk, talkLp);
 
-        Button end = Theme.softButton(this, "结束对话", Theme.RED);
-        end.setTextSize(20);
-        end.setMinHeight(Theme.dp(this, 60));
+        Button end = Theme.softButton(this, "☎  结束对话", Theme.RED);
+        end.setTextSize(24);
+        end.setMinHeight(Theme.dp(this, 70));
         end.setOnClickListener(v -> {
             stopRealtimeVoiceChat(true);
             stopAssistantSpeech();
@@ -3431,13 +3420,6 @@ public class MainActivity extends Activity {
         endLp.setMargins(Theme.dp(this, 6), 0, 0, 0);
         actions.addView(end, endLp);
         stage.addView(actions, matchWrap());
-
-        addSpace(stage, 6);
-        LinearLayout shortcuts = new LinearLayout(this);
-        shortcuts.setOrientation(LinearLayout.HORIZONTAL);
-        addLiveActionButton(shortcuts, "看一眼", Theme.GREEN, this::startQuickVisionGlance, false);
-        addLiveActionButton(shortcuts, "简报", Theme.BLUE, this::showMorningCare, false);
-        stage.addView(shortcuts, matchWrap());
     }
 
     private void refreshLiveDigitalHumanLabel(int serial) {
