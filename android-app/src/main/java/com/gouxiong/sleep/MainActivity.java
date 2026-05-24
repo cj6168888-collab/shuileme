@@ -2682,33 +2682,6 @@ public class MainActivity extends Activity {
                 "speaking".equals(mood) ? 170 : ("thinking".equals(mood) ? 260 : 520));
     }
 
-    private void startLiveAvatarMotion(View avatar, int serial) {
-        avatar.postDelayed(() -> animateLiveAvatar(avatar, serial, 0), 180);
-    }
-
-    private void animateLiveAvatar(View avatar, int serial, int tick) {
-        if (avatar.getWindowToken() == null || serial != liveStageAnimationSerial) {
-            return;
-        }
-        String mood = liveStageMood == null ? "listening" : liveStageMood;
-        boolean speaking = "speaking".equals(mood);
-        boolean thinking = "thinking".equals(mood);
-        boolean seeing = "seeing".equals(mood);
-        float wave = (float) Math.sin(tick * 0.85d);
-        float scale = speaking ? 1.02f + Math.abs(wave) * 0.035f : (thinking ? 1.02f : 1.0f + Math.abs(wave) * 0.025f);
-        float rotation = seeing ? wave * 2.4f : (thinking ? -1.6f + wave * 0.8f : wave * 1.2f);
-        float translationY = speaking ? -Math.abs(wave) * Theme.dp(this, 5) : (thinking ? Theme.dp(this, 4) : -Math.abs(wave) * Theme.dp(this, 3));
-        avatar.animate()
-                .scaleX(scale)
-                .scaleY(scale)
-                .rotation(rotation)
-                .translationY(translationY)
-                .alpha(thinking ? 0.96f : 1.0f)
-                .setDuration(speaking ? 210 : (thinking ? 420 : 820))
-                .withEndAction(() -> animateLiveAvatar(avatar, serial, tick + 1))
-                .start();
-    }
-
     private String liveBubbleText(String text) {
         String clean = text == null ? "" : text.replace("\n", " ").trim();
         if (clean.length() <= 86) {

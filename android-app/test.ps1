@@ -119,7 +119,7 @@ $wellnessButtonLabel = -join ([char[]](0x5999, 0x62db))
 if ($main -match ('addLiveActionButton\([^;]*"' + [regex]::Escape($wellnessButtonLabel) + '"')) {
   throw "Assistant UX static check failed: wellness tips must not be a visible live button"
 }
-$liveDotAnimator = [regex]::Match($main, 'private void animateLiveStateDots[\s\S]*?private void startLiveAvatarMotion').Value
+$liveDotAnimator = [regex]::Match($main, 'private void animateLiveStateDots[\s\S]*?private String liveBubbleText').Value
 if ($liveDotAnimator -match 'setLayoutParams|LayoutParams') {
   throw "Assistant live stability static check failed: dot animator must not resize layout"
 }
