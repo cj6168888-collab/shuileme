@@ -212,6 +212,7 @@ public class MainActivity extends Activity {
     private TextView voiceStatusLabel;
     private TextView liveStageStatusLabel;
     private TextView liveStageSpeechLabel;
+    private TextView liveDigitalHumanLabel;
     private AvatarView liveStageAvatar;
     private String liveStageMood = "listening";
     private int liveStageAnimationSerial;
@@ -667,7 +668,7 @@ public class MainActivity extends Activity {
         ScrollView scroll = new ScrollView(this);
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(Theme.dp(this, 18), safeTopPadding(6), Theme.dp(this, 18), Theme.dp(this, 8));
+        content.setPadding(Theme.dp(this, 18), Theme.dp(this, 8), Theme.dp(this, 18), Theme.dp(this, 8));
         scroll.addView(content);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
 
@@ -712,10 +713,8 @@ public class MainActivity extends Activity {
             }
         });
         content.addView(primary, matchWrap());
-        addSpace(content, 10);
-        addHomeTileGrid(readiness);
-        addSpace(content, 10);
-        addSleepDashboardCard(monitoring);
+        addSpace(content, 8);
+        addCompactSleepTools(monitoring);
     }
 
     private void addHomeHero(boolean monitoring, int integrity, SleepGuardReadiness readiness) {
@@ -737,7 +736,6 @@ public class MainActivity extends Activity {
     }
 
     private void addHomeReadyBadge(LinearLayout hero, boolean monitoring, int integrity, SleepGuardReadiness readiness) {
-        java.util.List<String> missing = readiness == null ? new java.util.ArrayList<>() : readiness.missing;
         boolean ready = readiness == null || readiness.ready();
         int color = monitoring || ready ? Theme.GREEN : Theme.ORANGE;
         LinearLayout badge = new LinearLayout(this);
@@ -745,7 +743,7 @@ public class MainActivity extends Activity {
         badge.setGravity(Gravity.CENTER);
         badge.setPadding(Theme.dp(this, 16), Theme.dp(this, 10), Theme.dp(this, 16), Theme.dp(this, 10));
         badge.setBackground(Theme.rounded(Theme.mix(color, Theme.WARM_WHITE, 0.88f), 28, this));
-        String state = monitoring ? "守护进行中" : (ready ? "守护已就绪" : "还差：" + joinLabels(missing));
+        String state = monitoring ? "守护进行中" : (ready ? "守护已就绪" : "睡前准备未完成");
         String prefix = monitoring || ready ? "✓  " : "!  ";
         TextView label = Theme.text(this, prefix + state, 19, Theme.darken(color, 0.28f), Typeface.BOLD);
         label.setGravity(Gravity.CENTER);
@@ -840,6 +838,39 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
         lp.setMargins(Theme.dp(this, 4), 0, Theme.dp(this, 4), 0);
         row.addView(box, lp);
+    }
+
+    private void addCompactSleepTools(boolean monitoring) {
+        SleepDashboardData data = buildSleepDashboardData();
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+
+        LinearLayout waveCard = new LinearLayout(this);
+        waveCard.setOrientation(LinearLayout.VERTICAL);
+        waveCard.setPadding(Theme.dp(this, 12), Theme.dp(this, 10), Theme.dp(this, 12), Theme.dp(this, 10));
+        waveCard.setBackground(Theme.tintedCard(this, monitoring ? Theme.BLUE : Theme.GREEN));
+        waveCard.setOnClickListener(v -> showSleepReport());
+        TextView waveTitle = Theme.text(this, "睡觉波形检测", 18, Theme.TEXT, Typeface.BOLD);
+        waveTitle.setGravity(Gravity.CENTER);
+        waveCard.addView(waveTitle, matchWrap());
+        SleepWaveformView wave = new SleepWaveformView(this);
+        wave.setCompact(true);
+        wave.setDashboardData(data, monitoring);
+        waveCard.addView(wave, new LinearLayout.LayoutParams(-1, Theme.dp(this, 52)));
+
+        LinearLayout.LayoutParams waveLp = new LinearLayout.LayoutParams(0, Theme.dp(this, 126), 1.35f);
+        waveLp.setMargins(0, 0, Theme.dp(this, 6), 0);
+        row.addView(waveCard, waveLp);
+
+        Button report = Theme.softButton(this, "睡眠报告", Theme.BLUE);
+        report.setTextSize(20);
+        report.setMinHeight(Theme.dp(this, 126));
+        report.setOnClickListener(v -> showSleepReport());
+        LinearLayout.LayoutParams reportLp = new LinearLayout.LayoutParams(0, Theme.dp(this, 126), 1f);
+        reportLp.setMargins(Theme.dp(this, 6), 0, 0, 0);
+        row.addView(report, reportLp);
+
+        content.addView(row, matchWrap());
     }
 
     private SleepDashboardData buildSleepDashboardData() {
@@ -2594,6 +2625,7 @@ public class MainActivity extends Activity {
         liveStageMood = mood == null ? "listening" : mood;
         liveStageStatusLabel = null;
         liveStageSpeechLabel = null;
+        liveDigitalHumanLabel = null;
         voiceStatusLabel = null;
         liveStageAvatar = null;
         int animationSerial = ++liveStageAnimationSerial;
@@ -2603,13 +2635,19 @@ public class MainActivity extends Activity {
         stage.setOnClickListener(v -> interruptForUserSpeech());
 
         addAssistantChatModeSwitch(stage, videoMode, name);
+        liveDigitalHumanLabel = Theme.text(this,
+                videoMode ? "动画已开 · Linly-Talker 检测中" : "语音陪伴 · 可切视频数字人",
+                14, Theme.MUTED, Typeface.BOLD);
+        liveDigitalHumanLabel.setGravity(Gravity.CENTER);
+        stage.addView(liveDigitalHumanLabel, matchWrap());
+        refreshLiveDigitalHumanLabel(animationSerial);
         addLiveStateDots(stage, CompanionAssistant.roleColor(role), animationSerial);
-        addSpace(stage, 8);
+        addSpace(stage, 6);
 
         if (videoMode) {
             View avatarStage = createLiveAvatarStage(role, name, liveStageMood, animationSerial);
-            stage.addView(avatarStage, imageLp(390));
-            addSpace(stage, 8);
+            stage.addView(avatarStage, imageLp(320));
+            addSpace(stage, 6);
         } else {
             liveStageStatusLabel = Theme.text(this, status, 19, CompanionAssistant.roleColor(role), Typeface.BOLD);
             liveStageStatusLabel.setGravity(Gravity.CENTER);
@@ -2627,16 +2665,16 @@ public class MainActivity extends Activity {
             liveStageSpeechLabel = line;
             bubble.addView(line, matchWrap());
             stage.addView(bubble, matchWrap());
-            addSpace(stage, 10);
+            addSpace(stage, 8);
 
             voiceStatusLabel = Theme.text(this, "我在听您说话，不用按发送。", 17, Theme.MUTED, Typeface.NORMAL);
             voiceStatusLabel.setGravity(Gravity.CENTER);
             voiceStatusLabel.setMinHeight(Theme.dp(this, 28));
             stage.addView(voiceStatusLabel, matchWrap());
-            addSpace(stage, 8);
+            addSpace(stage, 6);
         }
         addXiaozhiVoiceMeter(stage, CompanionAssistant.roleColor(role));
-        addSpace(stage, 10);
+        addSpace(stage, 8);
 
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
@@ -2647,18 +2685,37 @@ public class MainActivity extends Activity {
             updateLiveStageStatus("我先安静等您", "comforting");
         }, false);
         addLiveActionButton(actions, "看一眼", Theme.GREEN, this::startQuickVisionGlance, false);
-        addLiveActionButton(actions, "拾音", Theme.RED, this::showMicrophoneHonestCheck, false);
         stage.addView(actions, matchWrap());
 
-        LinearLayout careActions = new LinearLayout(this);
-        careActions.setOrientation(LinearLayout.HORIZONTAL);
-        addLiveActionButton(careActions, "故事", Theme.BLUE, this::askBedtimeStory, false);
-        addLiveActionButton(careActions, "助眠音", Theme.GREEN, this::toggleSleepSound, false);
-        addLiveActionButton(careActions, "设置", Theme.BLUE, this::showCompanionSettings, false);
-        stage.addView(careActions, matchWrap());
-
         content.addView(stage, matchWrap());
-        addSpace(content, 10);
+        addSpace(content, 6);
+    }
+
+    private void refreshLiveDigitalHumanLabel(int serial) {
+        new Thread(() -> {
+            try {
+                ServerApiClient.ServerHealth health = ServerApiClient.health(prefs.serverBaseUrl());
+                String line;
+                if (health.linlyDigitalHumanConfigured) {
+                    line = "Linly-Talker 已接入 · " + health.linlyDigitalHumanAvatarEngine + " · 动画同步";
+                } else if (health.local2dAvatarView && health.avatarStateMachine) {
+                    line = "本机 2D 数字人动画 · Linly-Talker 未配置";
+                } else {
+                    line = "数字人动画检测未完成";
+                }
+                runOnUiThread(() -> {
+                    if (serial == liveStageAnimationSerial && liveDigitalHumanLabel != null) {
+                        liveDigitalHumanLabel.setText(line);
+                    }
+                });
+            } catch (Exception ex) {
+                runOnUiThread(() -> {
+                    if (serial == liveStageAnimationSerial && liveDigitalHumanLabel != null) {
+                        liveDigitalHumanLabel.setText("本机 2D 数字人动画 · 服务端稍后重连");
+                    }
+                });
+            }
+        }, "GouXiongLiveDigitalHumanBadge").start();
     }
 
     private void addAssistantChatModeSwitch(LinearLayout stage, boolean videoMode, String name) {
@@ -7064,6 +7121,7 @@ public class MainActivity extends Activity {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private SleepDashboardData data;
         private boolean monitoring;
+        private boolean compact;
 
         SleepWaveformView(android.content.Context context) {
             super(context);
@@ -7073,6 +7131,11 @@ public class MainActivity extends Activity {
         void setDashboardData(SleepDashboardData data, boolean monitoring) {
             this.data = data;
             this.monitoring = monitoring;
+            invalidate();
+        }
+
+        void setCompact(boolean compact) {
+            this.compact = compact;
             invalidate();
         }
 
@@ -7101,10 +7164,13 @@ public class MainActivity extends Activity {
 
             if (levels.length == 0) {
                 paint.setStyle(Paint.Style.FILL);
-                paint.setTextSize(Theme.dp(getContext(), 14));
+                paint.setTextSize(Theme.dp(getContext(), compact ? 13 : 14));
                 paint.setTypeface(Typeface.DEFAULT_BOLD);
                 paint.setColor(Theme.ORANGE);
-                canvas.drawText(monitoring ? "正在等待真实采样" : "暂无真实波形", Theme.dp(getContext(), 14), h * 0.48f, paint);
+                canvas.drawText(monitoring ? "等待采样" : "暂无波形", Theme.dp(getContext(), 14), compact ? h * 0.62f : h * 0.48f, paint);
+                if (compact) {
+                    return;
+                }
                 paint.setTextSize(Theme.dp(getContext(), 11));
                 paint.setTypeface(Typeface.DEFAULT);
                 paint.setColor(Theme.MUTED);
