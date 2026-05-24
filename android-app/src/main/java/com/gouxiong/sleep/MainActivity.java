@@ -993,27 +993,37 @@ public class MainActivity extends Activity {
     private void addHomeCareTiles() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        addCareTile(row, "吃药提醒", medicationHomeLine(), prefs.medicationEnabled() ? Theme.ORANGE : Theme.BLUE, this::showMedicationDialog);
-        addCareTile(row, "健康习惯", healthHabitHomeLine(), healthHabitEnabled() ? Theme.GREEN : Theme.BLUE, this::showHealthHabitsDialog);
+        addCareTile(row, "吃药提醒", medicationHomeLine(), prefs.medicationEnabled() ? Theme.ORANGE : Theme.BLUE,
+                "ui_medication_icon_image2", true, this::showMedicationDialog);
+        addCareTile(row, "健康习惯", healthHabitHomeLine(), healthHabitEnabled() ? Theme.GREEN : Theme.BLUE,
+                "ui_health_habits_icon_image2", false, this::showHealthHabitsDialog);
         content.addView(row, matchWrap());
     }
 
-    private void addCareTile(LinearLayout row, String title, String subtitle, int color, Runnable action) {
+    private void addCareTile(LinearLayout row, String title, String subtitle, int color, String iconName, boolean medication, Runnable action) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setGravity(Gravity.CENTER_VERTICAL);
         card.setPadding(Theme.dp(this, 10), Theme.dp(this, 9), Theme.dp(this, 10), Theme.dp(this, 8));
         card.setBackground(Theme.tintedCard(this, color));
         card.setOnClickListener(v -> action.run());
+        LinearLayout titleRow = new LinearLayout(this);
+        titleRow.setOrientation(LinearLayout.HORIZONTAL);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        ImageView icon = designImage(iconName, 36, ImageView.ScaleType.FIT_CENTER);
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(Theme.dp(this, 36), Theme.dp(this, 36));
+        iconLp.setMargins(0, 0, Theme.dp(this, 7), 0);
+        titleRow.addView(icon, iconLp);
         TextView titleView = Theme.text(this, title, 16, Theme.TEXT, Typeface.BOLD);
         titleView.setGravity(Gravity.LEFT);
-        card.addView(titleView, matchWrap());
+        titleRow.addView(titleView, new LinearLayout.LayoutParams(0, -2, 1));
+        card.addView(titleRow, matchWrap());
         addSpace(card, 2);
         TextView sub = Theme.text(this, subtitle, 11, Theme.MUTED, Typeface.BOLD);
         sub.setGravity(Gravity.LEFT);
         card.addView(sub, matchWrap());
         addSpace(card, 8);
-        if ("吃药提醒".equals(title)) {
+        if (medication) {
             addCareMiniRow(card, "08:00", prefs.medicationEnabled() ? shortText(prefs.medicationName(), 5) : "降压药", prefs.medicationConfirmedToday() ? "已服用" : "未服用", Theme.ORANGE);
             addCareMiniRow(card, "20:00", "维生素B族", "未服用", Theme.ORANGE);
         } else {
@@ -1024,7 +1034,7 @@ public class MainActivity extends Activity {
         TextView footer = Theme.text(this, "查看与设置 ›", 13, Theme.darken(color, 0.25f), Typeface.BOLD);
         footer.setGravity(Gravity.LEFT);
         card.addView(footer, matchWrap());
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, Theme.dp(this, 132), 1);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, Theme.dp(this, 156), 1);
         lp.setMargins(Theme.dp(this, 4), 0, Theme.dp(this, 4), 0);
         row.addView(card, lp);
     }
@@ -3024,7 +3034,7 @@ public class MainActivity extends Activity {
     private View createBitmapAvatarFallbackStage(String role, String name, String mood) {
         liveStageAvatar = new AvatarView(this);
         liveStageAvatar.setRole(role);
-        liveStageAvatar.setCharacterResource(roleAvatarResourceId(role));
+        liveStageAvatar.setCharacterResource(liveAvatarResourceId(role));
         liveStageAvatar.setCharacterBitmapMode(true);
         liveStageAvatar.setAnimationEnabled(!prefs.debugCompanionUiTestMode());
         liveStageAvatar.applyCommand(AvatarCommand.setState(avatarStateForMood(mood)));
@@ -7348,6 +7358,16 @@ public class MainActivity extends Activity {
             id = getResources().getIdentifier("ic_launcher", "drawable", getPackageName());
         }
         return id;
+    }
+
+    private int liveAvatarResourceId(String role) {
+        if (CompanionAssistant.ROLE_GENTLE_WOMAN.equals(role)) {
+            int image2Id = getResources().getIdentifier("ui_digital_human_assistant_image2", "drawable", getPackageName());
+            if (image2Id != 0) {
+                return image2Id;
+            }
+        }
+        return roleAvatarResourceId(role);
     }
 
     private String roleAvatarAssetName(String role) {

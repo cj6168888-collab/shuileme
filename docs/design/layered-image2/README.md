@@ -12,6 +12,8 @@
 - `assets/home-waveform-card-from-screen.png`：从首页真实效果图中裁出的波形卡片参考。
 - `assets/waveform-line-alpha.png`：透明睡眠波形线，已同步到 Android `ui_waveform_line_image2.png`。
 - `assets/digital-human-assistant-alpha.png`：透明数字人半身像，已同步到 Android `ui_digital_human_assistant_image2.png`。
+- `assets/medication-icon-alpha.png`：吃药提醒图标，已同步到 Android `ui_medication_icon_image2.png`。
+- `assets/health-habits-icon-alpha.png`：健康习惯图标，已同步到 Android `ui_health_habits_icon_image2.png`。
 
 ## 筛选结论
 
@@ -20,9 +22,10 @@
 - 波形线条：可作为图片层备用；当前 Android 仍可优先使用原生绘制波形，保证可动态变化。
 - 第一张数字人源图不合格，因为模型画出了假透明棋盘背景；已保留在 `source/digital-human-assistant-source.png` 供对比，不进入 App。
 - 第二张数字人源图使用纯品红背景，已抠成透明 PNG，可进入 App 做小助理页视觉升级。
+- 吃药提醒和健康习惯图标抠色结果干净，可用于首页高频卡片。
 
 ## 下一步
 
 1. 首页以 `home-screen-real-effect.png` 做逐项验收，继续微调间距、字号、图标和卡片比例。
-2. 小助理页使用 `digital-human-assistant-alpha.png` 作为数字人主视觉，重做为一屏完成。
-3. 继续按提示词生成吃药图标、健康习惯图标、睡眠报告页和睡前自检页。
+2. 小助理页使用 `digital-human-assistant-alpha.png` 作为数字人主视觉，继续压缩为一屏完成。
+3. 继续按提示词生成睡眠报告页和睡前自检页。
