@@ -29,6 +29,7 @@ Current status:
 - 2026-05-24 command validation passed: `android-app/e2e-live2d-preview.ps1 -AutoLoad -CommandCheck` verified native-to-JS mood commands (`thinking`, `speaking`, `comforting`) and mouth level commands after a real render. Evidence: `artifacts/debug-ui/live2d-e2e-20260524-104130`.
 - A 1024 texture experiment was rejected because it could report ready while failing the pixel render check; the app uses the original atlas for honest rendering.
 - This preview is intentionally separate from the user's selected assistant character. It validates the Live2D runtime path only; the main companion stage still uses the selected role through native `AvatarView` plus role PNG assets.
+- A no-motion-preload experiment was rejected for now. One run rendered and accepted commands, but the follow-up run produced `PixelCheck: false` with bridge ready around 117 seconds, so it is not reliable enough to keep. Evidence: `artifacts/debug-ui/live2d-e2e-20260524-142906`.
 
 Next acceptance target:
 - Reduce cold WebView/Live2D load time. The current honest preview pass still needs roughly 90 seconds before first render on the emulator, so the preview remains gated and uses a 180-second timeout.
