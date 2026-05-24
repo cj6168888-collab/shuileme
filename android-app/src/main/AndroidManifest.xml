@@ -50,8 +50,17 @@
         <activity
             android:name=".Live2DPreviewActivity"
             android:exported="false"
-            android:hardwareAccelerated="true"
-            android:process=":live2d" />
+            android:hardwareAccelerated="true" />
+
+        <activity
+            android:name=".Live2DWebViewActivity"
+            android:exported="false"
+            android:hardwareAccelerated="true" />
+
+        <activity
+            android:name=".DebugLive2DEntryActivity"
+            android:exported="true"
+            android:hardwareAccelerated="true" />
 
         <activity
             android:name=".MainActivity"

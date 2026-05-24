@@ -17,12 +17,14 @@ Current status:
 - Hiyori resources are bundled for technical preview.
 - The APK build now supports packaging `src/main/assets`.
 - Directly enabling the Live2D WebView as the default companion renderer caused emulator system unresponsiveness during cold start, so it is not enabled by default yet.
-- `Live2DPreviewActivity` now opens L01 as an isolated, user-triggered preview in the `:live2d` process.
+- `Live2DPreviewActivity` now opens L01 as a user-triggered preview. It is not exposed in the normal user flow.
 - The preview uses `loadDataWithBaseURL` plus a local asset WebView interceptor because plain `file://` and a direct custom URL did not reliably start the Pixi/Live2D loader in emulator validation.
 - Emulator validation produced a real Hiyori render, not a placeholder screenshot: `artifacts/debug-ui/live2d-preview-scaled-final.png`.
 - `android-app/e2e-live2d-preview.ps1` provides a repeatable honest validation path: install/start the isolated preview, wait for a loaded status, capture screenshot/logcat, and run a simple pixel check so a blank WebView is not counted as passing.
-- 2026-05-24 follow-up validation failed on the emulator: the isolated `:live2d` process can show Android's not-responding dialog during WebView/Live2D cold loading. Because of that, the main companion UI no longer exposes a user-facing Live2D button. The preview remains a development-only validation target until it passes without ANR.
-- `Live2DPreviewActivity` is not exported. External apps and direct `adb shell am start -n com.gouxiong.sleep/.Live2DPreviewActivity` are denied; debug validation must enter through MainActivity's debug-only `com.gouxiong.sleep.action.DEBUG_LIVE2D_PREVIEW` action.
+- 2026-05-24 follow-up validation failed on the emulator: the isolated `:live2d` process and MainActivity-backed debug action can show Android's not-responding dialog during cold start. Because of that, the main companion UI no longer exposes a user-facing Live2D button. The preview remains a development-only validation target until it passes without ANR.
+- `Live2DPreviewActivity` is not exported. External apps and direct `adb shell am start -n com.gouxiong.sleep/.Live2DPreviewActivity` are denied; debug validation must enter through the small `DebugLive2DEntryActivity`, which exists only to avoid MainActivity startup cost while testing the gated preview.
+- `android-app/e2e-live2d-gate.ps1` checks the gate itself: direct Activity start must be denied, while the internal debug entry may open the non-loading preview shell without ANR. This passed on 2026-05-24 with evidence in `artifacts/debug-ui/live2d-gate-20260524-095513`.
+- The preview is now split into a lightweight native shell (`Live2DPreviewActivity`) and a separate WebView renderer (`Live2DWebViewActivity`) that only starts after pressing Load.
 
 Next acceptance target:
 - Reduce cold WebView/Live2D load time. Emulator validation has ranged from roughly 60-91 seconds before the first render, so the preview remains gated and uses a 120-second timeout.
