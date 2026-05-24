@@ -169,6 +169,7 @@
 
     window.setMouth = function(level) {
       mouth = Math.max(mouth, Math.max(0, Math.min(1, Number(level) || 0)));
+      notifyStatus('mouth ' + mouth.toFixed(2));
     };
 
     async function boot() {

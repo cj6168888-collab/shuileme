@@ -13,9 +13,14 @@ import android.widget.TextView;
 import com.gouxiong.sleep.util.Theme;
 
 public class Live2DPreviewActivity extends Activity {
+    private boolean debugCommands;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (getIntent() != null) {
+            debugCommands = getIntent().getBooleanExtra("debug_commands", false);
+        }
         buildUi();
         if (getIntent() != null && getIntent().getBooleanExtra("auto_load", false)) {
             findViewById(1001).postDelayed(this::openWebViewPreview, 8000);
@@ -75,6 +80,7 @@ public class Live2DPreviewActivity extends Activity {
     private void openWebViewPreview() {
         Intent intent = new Intent(this, Live2DWebViewActivity.class);
         intent.putExtra("auto_load", true);
+        intent.putExtra("debug_commands", debugCommands);
         startActivity(intent);
     }
 

@@ -27,9 +27,19 @@ function FirstDevice() {
 
 function DumpWindowXml($device, $local) {
   $remote = "/sdcard/live2d_gate_window.xml"
-  & $adb -s $device shell rm -f $remote 2>$null | Out-Null
-  & $adb -s $device shell uiautomator dump $remote 2>$null | Out-Null
-  & $adb -s $device pull $remote $local 2>$null | Out-Null
+  $oldPreference = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+      & $adb -s $device shell rm -f $remote *> $null
+      & $adb -s $device shell uiautomator dump $remote *> $null
+      & $adb -s $device pull $remote $local *> $null
+      if (Test-Path $local) { break }
+      Start-Sleep -Seconds 2
+    }
+  } finally {
+    $ErrorActionPreference = $oldPreference
+  }
   if (-not (Test-Path $local)) { throw "Window XML pull failed: $local" }
   return [System.IO.File]::ReadAllText((Resolve-Path $local), [System.Text.Encoding]::UTF8)
 }
@@ -37,9 +47,15 @@ function DumpWindowXml($device, $local) {
 function DismissAnrDialog($device) {
   $remote = "/sdcard/live2d_gate_anr_check.xml"
   $local = Join-Path $env:TEMP "live2d_gate_anr_check.xml"
-  & $adb -s $device shell rm -f $remote 2>$null | Out-Null
-  & $adb -s $device shell uiautomator dump $remote 2>$null | Out-Null
-  & $adb -s $device pull $remote $local 2>$null | Out-Null
+  $oldPreference = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    & $adb -s $device shell rm -f $remote *> $null
+    & $adb -s $device shell uiautomator dump $remote *> $null
+    & $adb -s $device pull $remote $local *> $null
+  } finally {
+    $ErrorActionPreference = $oldPreference
+  }
   if (-not (Test-Path $local)) { return }
   $xml = [System.IO.File]::ReadAllText((Resolve-Path $local), [System.Text.Encoding]::UTF8)
   if ($xml -match "aerr_close|Close app|isn.?t responding") {
@@ -94,11 +110,11 @@ $shot = Join-Path $outDir "debug-entry.png"
 & $adb -s $device pull /sdcard/live2d_gate_debug_entry.png $shot | Out-Null
 
 $xml = DumpWindowXml $device (Join-Path $outDir "debug-entry.xml")
-$log = (& $adb -s $device logcat -d -t 600 | Select-String -Pattern "Live2DPreview|ANR|FATAL EXCEPTION|not responding") -join "`n"
+$log = (& $adb -s $device logcat -d -t 600 | Select-String -Pattern "Live2DPreview|ANR in|FATAL EXCEPTION|not responding|Application Not Responding") -join "`n"
 $log | Set-Content -Encoding UTF8 (Join-Path $outDir "logcat.txt")
 
 $hasPreviewShell = $xml -match "L01 Hiyori Live2D|Tap Load to test L01|Not loaded"
-$hasAnr = $xml -match "isn.?t responding|aerr_close|aerr_wait|Close app" -or $log -match "ANR|FATAL EXCEPTION|not responding"
+$hasAnr = $xml -match "isn.?t responding|aerr_close|aerr_wait|Close app" -or $log -match "ANR in|FATAL EXCEPTION|not responding|Application Not Responding"
 
 $summary = [pscustomobject]@{
   Device = $device

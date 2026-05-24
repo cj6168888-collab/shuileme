@@ -1,7 +1,8 @@
 param(
   [int]$TimeoutSec = 130,
   [switch]$SkipInstall,
-  [switch]$AutoLoad
+  [switch]$AutoLoad,
+  [switch]$CommandCheck
 )
 
 $ErrorActionPreference = "Stop"
@@ -36,9 +37,15 @@ function PullScreenshot($device, $remote, $local) {
 function DismissAnrDialog($device) {
   $remote = "/sdcard/live2d_preview_anr_check.xml"
   $local = Join-Path $env:TEMP "live2d_preview_anr_check.xml"
-  & $adb -s $device shell rm -f $remote 2>$null | Out-Null
-  & $adb -s $device shell uiautomator dump $remote 2>$null | Out-Null
-  & $adb -s $device pull $remote $local 2>$null | Out-Null
+  $oldPreference = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    & $adb -s $device shell rm -f $remote *> $null
+    & $adb -s $device shell uiautomator dump $remote *> $null
+    & $adb -s $device pull $remote $local *> $null
+  } finally {
+    $ErrorActionPreference = $oldPreference
+  }
   if (-not (Test-Path $local)) { return }
   $xml = [System.IO.File]::ReadAllText((Resolve-Path $local), [System.Text.Encoding]::UTF8)
   if ($xml -match "aerr_close|Close app|isn.?t responding") {
@@ -89,9 +96,13 @@ function DumpFinalWindowXml($device, $local) {
   $oldPreference = $ErrorActionPreference
   $ErrorActionPreference = "Continue"
   try {
-    & $adb -s $device shell rm -f $remote 2>$null | Out-Null
-    & $adb -s $device shell uiautomator dump $remote 2>$null | Out-Null
-    & $adb -s $device pull $remote $local 2>$null | Out-Null
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+      & $adb -s $device shell rm -f $remote *> $null
+      & $adb -s $device shell uiautomator dump $remote *> $null
+      & $adb -s $device pull $remote $local *> $null
+      if (Test-Path $local) { break }
+      Start-Sleep -Seconds 2
+    }
     if (Test-Path $local) {
       return [System.IO.File]::ReadAllText((Resolve-Path $local), [System.Text.Encoding]::UTF8)
     }
@@ -126,7 +137,11 @@ if (-not $SkipInstall) {
 & $adb -s $device logcat -c | Out-Null
 DismissAnrDialog $device
 if ($AutoLoad) {
-  & $adb -s $device shell am start -n com.gouxiong.sleep/.DebugLive2DEntryActivity --ez auto_load true | Write-Output
+  if ($CommandCheck) {
+    & $adb -s $device shell am start -n com.gouxiong.sleep/.DebugLive2DEntryActivity --ez auto_load true --ez debug_commands true | Write-Output
+  } else {
+    & $adb -s $device shell am start -n com.gouxiong.sleep/.DebugLive2DEntryActivity --ez auto_load true | Write-Output
+  }
 } else {
   & $adb -s $device shell am start -n com.gouxiong.sleep/.DebugLive2DEntryActivity | Write-Output
   Start-Sleep -Seconds 18
@@ -171,6 +186,12 @@ $lastLog | Set-Content -Encoding UTF8 $logPath
 $pixels = Test-ModelPixels $screenshot
 $hasAnr = $lastLog -match "ANR in com\.gouxiong\.sleep|FATAL EXCEPTION|not responding"
 $hasAnrDialog = $windowXml -match "isn.?t responding|aerr_close|aerr_wait|Close app"
+$commandCheckPassed = -not $CommandCheck -or (
+  $lastLog -match "debug command sequence completed" -and
+  $lastLog -match "Live2D Hiyori . speaking" -and
+  $lastLog -match "Live2D Hiyori . comforting" -and
+  $lastLog -match "mouth 0\.[38]"
+)
 $summary = [pscustomobject]@{
   Device = $device
   LoadedStatus = $loaded
@@ -182,6 +203,8 @@ $summary = [pscustomobject]@{
   DarkPixels = $pixels.DarkPixels
   ColoredPixels = $pixels.ColoredPixels
   SampledPixels = $pixels.SampledPixels
+  CommandCheck = [bool]$CommandCheck
+  CommandCheckPassed = $commandCheckPassed
   Screenshot = $screenshot
   Logcat = $logPath
 }
@@ -198,5 +221,8 @@ if (-not $loaded -and -not $pixels.LooksRendered) {
 }
 if (-not $pixels.LooksRendered) {
   throw "Live2D preview loaded but screenshot did not pass pixel render check. Dark=$($pixels.DarkPixels), Colored=$($pixels.ColoredPixels)"
+}
+if (-not $commandCheckPassed) {
+  throw "Live2D command check failed. Expected mood and mouth command evidence in logcat: $logPath"
 }
 Write-Output "Live2D preview E2E passed: $screenshot"

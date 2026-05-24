@@ -13,6 +13,7 @@ import com.gouxiong.sleep.util.Theme;
 
 public class DebugLive2DEntryActivity extends Activity {
     private boolean autoLoad;
+    private boolean debugCommands;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -24,6 +25,7 @@ public class DebugLive2DEntryActivity extends Activity {
         Intent source = getIntent();
         if (source != null) {
             autoLoad = source.getBooleanExtra("auto_load", false);
+            debugCommands = source.getBooleanExtra("debug_commands", false);
         }
         drawFirstFrame();
         getWindow().getDecorView().postDelayed(this::openPreview, 500);
@@ -47,6 +49,7 @@ public class DebugLive2DEntryActivity extends Activity {
     private void openPreview() {
         Intent preview = new Intent(this, Live2DPreviewActivity.class);
         preview.putExtra("auto_load", autoLoad);
+        preview.putExtra("debug_commands", debugCommands);
         startActivity(preview);
         finish();
     }

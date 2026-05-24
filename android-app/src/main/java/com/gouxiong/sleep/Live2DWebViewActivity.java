@@ -44,6 +44,7 @@ public class Live2DWebViewActivity extends Activity {
     private boolean loading;
     private boolean autoLoadRequested;
     private boolean autoLoadScheduled;
+    private boolean debugCommands;
     private long loadStartedAt;
 
     @Override
@@ -52,6 +53,7 @@ public class Live2DWebViewActivity extends Activity {
         buildUi();
         if (getIntent() != null && getIntent().getBooleanExtra("auto_load", false)) {
             autoLoadRequested = true;
+            debugCommands = getIntent().getBooleanExtra("debug_commands", false);
             status.setText("Waiting for the preview window to settle before loading.");
         }
     }
@@ -188,6 +190,18 @@ public class Live2DWebViewActivity extends Activity {
         webView.evaluateJavascript(script, null);
     }
 
+    private void runDebugCommandSequence() {
+        if (!debugCommands || webView == null) return;
+        Log.i(TAG, "debug command sequence started");
+        main.postDelayed(() -> sendToLive2D("window.setMood && window.setMood('thinking');"), 900L);
+        main.postDelayed(() -> sendToLive2D("window.setMood && window.setMood('speaking'); window.setMouth && window.setMouth(0.85);"), 1900L);
+        main.postDelayed(() -> sendToLive2D("window.setMouth && window.setMouth(0.35);"), 2800L);
+        main.postDelayed(() -> {
+            sendToLive2D("window.setMood && window.setMood('comforting'); window.setMouth && window.setMouth(0);");
+            Log.i(TAG, "debug command sequence completed");
+        }, 3900L);
+    }
+
     private void setLoadButtons(boolean busy, boolean canSpeak) {
         if (loadButton != null) {
             loadButton.setEnabled(!busy);
@@ -247,6 +261,7 @@ public class Live2DWebViewActivity extends Activity {
                 setLoadButtons(false, true);
                 Log.i(TAG, "bridge ready after " + elapsedSeconds() + "s");
                 status.setText("Loaded in " + elapsedSeconds() + "s. L01 is rendering in WebView preview.");
+                runDebugCommandSequence();
             });
         }
 
@@ -267,8 +282,8 @@ public class Live2DWebViewActivity extends Activity {
             final String clean = message == null ? "" : message;
             if (clean.length() == 0) return;
             main.post(() -> {
+                Log.i(TAG, "bridge status after " + elapsedSeconds() + "s: " + clean);
                 if (!bridgeAnswered && webView != null) {
-                    Log.i(TAG, "bridge status after " + elapsedSeconds() + "s: " + clean);
                     status.setText(clean + " (" + elapsedSeconds() + "s)");
                 }
             });
