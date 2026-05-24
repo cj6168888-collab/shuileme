@@ -111,6 +111,7 @@ public class MainActivity extends Activity {
     public static final String ACTION_DEBUG_CAMERA_GLANCE = "com.gouxiong.sleep.action.DEBUG_CAMERA_GLANCE";
     public static final String ACTION_DEBUG_MICROPHONE_VERIFY = "com.gouxiong.sleep.action.DEBUG_MICROPHONE_VERIFY";
     public static final String ACTION_DEBUG_START_SLEEP_GUARD = "com.gouxiong.sleep.action.DEBUG_START_SLEEP_GUARD";
+    public static final String ACTION_DEBUG_LIVE2D_PREVIEW = "com.gouxiong.sleep.action.DEBUG_LIVE2D_PREVIEW";
     private static final int REQUEST_PICK_AUDIO = 2101;
     private static final int REQUEST_CAPTURE_SCENE = 2201;
     private static final int REQUEST_CAMERA_VISION = 87;
@@ -484,6 +485,14 @@ public class MainActivity extends Activity {
             prefs.setFirstLaunchDone();
             showShell("guard");
             content.postDelayed(this::startMonitoring, 250);
+            return true;
+        }
+        if (ACTION_DEBUG_LIVE2D_PREVIEW.equals(intent.getAction())) {
+            prefs.setFirstLaunchDone();
+            Intent preview = new Intent(this, Live2DPreviewActivity.class);
+            preview.putExtra("auto_load", intent.getBooleanExtra("auto_load", false));
+            startActivity(preview);
+            finish();
             return true;
         }
         return false;

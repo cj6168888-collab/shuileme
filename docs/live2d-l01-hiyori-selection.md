@@ -22,6 +22,7 @@ Current status:
 - Emulator validation produced a real Hiyori render, not a placeholder screenshot: `artifacts/debug-ui/live2d-preview-scaled-final.png`.
 - `android-app/e2e-live2d-preview.ps1` provides a repeatable honest validation path: install/start the isolated preview, wait for a loaded status, capture screenshot/logcat, and run a simple pixel check so a blank WebView is not counted as passing.
 - 2026-05-24 follow-up validation failed on the emulator: the isolated `:live2d` process can show Android's not-responding dialog during WebView/Live2D cold loading. Because of that, the main companion UI no longer exposes a user-facing Live2D button. The preview remains a development-only validation target until it passes without ANR.
+- `Live2DPreviewActivity` is not exported. External apps and direct `adb shell am start -n com.gouxiong.sleep/.Live2DPreviewActivity` are denied; debug validation must enter through MainActivity's debug-only `com.gouxiong.sleep.action.DEBUG_LIVE2D_PREVIEW` action.
 
 Next acceptance target:
 - Reduce cold WebView/Live2D load time. Emulator validation has ranged from roughly 60-91 seconds before the first render, so the preview remains gated and uses a 120-second timeout.

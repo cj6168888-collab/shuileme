@@ -110,9 +110,9 @@ if (-not $SkipInstall) {
 & $adb -s $device shell am force-stop com.gouxiong.sleep | Out-Null
 & $adb -s $device logcat -c | Out-Null
 if ($AutoLoad) {
-  & $adb -s $device shell am start -n com.gouxiong.sleep/.Live2DPreviewActivity --ez auto_load true | Write-Output
+  & $adb -s $device shell am start -n com.gouxiong.sleep/.MainActivity -a com.gouxiong.sleep.action.DEBUG_LIVE2D_PREVIEW --ez auto_load true | Write-Output
 } else {
-  & $adb -s $device shell am start -n com.gouxiong.sleep/.Live2DPreviewActivity | Write-Output
+  & $adb -s $device shell am start -n com.gouxiong.sleep/.MainActivity -a com.gouxiong.sleep.action.DEBUG_LIVE2D_PREVIEW | Write-Output
   Start-Sleep -Seconds 10
   & $adb -s $device shell input tap 205 2078 | Out-Null
 }
