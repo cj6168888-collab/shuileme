@@ -715,7 +715,7 @@ public class MainActivity extends Activity {
         hero.setPadding(0, 0, Theme.dp(this, 14), 0);
         hero.setBackground(Theme.tintedCard(this, Theme.BLUE));
 
-        ImageView scene = designImage("ui_sleep_scene_v2", 104, ImageView.ScaleType.CENTER_CROP);
+        ImageView scene = designImage("ui_sleep_scene_image2", 104, ImageView.ScaleType.CENTER_CROP);
         scene.setContentDescription("睡眠守护场景");
         LinearLayout.LayoutParams sceneLp = new LinearLayout.LayoutParams(Theme.dp(this, 132), Theme.dp(this, 104));
         sceneLp.setMargins(0, 0, Theme.dp(this, 14), 0);
