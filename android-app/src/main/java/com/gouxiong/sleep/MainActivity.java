@@ -1950,43 +1950,68 @@ public class MainActivity extends Activity {
     private void showSettings() {
         activeScreen = "settings";
         content.removeAllViews();
-        content.addView(Theme.text(this, "设置", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
-        addSpace(content, 8);
+        addSimplePageHeader("设置", "", null);
+        addSettingsProfileCard();
         addSettingsCategoryGrid();
-        addCard("紧急联系人",
-                prefs.emergencySummary() + "\n" + prefs.emergencyActionSummary(),
-                prefs.emergencyEnabled() ? Theme.GREEN : Theme.ORANGE);
     }
 
     private void addSettingsCategoryGrid() {
-        LinearLayout row1 = new LinearLayout(this);
-        row1.setOrientation(LinearLayout.HORIZONTAL);
-        addSmallTile(row1, "🛡\n守护调校", Theme.BLUE, this::showGuardianSettings);
-        addSmallTile(row1, "☎\n家人电话", prefs.emergencyEnabled() ? Theme.GREEN : Theme.ORANGE, this::showEmergencyDialog);
-        content.addView(row1, matchWrap());
-        addSpace(content, 10);
-
-        LinearLayout row2 = new LinearLayout(this);
-        row2.setOrientation(LinearLayout.HORIZONTAL);
-        addSmallTile(row2, "♪\n唤醒声音", Theme.BLUE, this::showSoundSettings);
         AudioOutputStatus.Snapshot audio = AudioOutputStatus.inspect(this);
-        addSmallTile(row2, "🔊\n" + (audio.isBluetooth() ? "蓝牙已连" : "蓝牙未连"), audio.isBluetooth() ? Theme.GREEN : Theme.ORANGE, this::showAudioOutputSettings);
-        content.addView(row2, matchWrap());
-        addSpace(content, 10);
+        LinearLayout list = cardContainer();
+        list.setPadding(Theme.dp(this, 8), Theme.dp(this, 6), Theme.dp(this, 8), Theme.dp(this, 6));
+        addSettingsRow(list, "服务端与能力检查", prefs.serverRegistered() ? "账号已登录" : "未登录", prefs.serverRegistered(), this::showServerCapabilityCheck);
+        addSettingsRow(list, "主人档案", prefs.ownerProfileSummary().length() > 8 ? "已填写" : "待完善", prefs.ownerProfileSummary().length() > 8, this::showOwnerProfileSettings);
+        addSettingsRow(list, "提醒与通知", prefs.emergencyEnabled() ? "家人电话已设置" : "设置家人电话", prefs.emergencyEnabled(), this::showEmergencyDialog);
+        addSettingsRow(list, "设备与声音", audio.isBluetooth() ? "蓝牙已连接" : "手机扬声器", audio.isBluetooth(), this::showAudioOutputSettings);
+        addSettingsRow(list, "守护调校", prefs.mode(), guardIntegrityScore() >= 80, this::showGuardianSettings);
+        addSettingsRow(list, "数据与隐私", "本机记录与导出", true, this::showDataSettings);
+        addSettingsRow(list, "小助理设置", prefs.companionRole(), true, this::showCompanionSettings);
+        content.addView(list, matchWrap());
+        addSpace(content, 12);
+        addCard("紧急联系人", prefs.emergencySummary() + "\n" + prefs.emergencyActionSummary(), prefs.emergencyEnabled() ? Theme.GREEN : Theme.ORANGE);
+    }
 
-        LinearLayout row3 = new LinearLayout(this);
-        row3.setOrientation(LinearLayout.HORIZONTAL);
-        addSmallTile(row3, "▮\n数据管理", Theme.GREEN, this::showDataSettings);
-        addSmallTile(row3, "☁\n账号服务", prefs.serverRegistered() ? Theme.GREEN : Theme.ORANGE, this::showServerAccountSettings);
-        content.addView(row3, matchWrap());
+    private void addSettingsProfileCard() {
+        LinearLayout card = cardContainer();
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setBackground(Theme.tintedCard(this, Theme.BLUE));
+        ImageView logo = designImage("ui_brand_logo", 58, ImageView.ScaleType.FIT_CENTER);
+        card.addView(logo, new LinearLayout.LayoutParams(Theme.dp(this, 64), Theme.dp(this, 64)));
+        LinearLayout words = new LinearLayout(this);
+        words.setOrientation(LinearLayout.VERTICAL);
+        String name = prefs.ownerAddress();
+        if (name == null || name.trim().length() == 0) {
+            name = "主人";
+        }
+        words.addView(Theme.text(this, name, 20, Theme.TEXT, Typeface.BOLD), matchWrap());
+        String days = prefs.isFirstLaunch() ? "今天开始守护" : "睡眠守护已开启";
+        words.addView(Theme.text(this, days + " · " + (prefs.serverRegistered() ? "云端账号已登录" : "本机模式"), 14, Theme.MUTED, Typeface.BOLD), matchWrap());
+        LinearLayout.LayoutParams wordsLp = new LinearLayout.LayoutParams(0, -2, 1);
+        wordsLp.setMargins(Theme.dp(this, 12), 0, 0, 0);
+        card.addView(words, wordsLp);
+        content.addView(card, matchWrap());
         addSpace(content, 10);
+    }
 
-        LinearLayout row4 = new LinearLayout(this);
-        row4.setOrientation(LinearLayout.HORIZONTAL);
-        addSmallTile(row4, "✓\n必要权限", Theme.ORANGE, this::requestEssentialPermissions);
-        addSmallTile(row4, "♡\n小助手", CompanionAssistant.roleColor(prefs.companionRole()), this::showCompanionSettings);
-        content.addView(row4, matchWrap());
-        addSpace(content, 14);
+    private void addSettingsRow(LinearLayout list, String title, String state, boolean ok, Runnable action) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(Theme.dp(this, 10), Theme.dp(this, 10), Theme.dp(this, 10), Theme.dp(this, 10));
+        TextView icon = Theme.text(this, ok ? "✓" : "!", 17, ok ? Theme.GREEN : Theme.ORANGE, Typeface.BOLD);
+        icon.setGravity(Gravity.CENTER);
+        icon.setBackground(Theme.rounded(Theme.mix(ok ? Theme.GREEN : Theme.ORANGE, Color.WHITE, 0.86f), 14, this));
+        row.addView(icon, new LinearLayout.LayoutParams(Theme.dp(this, 34), Theme.dp(this, 34)));
+        TextView titleView = Theme.text(this, title, 17, Theme.TEXT, Typeface.BOLD);
+        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(0, -2, 1);
+        titleLp.setMargins(Theme.dp(this, 10), 0, Theme.dp(this, 8), 0);
+        row.addView(titleView, titleLp);
+        TextView stateView = Theme.text(this, compactForCard(state, 12) + " ›", 14, Theme.MUTED, Typeface.BOLD);
+        stateView.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        row.addView(stateView, new LinearLayout.LayoutParams(Theme.dp(this, 112), -2));
+        row.setOnClickListener(v -> action.run());
+        list.addView(row, matchWrap());
     }
 
     private void showGuardianSettings() {
@@ -4468,12 +4493,10 @@ public class MainActivity extends Activity {
 
     private void showServerCapabilityCheck() {
         content.removeAllViews();
-        content.addView(Theme.text(this, "高级诊断", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSimplePageHeader("服务端与能力检查", "", null);
         addSpace(content, 8);
-        addCheckRow("本机麦克风", prefs.microphoneProbePassed() ? "通过" : "未证明", prefs.microphoneProbePassed(), this::showMicrophoneHonestCheck);
-        addCheckRow("正在连服务端", prefs.serverBaseUrl(), false, null);
-        addSettingButton("返回睡前自检", this::showPreSleepCheck);
-        addSettingButton("返回账号", this::showServerAccountSettings);
+        addServerStatusHero("正在检查", "正在连接 " + compactForCard(prefs.serverBaseUrl(), 28), Theme.ORANGE);
+        addSettingButton("返回设置", this::showSettings);
         new Thread(() -> {
             try {
                 ServerApiClient.ServerHealth status = ServerApiClient.health(prefs.serverBaseUrl());
@@ -4486,28 +4509,26 @@ public class MainActivity extends Activity {
 
     private void showServerCapabilityResult(ServerApiClient.ServerHealth status) {
         content.removeAllViews();
-        content.addView(Theme.text(this, "高级诊断", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSimplePageHeader("服务端与能力检查", "", null);
         addSpace(content, 8);
-        addCheckRow("服务端", status.ok ? "通过" : "异常", status.ok, null);
-        addCheckRow("短信", status.smsAliyunConfigured && !status.smsDevMode ? "真实阿里短信" : (status.smsDevMode ? "开发模式" : "未配置"), status.smsAliyunConfigured && !status.smsDevMode, null);
-        addCheckRow("模型", status.modelReady() ? "Key已配，需探测" : "未完整证明", status.modelReady(), null);
+        addServerStatusHero(status.ok ? "服务端连接正常" : "服务端连接异常",
+                "最后检查：" + timeNowShort() + " · " + compactForCard(prefs.serverBaseUrl(), 28),
+                status.ok ? Theme.GREEN : Theme.RED);
+        addServerCapabilityRow("账号状态", prefs.serverRegistered() ? "已登录" : "未登录", prefs.serverRegistered(), this::showServerAccountSettings);
+        addServerCapabilityRow("云端同步", status.ok ? "正常" : "异常", status.ok, null);
+        addServerCapabilityRow("短信服务", status.smsAliyunConfigured && !status.smsDevMode ? "真实阿里短信" : (status.smsDevMode ? "开发模式" : "未配置"), status.smsAliyunConfigured && !status.smsDevMode, null);
+        addServerCapabilityRow("模型服务", status.modelReady() ? "Key已配置" : "未完整证明", status.modelReady(), null);
         boolean realtimePathReady = status.realtimeConfigured && status.modelAudioOutputStreaming && status.apkLowLatencyAudioPlayback;
-        addCheckRow("Live2D Preview", "开发预览已过，主入口门控", true, null);
-        addCheckRow("实时语音", realtimePathReady ? "链路已配，真机待验" : "未完整证明", realtimePathReady, null);
-        addCheckRow("Linly数字人", status.linlyDigitalHumanConfigured ? status.linlyDigitalHumanAvatarEngine + " / " + status.linlyDigitalHumanTransport : "未配置，2D兜底", status.linlyDigitalHumanConfigured, null);
-        addCheckRow("麦克风", prefs.microphoneProbePassed() ? "现场拾音通过" : "未证明真实拾音", prefs.microphoneProbePassed(), this::showMicrophoneHonestCheck);
-        addCheckRow("听懂人话", prefs.speechRecognitionShortState(), prefs.speechRecognitionPassed(), this::showCompanionChat);
-        addCheckRow("睡眠守护拾音", prefs.sleepGuardAudioShortState(), prefs.sleepGuardAudioPassed(), () -> showShell("guard"));
-        addCheckRow("2D Avatar", status.local2dAvatarView && status.avatarStateMachine ? (status.live2dSdk ? "Live2D" : "本机2D，非Live2D") : "未完整证明", status.local2dAvatarView && status.avatarStateMachine, null);
-        addCheckRow("故事/助眠音", status.bedtimeStory && status.musicPlayback ? "可用" : "未完整证明", status.bedtimeStory && status.musicPlayback, null);
-        addCheckRow("新闻", status.newsBriefing ? "已接真实源" : "未接入，不编", status.newsBriefing, this::showNewsCapabilityStatus);
-        addCheckRow("Key安全", "只放服务端", true, null);
+        addServerCapabilityRow("实时语音", realtimePathReady ? "链路已配置" : "未完整证明", realtimePathReady, this::showCompanionChat);
+        addServerCapabilityRow("Linly 数字人", status.linlyDigitalHumanConfigured ? status.linlyDigitalHumanAvatarEngine : "2D 兜底", status.linlyDigitalHumanConfigured, this::showLinlyAvatarPreview);
+        addServerCapabilityRow("睡眠守护拾音", prefs.sleepGuardAudioShortState(), prefs.sleepGuardAudioPassed(), () -> showShell("guard"));
+        addServerCapabilityRow("数字人动画", status.local2dAvatarView && status.avatarStateMachine ? (status.live2dSdk ? "Live2D" : "本机2D") : "未完整证明", status.local2dAvatarView && status.avatarStateMachine, null);
+        addServerCapabilityRow("故事/助眠音", status.bedtimeStory && status.musicPlayback ? "可用" : "未完整证明", status.bedtimeStory && status.musicPlayback, null);
+        addServerCapabilityRow("新闻简报", status.newsBriefing ? "已接真实源" : "未接入", status.newsBriefing, this::showNewsCapabilityStatus);
+        addServerCapabilityRow("Key 安全", "只放服务端", true, null);
         addCard("数字人说明", status.digitalHumanLine(), status.linlyDigitalHumanConfigured ? Theme.GREEN : Theme.ORANGE);
-        addSettingButton("现场验证麦克风拾音", this::showMicrophoneHonestCheck);
         addSettingButton("重新检查", this::showServerCapabilityCheck);
-        addSettingButton("Linly数字人预览", this::showLinlyAvatarPreview);
-        addSettingButton("返回睡前自检", this::showPreSleepCheck);
-        addSettingButton("返回账号", this::showServerAccountSettings);
+        addSettingButton("返回设置", this::showSettings);
     }
 
     private void showLinlyAvatarPreview() {
@@ -4516,14 +4537,61 @@ public class MainActivity extends Activity {
 
     private void showServerCapabilityError(String message) {
         content.removeAllViews();
-        content.addView(Theme.text(this, "高级诊断", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSimplePageHeader("服务端与能力检查", "", null);
         addSpace(content, 8);
-        addCheckRow("服务端", "连接失败", false, null);
+        addServerStatusHero("服务端连接失败", compactForCard(message, 70), Theme.RED);
         addCard("错误", compactForCard(message, 80), Theme.RED);
         addSettingButton("连接服务设置", this::showServerUrlDialog);
         addSettingButton("重新检查", this::showServerCapabilityCheck);
-        addSettingButton("返回睡前自检", this::showPreSleepCheck);
-        addSettingButton("返回账号", this::showServerAccountSettings);
+        addSettingButton("返回设置", this::showSettings);
+    }
+
+    private void addServerStatusHero(String title, String body, int color) {
+        LinearLayout card = cardContainer();
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setBackground(Theme.tintedCard(this, color));
+        TextView dot = Theme.text(this, color == Theme.RED ? "!" : "✓", 24, color, Typeface.BOLD);
+        dot.setGravity(Gravity.CENTER);
+        dot.setBackground(Theme.rounded(Color.WHITE, 18, this));
+        card.addView(dot, new LinearLayout.LayoutParams(Theme.dp(this, 48), Theme.dp(this, 48)));
+        LinearLayout words = new LinearLayout(this);
+        words.setOrientation(LinearLayout.VERTICAL);
+        words.addView(Theme.text(this, title, 19, Theme.TEXT, Typeface.BOLD), matchWrap());
+        words.addView(Theme.text(this, body == null ? "" : body, 13, Theme.MUTED, Typeface.BOLD), matchWrap());
+        LinearLayout.LayoutParams wordsLp = new LinearLayout.LayoutParams(0, -2, 1);
+        wordsLp.setMargins(Theme.dp(this, 12), 0, 0, 0);
+        card.addView(words, wordsLp);
+        content.addView(card, matchWrap());
+        addSpace(content, 10);
+    }
+
+    private void addServerCapabilityRow(String title, String state, boolean ok, Runnable action) {
+        LinearLayout row = cardContainer();
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(Theme.dp(this, 12), Theme.dp(this, 9), Theme.dp(this, 12), Theme.dp(this, 9));
+        TextView icon = Theme.text(this, ok ? "✓" : "!", 16, ok ? Theme.GREEN : Theme.ORANGE, Typeface.BOLD);
+        icon.setGravity(Gravity.CENTER);
+        icon.setBackground(Theme.rounded(Theme.mix(ok ? Theme.GREEN : Theme.ORANGE, Color.WHITE, 0.86f), 14, this));
+        row.addView(icon, new LinearLayout.LayoutParams(Theme.dp(this, 32), Theme.dp(this, 32)));
+        TextView titleView = Theme.text(this, title, 16, Theme.TEXT, Typeface.BOLD);
+        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(0, -2, 1);
+        titleLp.setMargins(Theme.dp(this, 10), 0, Theme.dp(this, 8), 0);
+        row.addView(titleView, titleLp);
+        TextView stateView = Theme.text(this, compactForCard(state, 16) + (action == null ? "" : " ›"), 14, ok ? Theme.darken(Theme.GREEN, 0.25f) : Theme.ORANGE, Typeface.BOLD);
+        stateView.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        row.addView(stateView, new LinearLayout.LayoutParams(Theme.dp(this, 128), -2));
+        if (action != null) {
+            row.setOnClickListener(v -> action.run());
+        }
+        content.addView(row, matchWrap());
+        addSpace(content, 6);
+    }
+
+    private String timeNowShort() {
+        Calendar calendar = Calendar.getInstance();
+        return twoDigits(calendar.get(Calendar.HOUR_OF_DAY)) + ":" + twoDigits(calendar.get(Calendar.MINUTE));
     }
 
     private void showMicrophoneHonestCheck() {
