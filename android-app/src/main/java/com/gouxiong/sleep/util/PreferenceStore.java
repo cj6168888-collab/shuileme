@@ -851,6 +851,24 @@ public class PreferenceStore {
                 .apply();
     }
 
+    public boolean preSleepCheckToday() {
+        return dayKey(System.currentTimeMillis()).equals(prefs.getString("pre_sleep_check_date", ""));
+    }
+
+    public String preSleepCheckValue(String key) {
+        if (!preSleepCheckToday()) {
+            return "";
+        }
+        return prefs.getString("pre_sleep_" + clean(key), "");
+    }
+
+    public void setPreSleepCheckValue(String key, String value) {
+        prefs.edit()
+                .putString("pre_sleep_check_date", dayKey(System.currentTimeMillis()))
+                .putString("pre_sleep_" + clean(key), clean(value))
+                .apply();
+    }
+
     public String assistantCheckInSummary() {
         if (!assistantCheckInToday()) {
             return "今天还没有记录状态。点“记录今天状态”，小助手会更懂今天该怎么关心你。";

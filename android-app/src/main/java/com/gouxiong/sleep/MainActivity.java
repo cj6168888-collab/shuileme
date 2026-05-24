@@ -2364,21 +2364,59 @@ public class MainActivity extends Activity {
         activeScreen = "pre_sleep";
         content.removeAllViews();
         SleepGuardReadiness readiness = buildSleepGuardReadiness();
-        boolean ready = readiness.ready();
+        boolean subjectiveReady = preSleepSubjectiveReady();
+        boolean ready = readiness.ready() && subjectiveReady;
         addPreSleepHeader();
         addSpace(content, 8);
         addPreSleepNotice(readiness);
-        addPreSleepDesignRow("情绪状态", "待确认", false, Theme.GREEN, null);
-        addPreSleepDesignRow("身体不适", "待确认", false, Theme.GREEN, null);
-        addPreSleepDesignRow("咖啡因摄入", "待确认", false, Theme.BLUE, null);
-        addPreSleepDesignRow("晚餐时间", "待确认", false, Theme.ORANGE, null);
-        addPreSleepDesignRow("运动情况", "待确认", false, Theme.GREEN, null);
-        addPreSleepDesignRow("屏幕使用", "待确认", false, Theme.BLUE, null);
+        addPreSleepSelfCheckRow("情绪状态", "mood", Theme.GREEN, new String[]{"平静", "有点焦虑", "心情不好"});
+        addPreSleepSelfCheckRow("身体不适", "body", Theme.GREEN, new String[]{"无", "有点不舒服", "明显不舒服"});
+        addPreSleepSelfCheckRow("咖啡因摄入", "caffeine", Theme.BLUE, new String[]{"未摄入", "下午喝过", "晚上喝过"});
+        addPreSleepSelfCheckRow("晚餐时间", "dinner", Theme.ORANGE, new String[]{"2小时前", "1小时前", "刚吃不久"});
+        addPreSleepSelfCheckRow("运动情况", "exercise", Theme.GREEN, new String[]{"适量", "很少活动", "运动较多"});
+        addPreSleepSelfCheckRow("屏幕使用", "screen", Theme.BLUE, new String[]{"30分钟前", "刚看过", "准备放下"});
         addPreSleepDesignRow("麦克风授权", readiness.micOk ? "已打开" : "去打开", readiness.micOk, readiness.micOk ? Theme.GREEN : Theme.ORANGE, this::requestSleepGuardPermissions);
         addPreSleepDesignRow("通知权限", readiness.notificationOk ? "已打开" : "去打开", readiness.notificationOk, readiness.notificationOk ? Theme.GREEN : Theme.ORANGE, this::requestSleepGuardPermissions);
-        addPrimaryActionButton(ready ? "开始今晚守护" : "确认后开始守护", ready ? Theme.GREEN : Theme.ORANGE, this::startMonitoring);
+        addPrimaryActionButton(ready ? "开始今晚守护" : "确认后开始守护", ready ? Theme.GREEN : Theme.ORANGE, ready ? this::startMonitoring : this::showPreSleepCheckIncomplete);
         addSettingButton("更多检测与测试", this::showPreSleepMoreChecks);
         addSettingButton("返回首页", () -> showShell("guard"));
+    }
+
+    private boolean preSleepSubjectiveReady() {
+        return prefs.preSleepCheckValue("mood").length() > 0
+                && prefs.preSleepCheckValue("body").length() > 0
+                && prefs.preSleepCheckValue("caffeine").length() > 0
+                && prefs.preSleepCheckValue("dinner").length() > 0
+                && prefs.preSleepCheckValue("exercise").length() > 0
+                && prefs.preSleepCheckValue("screen").length() > 0;
+    }
+
+    private void showPreSleepCheckIncomplete() {
+        new AlertDialog.Builder(this)
+                .setTitle("睡前自检还没完成")
+                .setMessage("请先确认情绪、身体、咖啡因、晚餐、运动和屏幕使用；麦克风和通知也需要打开。确认后再开始今晚守护。")
+                .setPositiveButton("继续自检", null)
+                .show();
+    }
+
+    private void addPreSleepSelfCheckRow(String title, String key, int color, String[] choices) {
+        String value = prefs.preSleepCheckValue(key);
+        boolean ok = value.length() > 0;
+        addPreSleepDesignRow(title, ok ? value : "待确认", ok, color, () -> showPreSleepChoiceDialog(title, key, choices));
+    }
+
+    private void showPreSleepChoiceDialog(String title, String key, String[] choices) {
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setItems(choices, (dialog, which) -> {
+                    if (which >= 0 && which < choices.length) {
+                        prefs.setPreSleepCheckValue(key, choices[which]);
+                        Toast.makeText(this, "已记录：" + choices[which], Toast.LENGTH_SHORT).show();
+                        showPreSleepCheck();
+                    }
+                })
+                .setNegativeButton("取消", null)
+                .show();
     }
 
     private void addPreSleepHeader() {
