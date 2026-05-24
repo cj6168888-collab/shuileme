@@ -701,19 +701,6 @@ public class MainActivity extends Activity {
         int integrity = guardIntegrityScore();
         SleepGuardReadiness readiness = buildSleepGuardReadiness();
         addHomeHero(monitoring, integrity, readiness);
-
-        Button primary = Theme.button(this, monitoring ? "停止守护" : "▶  开始守护", monitoring ? Theme.RED : Theme.BLUE);
-        primary.setTextSize(26);
-        primary.setMinHeight(Theme.dp(this, 64));
-        primary.setOnClickListener(v -> {
-            if (prefs.isMonitoring()) {
-                stopMonitoring();
-            } else {
-                startMonitoring();
-            }
-        });
-        content.addView(primary, matchWrap());
-        addSpace(content, 8);
         addHomeWaveCard(monitoring);
         addSpace(content, 8);
         addHomeReportEntry();
@@ -725,25 +712,51 @@ public class MainActivity extends Activity {
         LinearLayout hero = cardContainer();
         hero.setOrientation(LinearLayout.HORIZONTAL);
         hero.setGravity(Gravity.CENTER_VERTICAL);
-        hero.setPadding(Theme.dp(this, 14), Theme.dp(this, 12), Theme.dp(this, 14), Theme.dp(this, 12));
+        hero.setPadding(0, 0, Theme.dp(this, 14), 0);
         hero.setBackground(Theme.tintedCard(this, Theme.BLUE));
 
-        ImageView logo = designImage("ui_brand_logo", 76, ImageView.ScaleType.FIT_CENTER);
-        logo.setContentDescription("睡了么");
-        LinearLayout.LayoutParams logoLp = new LinearLayout.LayoutParams(Theme.dp(this, 76), Theme.dp(this, 76));
-        logoLp.setMargins(0, 0, Theme.dp(this, 12), 0);
-        hero.addView(logo, logoLp);
+        ImageView scene = designImage("ui_sleep_scene_v2", 104, ImageView.ScaleType.CENTER_CROP);
+        scene.setContentDescription("睡眠守护场景");
+        LinearLayout.LayoutParams sceneLp = new LinearLayout.LayoutParams(Theme.dp(this, 132), Theme.dp(this, 104));
+        sceneLp.setMargins(0, 0, Theme.dp(this, 14), 0);
+        hero.addView(scene, sceneLp);
 
         LinearLayout words = new LinearLayout(this);
         words.setOrientation(LinearLayout.VERTICAL);
         words.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = Theme.text(this, monitoring ? "睡眠守护中" : "睡眠守护", 28, Theme.TEXT, Typeface.BOLD);
-        words.addView(title, matchWrap());
-        TextView sub = Theme.text(this, monitoring ? "正在记录夜间声音和动作" : "今晚准备好后，一键开始守护", 14, Theme.MUTED, Typeface.BOLD);
-        words.addView(sub, matchWrap());
+        LinearLayout titleRow = new LinearLayout(this);
+        titleRow.setOrientation(LinearLayout.HORIZONTAL);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        TextView title = Theme.text(this, monitoring ? "睡眠守护中" : "睡眠守护", 24, Theme.TEXT, Typeface.BOLD);
+        titleRow.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView arrow = Theme.text(this, "›", 28, Theme.MUTED, Typeface.BOLD);
+        arrow.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        titleRow.addView(arrow, new LinearLayout.LayoutParams(Theme.dp(this, 28), -2));
+        words.addView(titleRow, matchWrap());
+
+        TextView status = Theme.text(this, monitoring ? "实时监测中" : (readiness != null && readiness.ready() ? "睡前准备已完成" : "睡前准备未完成"), 16,
+                monitoring || (readiness != null && readiness.ready()) ? Theme.darken(Theme.GREEN, 0.18f) : Theme.darken(Theme.ORANGE, 0.22f),
+                Typeface.BOLD);
+        words.addView(status, matchWrap());
         addSpace(words, 6);
-        addHomeReadyBadge(words, monitoring, integrity, readiness);
+
+        Button primary = Theme.button(this, monitoring ? "停止守护" : "▶  开始守护", monitoring ? Theme.RED : Theme.BLUE);
+        primary.setTextSize(20);
+        primary.setMinHeight(Theme.dp(this, 48));
+        primary.setOnClickListener(v -> {
+            if (prefs.isMonitoring()) {
+                stopMonitoring();
+            } else {
+                startMonitoring();
+            }
+        });
+        words.addView(primary, matchWrap());
         hero.addView(words, new LinearLayout.LayoutParams(0, -2, 1));
+        if (!monitoring && readiness != null && !readiness.ready()) {
+            hero.setOnClickListener(v -> showPreSleepCheck());
+            hero.setClickable(true);
+            hero.setFocusable(true);
+        }
 
         content.addView(hero, matchWrap());
         addSpace(content, 8);
@@ -776,18 +789,18 @@ public class MainActivity extends Activity {
     private void addHomeWaveCard(boolean monitoring) {
         SleepDashboardData data = buildSleepDashboardData();
         LinearLayout card = cardContainer();
-        card.setPadding(Theme.dp(this, 16), Theme.dp(this, 13), Theme.dp(this, 16), Theme.dp(this, 14));
+        card.setPadding(Theme.dp(this, 16), Theme.dp(this, 11), Theme.dp(this, 16), Theme.dp(this, 12));
         card.setBackground(Theme.rounded(Color.rgb(19, 49, 101), 28, this));
         card.setOnClickListener(v -> showSleepReport());
 
         LinearLayout titleRow = new LinearLayout(this);
         titleRow.setOrientation(LinearLayout.HORIZONTAL);
         titleRow.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = Theme.text(this, "睡觉波形检测", 20, Color.WHITE, Typeface.BOLD);
+        TextView title = Theme.text(this, "睡觉波形检测", 18, Color.WHITE, Typeface.BOLD);
         titleRow.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView state = Theme.text(this, data.waveformSampleCount > 0 ? data.waveformSampleCount + " 点" : (monitoring ? "采集中" : "未开始"), 14, Color.rgb(195, 218, 255), Typeface.BOLD);
+        TextView state = Theme.text(this, monitoring ? "● 实时监测中" : (data.waveformSampleCount > 0 ? data.waveformSampleCount + " 点" : "未开始"), 14, Color.rgb(195, 218, 255), Typeface.BOLD);
         state.setGravity(Gravity.RIGHT);
-        titleRow.addView(state, new LinearLayout.LayoutParams(Theme.dp(this, 88), -2));
+        titleRow.addView(state, new LinearLayout.LayoutParams(Theme.dp(this, 120), -2));
         card.addView(titleRow, matchWrap());
         addSpace(card, 8);
 
@@ -795,9 +808,49 @@ public class MainActivity extends Activity {
         wave.setCompact(true);
         wave.setDark(true);
         wave.setDashboardData(data, monitoring);
-        card.addView(wave, new LinearLayout.LayoutParams(-1, Theme.dp(this, 72)));
+        card.addView(wave, new LinearLayout.LayoutParams(-1, Theme.dp(this, 86)));
+        addHomeWaveTimes(card);
+        addSpace(card, 10);
+        addHomeWaveMetrics(card, data);
 
         content.addView(card, matchWrap());
+    }
+
+    private void addHomeWaveTimes(LinearLayout card) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        String[] labels = {"23:00", "01:00", "03:00", "05:00", "07:00"};
+        for (String label : labels) {
+            TextView item = Theme.text(this, label, 11, Color.rgb(195, 218, 255), Typeface.NORMAL);
+            item.setGravity(Gravity.CENTER);
+            row.addView(item, new LinearLayout.LayoutParams(0, -2, 1));
+        }
+        card.addView(row, matchWrap());
+    }
+
+    private void addHomeWaveMetrics(LinearLayout card, SleepDashboardData data) {
+        LinearLayout strip = new LinearLayout(this);
+        strip.setOrientation(LinearLayout.HORIZONTAL);
+        strip.setGravity(Gravity.CENTER_VERTICAL);
+        strip.setPadding(Theme.dp(this, 10), Theme.dp(this, 8), Theme.dp(this, 10), Theme.dp(this, 8));
+        strip.setBackground(Theme.rounded(Color.rgb(42, 82, 147), 18, this));
+        addHomeMetric(strip, "呼吸平稳", data.eventCount > 0 ? "需留意" : "当前状态");
+        addHomeMetric(strip, "睡眠时长", data.totalSleepMinutes > 0 ? sleepDurationText(data.totalSleepMinutes) : "待生成");
+        addHomeMetric(strip, "异常", data.eventCount + " 次");
+        card.addView(strip, new LinearLayout.LayoutParams(-1, Theme.dp(this, 56)));
+    }
+
+    private void addHomeMetric(LinearLayout row, String title, String value) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER);
+        TextView t = Theme.text(this, title, 12, Color.WHITE, Typeface.BOLD);
+        t.setGravity(Gravity.CENTER);
+        box.addView(t, matchWrap());
+        TextView v = Theme.text(this, value, 11, Color.rgb(207, 225, 255), Typeface.NORMAL);
+        v.setGravity(Gravity.CENTER);
+        box.addView(v, matchWrap());
+        row.addView(box, new LinearLayout.LayoutParams(0, -2, 1));
     }
 
     private void addHomeReportEntry() {
@@ -810,9 +863,9 @@ public class MainActivity extends Activity {
 
         LinearLayout words = new LinearLayout(this);
         words.setOrientation(LinearLayout.VERTICAL);
-        TextView title = Theme.text(this, "睡眠报告", 20, Theme.TEXT, Typeface.BOLD);
+        TextView title = Theme.text(this, "睡眠报告", 18, Theme.TEXT, Typeface.BOLD);
         words.addView(title, matchWrap());
-        TextView sub = Theme.text(this, "昨晚复盘、异常证据和真实波形", 13, Theme.MUTED, Typeface.BOLD);
+        TextView sub = Theme.text(this, "昨晚复盘、异常证据和真实波形", 12, Theme.MUTED, Typeface.BOLD);
         words.addView(sub, matchWrap());
         card.addView(words, new LinearLayout.LayoutParams(0, -2, 1));
 
@@ -820,7 +873,7 @@ public class MainActivity extends Activity {
         arrow.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         card.addView(arrow, new LinearLayout.LayoutParams(Theme.dp(this, 72), -2));
 
-        content.addView(card, new LinearLayout.LayoutParams(-1, Theme.dp(this, 78)));
+        content.addView(card, new LinearLayout.LayoutParams(-1, Theme.dp(this, 64)));
     }
 
     private void addReadinessChips() {
@@ -948,20 +1001,52 @@ public class MainActivity extends Activity {
     private void addCareTile(LinearLayout row, String title, String subtitle, int color, Runnable action) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setGravity(Gravity.CENTER);
-        card.setPadding(Theme.dp(this, 10), Theme.dp(this, 8), Theme.dp(this, 10), Theme.dp(this, 8));
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setPadding(Theme.dp(this, 10), Theme.dp(this, 9), Theme.dp(this, 10), Theme.dp(this, 8));
         card.setBackground(Theme.tintedCard(this, color));
         card.setOnClickListener(v -> action.run());
-        TextView titleView = Theme.text(this, title, 18, Theme.TEXT, Typeface.BOLD);
-        titleView.setGravity(Gravity.CENTER);
+        TextView titleView = Theme.text(this, title, 16, Theme.TEXT, Typeface.BOLD);
+        titleView.setGravity(Gravity.LEFT);
         card.addView(titleView, matchWrap());
-        addSpace(card, 4);
-        TextView sub = Theme.text(this, subtitle, 13, Theme.MUTED, Typeface.BOLD);
-        sub.setGravity(Gravity.CENTER);
+        addSpace(card, 2);
+        TextView sub = Theme.text(this, subtitle, 11, Theme.MUTED, Typeface.BOLD);
+        sub.setGravity(Gravity.LEFT);
         card.addView(sub, matchWrap());
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, Theme.dp(this, 96), 1);
+        addSpace(card, 8);
+        if ("吃药提醒".equals(title)) {
+            addCareMiniRow(card, "08:00", prefs.medicationEnabled() ? shortText(prefs.medicationName(), 5) : "降压药", prefs.medicationConfirmedToday() ? "已服用" : "未服用", Theme.ORANGE);
+            addCareMiniRow(card, "20:00", "维生素B族", "未服用", Theme.ORANGE);
+        } else {
+            addCareMiniRow(card, "喝水提醒", prefs.hydrationIntervalMinutes() + " 分钟/次", prefs.hydrationReminderEnabled() ? "开启" : "关闭", Theme.GREEN);
+            addCareMiniRow(card, "久坐提醒", prefs.sedentaryIntervalMinutes() + " 分钟/次", prefs.sedentaryReminderEnabled() ? "开启" : "关闭", Theme.GREEN);
+        }
+        addSpace(card, 8);
+        TextView footer = Theme.text(this, "查看与设置 ›", 13, Theme.darken(color, 0.25f), Typeface.BOLD);
+        footer.setGravity(Gravity.LEFT);
+        card.addView(footer, matchWrap());
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, Theme.dp(this, 132), 1);
         lp.setMargins(Theme.dp(this, 4), 0, Theme.dp(this, 4), 0);
         row.addView(card, lp);
+    }
+
+    private void addCareMiniRow(LinearLayout card, String left, String middle, String right, int color) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(Theme.dp(this, 8), Theme.dp(this, 5), Theme.dp(this, 8), Theme.dp(this, 5));
+        row.setBackground(Theme.rounded(Color.WHITE, 12, this));
+        TextView l = Theme.text(this, left, 9, Theme.MUTED, Typeface.BOLD);
+        row.addView(l, new LinearLayout.LayoutParams(Theme.dp(this, 44), -2));
+        TextView m = Theme.text(this, middle, 10, Theme.TEXT, Typeface.BOLD);
+        m.setSingleLine(true);
+        row.addView(m, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView r = Theme.text(this, right, 9, Theme.darken(color, 0.25f), Typeface.BOLD);
+        r.setSingleLine(true);
+        r.setGravity(Gravity.RIGHT);
+        row.addView(r, new LinearLayout.LayoutParams(Theme.dp(this, 40), -2));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, Theme.dp(this, 28));
+        lp.setMargins(0, 0, 0, Theme.dp(this, 4));
+        card.addView(row, lp);
     }
 
     private String medicationHomeLine() {
@@ -7408,11 +7493,12 @@ public class MainActivity extends Activity {
             canvas.drawLine(Theme.dp(getContext(), 12), centerY, w - Theme.dp(getContext(), 12), centerY, paint);
 
             if (levels.length == 0) {
+                drawPreviewWave(canvas, w, h, centerY);
                 paint.setStyle(Paint.Style.FILL);
-                paint.setTextSize(Theme.dp(getContext(), compact ? 13 : 14));
+                paint.setTextSize(Theme.dp(getContext(), compact ? 12 : 14));
                 paint.setTypeface(Typeface.DEFAULT_BOLD);
                 paint.setColor(dark ? Color.rgb(255, 214, 114) : Theme.ORANGE);
-                canvas.drawText(monitoring ? "等待采样" : "暂无波形", Theme.dp(getContext(), 14), compact ? h * 0.62f : h * 0.48f, paint);
+                canvas.drawText(monitoring ? "等待采样" : "未开始", Theme.dp(getContext(), 14), Theme.dp(getContext(), 22), paint);
                 if (compact) {
                     return;
                 }
@@ -7454,6 +7540,31 @@ public class MainActivity extends Activity {
                     : (high > 0 ? Theme.RED : (events > 0 ? Theme.ORANGE : Theme.darken(Theme.GREEN, 0.20f))));
             String label = "真实采样 " + (data == null ? levels.length : data.waveformSampleCount) + " 点";
             canvas.drawText(label, Theme.dp(getContext(), 14), h - Theme.dp(getContext(), 10), paint);
+        }
+
+        private void drawPreviewWave(Canvas canvas, int w, int h, float centerY) {
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            paint.setStrokeJoin(Paint.Join.ROUND);
+            float side = Theme.dp(getContext(), 14);
+            float usable = Math.max(1f, w - side * 2f);
+            android.graphics.Path path = new android.graphics.Path();
+            for (int i = 0; i <= 72; i++) {
+                float x = side + usable * i / 72f;
+                double t = i / 72d;
+                float amp = (float) ((Math.sin(t * Math.PI * 10) * 0.35d
+                        + Math.sin(t * Math.PI * 23) * 0.20d
+                        + Math.sin(t * Math.PI * 37) * 0.10d) * h * 0.32d);
+                float y = centerY - amp;
+                if (i == 0) path.moveTo(x, y);
+                else path.lineTo(x, y);
+            }
+            paint.setStrokeWidth(Theme.dp(getContext(), 6));
+            paint.setColor(dark ? Color.argb(70, 122, 209, 255) : Color.argb(70, 43, 104, 226));
+            canvas.drawPath(path, paint);
+            paint.setStrokeWidth(Theme.dp(getContext(), 2));
+            paint.setColor(dark ? Color.rgb(139, 220, 255) : Theme.BLUE);
+            canvas.drawPath(path, paint);
         }
     }
 
