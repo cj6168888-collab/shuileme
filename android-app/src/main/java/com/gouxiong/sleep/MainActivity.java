@@ -2614,7 +2614,6 @@ public class MainActivity extends Activity {
         addMorningBriefHeroCard();
         addMorningSleepReviewCard(data);
         addTodayCareAdviceCard(data);
-        addMorningQuickActions();
     }
 
     private void requestMorningBriefVoice() {
@@ -2642,10 +2641,8 @@ public class MainActivity extends Activity {
         card.setOrientation(LinearLayout.HORIZONTAL);
         card.setGravity(Gravity.CENTER_VERTICAL);
         card.setBackground(Theme.tintedCard(this, Theme.ORANGE));
-        TextView sun = Theme.text(this, "☀", 34, Theme.ORANGE, Typeface.BOLD);
-        sun.setGravity(Gravity.CENTER);
-        sun.setBackground(Theme.rounded(Color.WHITE, 22, this));
-        card.addView(sun, new LinearLayout.LayoutParams(Theme.dp(this, 58), Theme.dp(this, 58)));
+        ImageView sun = designImage("ui_morning_sun_card", 64, ImageView.ScaleType.CENTER_CROP);
+        card.addView(sun, new LinearLayout.LayoutParams(Theme.dp(this, 64), Theme.dp(this, 64)));
         LinearLayout words = new LinearLayout(this);
         words.setOrientation(LinearLayout.VERTICAL);
         String owner = prefs.ownerAddress();
@@ -2687,7 +2684,12 @@ public class MainActivity extends Activity {
         card.setPadding(Theme.dp(this, 14), Theme.dp(this, 12), Theme.dp(this, 14), Theme.dp(this, 12));
         card.addView(Theme.text(this, "今日关怀建议", 19, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(card, 8);
-        addCareAdviceLine(card, "今日天气", "天气服务待接入，先按体感增减衣物", Theme.BLUE);
+        addCareAdviceLine(card, "喝水提醒", prefs.hydrationReminderEnabled()
+                ? prefs.hydrationStartHour() + ":00-" + prefs.hydrationEndHour() + ":00 每 " + prefs.hydrationIntervalMinutes() + " 分钟"
+                : "未开启喝水提醒", prefs.hydrationReminderEnabled() ? Theme.GREEN : Theme.ORANGE);
+        addCareAdviceLine(card, "久坐提醒", prefs.sedentaryReminderEnabled()
+                ? prefs.sedentaryStartHour() + ":00-" + prefs.sedentaryEndHour() + ":00 每 " + prefs.sedentaryIntervalMinutes() + " 分钟"
+                : "未开启久坐提醒", prefs.sedentaryReminderEnabled() ? Theme.BLUE : Theme.ORANGE);
         String med = prefs.medicationEnabled()
                 ? formatMedicationTime() + " " + prefs.medicationName() + (prefs.medicationConfirmedToday() ? " 已确认" : " 待确认")
                 : "还未设置吃药提醒";
