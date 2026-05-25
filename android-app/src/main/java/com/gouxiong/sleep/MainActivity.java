@@ -3093,15 +3093,6 @@ public class MainActivity extends Activity {
         addSimplePageHeader("主人档案", "编辑", this::showOwnerProfileDialog);
         addOwnerProfileHeroCard();
         addOwnerMemoryList();
-        addOwnerCareStatusCard();
-        addSettingButton("记录今天状态", this::showAssistantCheckIn);
-        addSettingButton("小助手一步步建档", () -> showOwnerProfileWizard(0));
-        addSettingButton(prefs.assistantProactiveCareEnabled() ? "关闭主动关怀" : "开启主动关怀", () -> {
-            prefs.setAssistantProactiveCareEnabled(!prefs.assistantProactiveCareEnabled());
-            showOwnerProfileSettings();
-        });
-        addSettingButton("看看今天关怀建议", () -> showCompanionReply("今天关怀建议", proactiveCareText()));
-        addSettingButton("返回设置", this::showSettings);
     }
 
     private void addOwnerProfileHeroCard() {
@@ -3109,7 +3100,7 @@ public class MainActivity extends Activity {
         card.setOrientation(LinearLayout.HORIZONTAL);
         card.setGravity(Gravity.CENTER_VERTICAL);
         card.setBackground(Theme.tintedCard(this, CompanionAssistant.roleColor(prefs.companionRole())));
-        ImageView avatar = designImage("ui_digital_human_assistant_image2", 76, ImageView.ScaleType.FIT_CENTER);
+        ImageView avatar = designImage("ui_owner_profile_avatar", 76, ImageView.ScaleType.CENTER_CROP);
         card.addView(avatar, new LinearLayout.LayoutParams(Theme.dp(this, 78), Theme.dp(this, 78)));
         LinearLayout words = new LinearLayout(this);
         words.setOrientation(LinearLayout.VERTICAL);
@@ -3118,8 +3109,9 @@ public class MainActivity extends Activity {
             name = "主人";
         }
         words.addView(Theme.text(this, name, 22, Theme.TEXT, Typeface.BOLD), matchWrap());
-        words.addView(Theme.text(this, prefs.ownerProfileStarted() ? "档案已建立" : "档案待完善", 15, prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE, Typeface.BOLD), matchWrap());
-        words.addView(Theme.text(this, prefs.assistantCheckInToday() ? "今天状态已记录" : "今天还没记录状态", 14, Theme.MUTED, Typeface.BOLD), matchWrap());
+        words.addView(Theme.text(this, "档案：" + (prefs.ownerProfileStarted() ? "已建立" : "待完善"), 15, prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE, Typeface.BOLD), matchWrap());
+        words.addView(Theme.text(this, "记忆：" + (prefs.serverRegistered() ? "云端已开启" : "本机保存"), 14, Theme.MUTED, Typeface.BOLD), matchWrap());
+        words.addView(Theme.text(this, prefs.assistantCheckInToday() ? "今日状态已记录" : "今日状态待记录", 14, Theme.MUTED, Typeface.BOLD), matchWrap());
         LinearLayout.LayoutParams wordsLp = new LinearLayout.LayoutParams(0, -2, 1);
         wordsLp.setMargins(Theme.dp(this, 12), 0, 0, 0);
         card.addView(words, wordsLp);
@@ -3130,20 +3122,49 @@ public class MainActivity extends Activity {
     private void addOwnerMemoryList() {
         LinearLayout card = cardContainer();
         card.setPadding(Theme.dp(this, 14), Theme.dp(this, 12), Theme.dp(this, 14), Theme.dp(this, 12));
-        card.addView(Theme.text(this, "我的记忆", 19, Theme.TEXT, Typeface.BOLD), matchWrap());
-        addSpace(card, 8);
-        addMemoryLine(card, "主人档案", prefs.ownerProfileSummary(), prefs.ownerProfileStarted() ? Theme.GREEN : Theme.ORANGE);
-        addMemoryLine(card, "今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE);
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.addView(Theme.text(this, "我的记忆", 19, Theme.TEXT, Typeface.BOLD), new LinearLayout.LayoutParams(0, -2, 1));
+        TextView all = Theme.text(this, "全部 ›", 14, Theme.MUTED, Typeface.BOLD);
+        all.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        all.setOnClickListener(v -> showOwnerProfileDialog());
+        header.addView(all, new LinearLayout.LayoutParams(Theme.dp(this, 72), -2));
+        card.addView(header, matchWrap());
+        addSpace(card, 10);
+        addMemoryLine(card, "健康与用药", ownerMemoryBody(prefs.healthProfile(), prefs.medicationHabits(), "还没有填写健康和用药习惯"), prefs.healthProfile().length() + prefs.medicationHabits().length() > 0 ? Theme.GREEN : Theme.ORANGE, () -> showOwnerProfileWizard(0));
+        addMemoryLine(card, "睡眠与关怀", ownerMemoryBody(prefs.sleepSituation(), prefs.carePreference(), "还没有填写睡眠偏好和关怀方式"), prefs.sleepSituation().length() + prefs.carePreference().length() > 0 ? Theme.BLUE : Theme.ORANGE, () -> showOwnerProfileWizard(2));
+        addMemoryLine(card, "今天状态", prefs.assistantCheckInSummary(), prefs.assistantCheckInToday() ? Theme.GREEN : Theme.ORANGE, this::showAssistantCheckIn);
         String objectMemory = prefs.importantObjectMemory();
-        addMemoryLine(card, "常用物品", objectMemory.length() > 0 ? objectMemory : "还没有记录物品位置", objectMemory.length() > 0 ? Theme.BLUE : Theme.ORANGE);
+        addMemoryLine(card, "常用物品", objectMemory.length() > 0 ? objectMemory : "还没有记录物品位置", objectMemory.length() > 0 ? Theme.BLUE : Theme.ORANGE, this::showCompanionVision);
+        addMemoryLine(card, "主动关怀", prefs.assistantProactiveCareEnabled() ? "已开启，每天最多主动问候一次" : "已关闭，只在点开时回应", prefs.assistantProactiveCareEnabled() ? Theme.GREEN : Theme.ORANGE, () -> {
+            prefs.setAssistantProactiveCareEnabled(!prefs.assistantProactiveCareEnabled());
+            showOwnerProfileSettings();
+        });
         content.addView(card, matchWrap());
         addSpace(content, 10);
     }
 
-    private void addMemoryLine(LinearLayout card, String title, String body, int color) {
+    private String ownerMemoryBody(String first, String second, String fallback) {
+        String cleanFirst = first == null ? "" : first.trim();
+        String cleanSecond = second == null ? "" : second.trim();
+        if (cleanFirst.length() > 0 && cleanSecond.length() > 0) {
+            return cleanFirst + "；" + cleanSecond;
+        }
+        if (cleanFirst.length() > 0) {
+            return cleanFirst;
+        }
+        if (cleanSecond.length() > 0) {
+            return cleanSecond;
+        }
+        return fallback;
+    }
+
+    private void addMemoryLine(LinearLayout card, String title, String body, int color, Runnable action) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, Theme.dp(this, 2), 0, Theme.dp(this, 8));
         TextView dot = Theme.text(this, "✓", 15, color, Typeface.BOLD);
         dot.setGravity(Gravity.CENTER);
         dot.setBackground(Theme.rounded(Theme.mix(color, Color.WHITE, 0.86f), 12, this));
@@ -3155,16 +3176,11 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams wordsLp = new LinearLayout.LayoutParams(0, -2, 1);
         wordsLp.setMargins(Theme.dp(this, 10), 0, 0, 0);
         row.addView(words, wordsLp);
+        TextView arrow = Theme.text(this, "›", 18, Theme.MUTED, Typeface.BOLD);
+        arrow.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        row.addView(arrow, new LinearLayout.LayoutParams(Theme.dp(this, 22), -2));
+        row.setOnClickListener(v -> action.run());
         card.addView(row, matchWrap());
-        addSpace(card, 8);
-    }
-
-    private void addOwnerCareStatusCard() {
-        addCard("主动关怀",
-                prefs.assistantProactiveCareEnabled()
-                        ? "已开启。App 打开时，小助手每天最多主动问候一次；夜间守护时不会打扰。"
-                        : "已关闭。小助手只在你点开时回应。",
-                prefs.assistantProactiveCareEnabled() ? Theme.GREEN : Theme.ORANGE);
     }
 
     private void showOwnerProfileWizard(int step) {
