@@ -947,10 +947,26 @@ public class PreferenceStore {
         return prefs.getInt("hydration_interval_minutes", 60);
     }
 
+    public int hydrationStartHour() {
+        return prefs.getInt("hydration_start_hour", 7);
+    }
+
+    public int hydrationEndHour() {
+        return prefs.getInt("hydration_end_hour", 22);
+    }
+
     public void setHydrationReminder(boolean enabled, int intervalMinutes) {
+        setHydrationReminder(enabled, intervalMinutes, hydrationStartHour(), hydrationEndHour());
+    }
+
+    public void setHydrationReminder(boolean enabled, int intervalMinutes, int startHour, int endHour) {
+        int start = clampHour(startHour);
+        int end = Math.max(start + 1, clampEndHour(endHour));
         prefs.edit()
                 .putBoolean("hydration_reminder_enabled", enabled)
                 .putInt("hydration_interval_minutes", Math.max(30, Math.min(180, intervalMinutes)))
+                .putInt("hydration_start_hour", start)
+                .putInt("hydration_end_hour", Math.min(24, end))
                 .apply();
     }
 
@@ -970,11 +986,35 @@ public class PreferenceStore {
         return prefs.getInt("sedentary_interval_minutes", 60);
     }
 
+    public int sedentaryStartHour() {
+        return prefs.getInt("sedentary_start_hour", 8);
+    }
+
+    public int sedentaryEndHour() {
+        return prefs.getInt("sedentary_end_hour", 22);
+    }
+
     public void setSedentaryReminder(boolean enabled, int intervalMinutes) {
+        setSedentaryReminder(enabled, intervalMinutes, sedentaryStartHour(), sedentaryEndHour());
+    }
+
+    public void setSedentaryReminder(boolean enabled, int intervalMinutes, int startHour, int endHour) {
+        int start = clampHour(startHour);
+        int end = Math.max(start + 1, clampEndHour(endHour));
         prefs.edit()
                 .putBoolean("sedentary_reminder_enabled", enabled)
                 .putInt("sedentary_interval_minutes", Math.max(30, Math.min(240, intervalMinutes)))
+                .putInt("sedentary_start_hour", start)
+                .putInt("sedentary_end_hour", Math.min(24, end))
                 .apply();
+    }
+
+    private int clampHour(int hour) {
+        return Math.max(0, Math.min(23, hour));
+    }
+
+    private int clampEndHour(int hour) {
+        return Math.max(1, Math.min(24, hour));
     }
 
     public long sedentaryAcknowledgedAt() {

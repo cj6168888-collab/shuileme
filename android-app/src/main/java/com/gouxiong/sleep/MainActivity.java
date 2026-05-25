@@ -6782,6 +6782,13 @@ public class MainActivity extends Activity {
         content.removeAllViews();
         addSimplePageHeader("吃药提醒", "+", this::showMedicationDialog);
 
+        CheckBox enabled = new CheckBox(this);
+        enabled.setText("吃药提醒总开关");
+        enabled.setTextSize(20);
+        enabled.setTextColor(Theme.TEXT);
+        enabled.setTypeface(Typeface.DEFAULT_BOLD);
+        enabled.setChecked(prefs.medicationEnabled());
+
         EditText name = new EditText(this);
         name.setText(prefs.medicationEnabled() ? prefs.medicationName() : "");
         name.setHint("每天吃的药，例如：降压药、维生素");
@@ -6801,7 +6808,7 @@ public class MainActivity extends Activity {
 
         addMedicationSummaryCard();
         addMedicationTodayConfirmCard();
-        addMedicationFormCard(name, time, repeat);
+        addMedicationFormCard(enabled, name, time, repeat);
         addPrimaryActionButton("保存吃药提醒", Theme.BLUE, () -> {
             int minutes = 30;
             try {
@@ -6809,7 +6816,8 @@ public class MainActivity extends Activity {
             } catch (Exception ignored) {
             }
             int[] hm = parseHourMinute(time.getText().toString(), prefs.medicationHour(), prefs.medicationMinute());
-            prefs.setMedication(name.getText().toString(), hm[0], hm[1], minutes);
+            String medicationName = enabled.isChecked() ? name.getText().toString() : "";
+            prefs.setMedication(medicationName, hm[0], hm[1], minutes);
             CareReminderScheduler.ensureCareReminders(this);
             Toast.makeText(this, prefs.medicationEnabled() ? "已保存吃药提醒" : "已关闭吃药提醒", Toast.LENGTH_SHORT).show();
             showHome();
@@ -6839,6 +6847,18 @@ public class MainActivity extends Activity {
         waterInterval.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         stylePageInput(waterInterval);
 
+        EditText waterStart = new EditText(this);
+        waterStart.setText(twoDigits(prefs.hydrationStartHour()) + ":00");
+        waterStart.setHint("开始时间，例如 07:00");
+        waterStart.setSingleLine(true);
+        stylePageInput(waterStart);
+
+        EditText waterEnd = new EditText(this);
+        waterEnd.setText(twoDigits(prefs.hydrationEndHour()) + ":00");
+        waterEnd.setHint("结束时间，例如 22:00");
+        waterEnd.setSingleLine(true);
+        stylePageInput(waterEnd);
+
         CheckBox sedentary = new CheckBox(this);
         sedentary.setText("久坐提醒");
         sedentary.setTextSize(20);
@@ -6850,13 +6870,29 @@ public class MainActivity extends Activity {
         sedentaryInterval.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         stylePageInput(sedentaryInterval);
 
+        EditText sedentaryStart = new EditText(this);
+        sedentaryStart.setText(twoDigits(prefs.sedentaryStartHour()) + ":00");
+        sedentaryStart.setHint("开始时间，例如 08:00");
+        sedentaryStart.setSingleLine(true);
+        stylePageInput(sedentaryStart);
+
+        EditText sedentaryEnd = new EditText(this);
+        sedentaryEnd.setText(twoDigits(prefs.sedentaryEndHour()) + ":00");
+        sedentaryEnd.setHint("结束时间，例如 22:00");
+        sedentaryEnd.setSingleLine(true);
+        stylePageInput(sedentaryEnd);
+
         addHealthHabitSummaryCard();
-        addHealthHabitFormCard(water, waterInterval, sedentary, sedentaryInterval);
+        addHealthHabitFormCard(water, waterInterval, waterStart, waterEnd, sedentary, sedentaryInterval, sedentaryStart, sedentaryEnd);
         addPrimaryActionButton("保存健康习惯", Theme.GREEN, () -> {
             int waterMinutes = parseIntInRange(waterInterval.getText().toString(), prefs.hydrationIntervalMinutes(), 30, 180);
             int sitMinutes = parseIntInRange(sedentaryInterval.getText().toString(), prefs.sedentaryIntervalMinutes(), 30, 240);
-            prefs.setHydrationReminder(water.isChecked(), waterMinutes);
-            prefs.setSedentaryReminder(sedentary.isChecked(), sitMinutes);
+            int waterStartHour = parseHourOnly(waterStart.getText().toString(), prefs.hydrationStartHour());
+            int waterEndHour = parseHourOnly(waterEnd.getText().toString(), prefs.hydrationEndHour());
+            int sitStartHour = parseHourOnly(sedentaryStart.getText().toString(), prefs.sedentaryStartHour());
+            int sitEndHour = parseHourOnly(sedentaryEnd.getText().toString(), prefs.sedentaryEndHour());
+            prefs.setHydrationReminder(water.isChecked(), waterMinutes, waterStartHour, waterEndHour);
+            prefs.setSedentaryReminder(sedentary.isChecked(), sitMinutes, sitStartHour, sitEndHour);
             CareReminderScheduler.ensureCareReminders(this);
             Toast.makeText(this, "已保存健康习惯提醒", Toast.LENGTH_SHORT).show();
             showHome();
@@ -6941,9 +6977,11 @@ public class MainActivity extends Activity {
         addSpace(content, 10);
     }
 
-    private void addMedicationFormCard(EditText name, EditText time, EditText repeat) {
+    private void addMedicationFormCard(CheckBox enabled, EditText name, EditText time, EditText repeat) {
         LinearLayout card = cardContainer();
         card.setPadding(Theme.dp(this, 14), Theme.dp(this, 12), Theme.dp(this, 14), Theme.dp(this, 14));
+        card.addView(enabled, matchWrap());
+        addSpace(card, 8);
         card.addView(Theme.text(this, "每天吃的药", 16, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(card, 6);
         card.addView(name, matchWrap());
@@ -6979,17 +7017,19 @@ public class MainActivity extends Activity {
         addSpace(content, 10);
     }
 
-    private void addHealthHabitFormCard(CheckBox water, EditText waterInterval, CheckBox sedentary, EditText sedentaryInterval) {
+    private void addHealthHabitFormCard(CheckBox water, EditText waterInterval, EditText waterStart, EditText waterEnd,
+                                        CheckBox sedentary, EditText sedentaryInterval, EditText sedentaryStart, EditText sedentaryEnd) {
         LinearLayout card = cardContainer();
         card.setPadding(Theme.dp(this, 14), Theme.dp(this, 12), Theme.dp(this, 14), Theme.dp(this, 14));
-        addHabitBlock(card, water, "时间间隔（分钟）", waterInterval, "建议 45-90 分钟，睡眠守护时不会打扰。");
+        addHabitBlock(card, water, "时间间隔（分钟）", waterInterval, waterStart, waterEnd, "建议 45-90 分钟，睡眠守护时不会打扰。");
         addSpace(card, 10);
-        addHabitBlock(card, sedentary, "久坐间隔（分钟）", sedentaryInterval, "适合白天提醒起身活动，夜间自动安静。");
+        addHabitBlock(card, sedentary, "久坐间隔（分钟）", sedentaryInterval, sedentaryStart, sedentaryEnd, "适合白天提醒起身活动，夜间自动安静。");
         content.addView(card, matchWrap());
         addSpace(content, 10);
     }
 
-    private void addHabitBlock(LinearLayout card, CheckBox toggle, String label, EditText input, String note) {
+    private void addHabitBlock(LinearLayout card, CheckBox toggle, String label, EditText input,
+                               EditText start, EditText end, String note) {
         toggle.setTextColor(Theme.TEXT);
         toggle.setTypeface(Typeface.DEFAULT_BOLD);
         card.addView(toggle, matchWrap());
@@ -6997,8 +7037,29 @@ public class MainActivity extends Activity {
         card.addView(Theme.text(this, label, 15, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(card, 6);
         card.addView(input, matchWrap());
+        addSpace(card, 8);
+        LinearLayout timeRow = new LinearLayout(this);
+        timeRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout startBox = formColumn("开始时间", start);
+        LinearLayout endBox = formColumn("结束时间", end);
+        LinearLayout.LayoutParams startLp = new LinearLayout.LayoutParams(0, -2, 1);
+        startLp.setMargins(0, 0, Theme.dp(this, 6), 0);
+        timeRow.addView(startBox, startLp);
+        LinearLayout.LayoutParams endLp = new LinearLayout.LayoutParams(0, -2, 1);
+        endLp.setMargins(Theme.dp(this, 6), 0, 0, 0);
+        timeRow.addView(endBox, endLp);
+        card.addView(timeRow, matchWrap());
         addSpace(card, 4);
         card.addView(Theme.text(this, note, 13, Theme.MUTED, Typeface.NORMAL), matchWrap());
+    }
+
+    private LinearLayout formColumn(String label, EditText input) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.addView(Theme.text(this, label, 14, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(box, 4);
+        box.addView(input, matchWrap());
+        return box;
     }
 
     private String formatMedicationTime() {
@@ -7021,6 +7082,10 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) {
         }
         return new int[]{fallbackHour, fallbackMinute};
+    }
+
+    private int parseHourOnly(String value, int fallbackHour) {
+        return parseHourMinute(value, fallbackHour, 0)[0];
     }
 
     private int parseIntInRange(String value, int fallback, int min, int max) {

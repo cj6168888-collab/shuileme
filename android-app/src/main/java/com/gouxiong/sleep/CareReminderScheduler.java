@@ -35,9 +35,6 @@ public final class CareReminderScheduler {
     private static final int REQUEST_SEDENTARY_REMIND = 4551;
     private static final int REQUEST_SERVER_MESSAGE_POLL = 4611;
     private static final int MORNING_MEDICATION_END_HOUR = 10;
-    private static final int DAY_START_HOUR = 8;
-    private static final int DAY_END_HOUR = 21;
-
     private CareReminderScheduler() {
     }
 
@@ -79,7 +76,8 @@ public final class CareReminderScheduler {
             cancelHydration(context);
             return;
         }
-        scheduleHydrationAt(context, nextHydrationAt(System.currentTimeMillis(), store.hydrationIntervalMinutes()));
+        scheduleHydrationAt(context, nextReminderAt(System.currentTimeMillis(), store.hydrationIntervalMinutes(),
+                store.hydrationStartHour(), store.hydrationEndHour()));
     }
 
     public static void scheduleNextSedentary(Context context) {
@@ -88,7 +86,8 @@ public final class CareReminderScheduler {
             cancelSedentary(context);
             return;
         }
-        scheduleSedentaryAt(context, nextSedentaryAt(System.currentTimeMillis(), store.sedentaryIntervalMinutes()));
+        scheduleSedentaryAt(context, nextReminderAt(System.currentTimeMillis(), store.sedentaryIntervalMinutes(),
+                store.sedentaryStartHour(), store.sedentaryEndHour()));
     }
 
     public static void scheduleNextServerMessagePoll(Context context) {
@@ -121,7 +120,7 @@ public final class CareReminderScheduler {
         }
         Calendar now = Calendar.getInstance();
         int hour = now.get(Calendar.HOUR_OF_DAY);
-        return hour >= DAY_START_HOUR && hour < DAY_END_HOUR;
+        return hour >= store.hydrationStartHour() && hour < store.hydrationEndHour();
     }
 
     public static boolean isSedentaryWindowNow(Context context) {
@@ -131,7 +130,7 @@ public final class CareReminderScheduler {
         }
         Calendar now = Calendar.getInstance();
         int hour = now.get(Calendar.HOUR_OF_DAY);
-        return hour >= DAY_START_HOUR && hour < DAY_END_HOUR;
+        return hour >= store.sedentaryStartHour() && hour < store.sedentaryEndHour();
     }
 
     public static void createChannel(Context context) {
@@ -170,24 +169,7 @@ public final class CareReminderScheduler {
         return target.getTimeInMillis();
     }
 
-    private static long nextHydrationAt(long nowMillis, int intervalMinutes) {
-        Calendar target = Calendar.getInstance();
-        target.setTimeInMillis(nowMillis);
-        target.add(Calendar.MINUTE, Math.max(30, Math.min(180, intervalMinutes)));
-        target.set(Calendar.SECOND, 0);
-        target.set(Calendar.MILLISECOND, 0);
-
-        int hour = target.get(Calendar.HOUR_OF_DAY);
-        if (hour < DAY_START_HOUR) {
-            target.set(Calendar.HOUR_OF_DAY, DAY_START_HOUR);
-        } else if (hour >= DAY_END_HOUR) {
-            target.add(Calendar.DAY_OF_YEAR, 1);
-            target.set(Calendar.HOUR_OF_DAY, DAY_START_HOUR);
-        }
-        return target.getTimeInMillis();
-    }
-
-    private static long nextSedentaryAt(long nowMillis, int intervalMinutes) {
+    private static long nextReminderAt(long nowMillis, int intervalMinutes, int startHour, int endHour) {
         Calendar target = Calendar.getInstance();
         target.setTimeInMillis(nowMillis);
         target.add(Calendar.MINUTE, Math.max(30, Math.min(240, intervalMinutes)));
@@ -195,13 +177,15 @@ public final class CareReminderScheduler {
         target.set(Calendar.MILLISECOND, 0);
 
         int hour = target.get(Calendar.HOUR_OF_DAY);
-        if (hour < DAY_START_HOUR) {
-            target.set(Calendar.HOUR_OF_DAY, DAY_START_HOUR);
-            target.set(Calendar.MINUTE, 30);
-        } else if (hour >= DAY_END_HOUR) {
+        int start = Math.max(0, Math.min(23, startHour));
+        int end = Math.max(start + 1, Math.min(24, endHour));
+        if (hour < start) {
+            target.set(Calendar.HOUR_OF_DAY, start);
+            target.set(Calendar.MINUTE, 0);
+        } else if (hour >= end) {
             target.add(Calendar.DAY_OF_YEAR, 1);
-            target.set(Calendar.HOUR_OF_DAY, DAY_START_HOUR);
-            target.set(Calendar.MINUTE, 30);
+            target.set(Calendar.HOUR_OF_DAY, start);
+            target.set(Calendar.MINUTE, 0);
         }
         return target.getTimeInMillis();
     }
