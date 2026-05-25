@@ -705,6 +705,8 @@ public class MainActivity extends Activity {
         int integrity = guardIntegrityScore();
         SleepGuardReadiness readiness = buildSleepGuardReadiness();
         addHomeHero(monitoring, integrity, readiness);
+        addReadinessChips();
+        addSpace(content, 8);
         addHomeWaveCard(monitoring);
         addSpace(content, 8);
         addHomeReportEntry();
@@ -745,8 +747,8 @@ public class MainActivity extends Activity {
         addSpace(words, 18);
 
         Button primary = Theme.button(this, monitoring ? "停止守护  ›" : "开始守护  ›", monitoring ? Theme.RED : Theme.BLUE);
-        primary.setTextSize(24);
-        primary.setMinHeight(Theme.dp(this, 64));
+        primary.setTextSize(28);
+        primary.setMinHeight(Theme.dp(this, 88));
         primary.setOnClickListener(v -> {
             if (prefs.isMonitoring()) {
                 stopMonitoring();
@@ -901,8 +903,8 @@ public class MainActivity extends Activity {
     private void addReadinessChips() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        addMiniChip(row, hasPermission(Manifest.permission.RECORD_AUDIO) ? "安心守护" : "开麦克风", hasPermission(Manifest.permission.RECORD_AUDIO), Theme.GREEN, () -> requestEssentialPermissions());
-        addMiniChip(row, prefs.emergencyEnabled() ? "家人已设" : "设家人电话", prefs.emergencyEnabled(), Theme.ORANGE, this::showEmergencyDialog);
+        addMiniChip(row, hasPermission(Manifest.permission.RECORD_AUDIO) ? "麦克风可用" : "开麦克风", hasPermission(Manifest.permission.RECORD_AUDIO), Theme.GREEN, () -> requestEssentialPermissions());
+        addMiniChip(row, prefs.emergencyEnabled() ? "家人已设" : "未设家人电话", prefs.emergencyEnabled(), Theme.ORANGE, this::showEmergencyDialog);
         content.addView(row, matchWrap());
     }
 
