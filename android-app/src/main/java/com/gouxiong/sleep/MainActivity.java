@@ -6889,7 +6889,10 @@ public class MainActivity extends Activity {
         stylePageInput(sedentaryEnd);
 
         addHealthHabitSummaryCard();
-        addHealthHabitFormCard(water, waterInterval, waterStart, waterEnd, sedentary, sedentaryInterval, sedentaryStart, sedentaryEnd);
+        addHabitCard("喝水提醒", "💧", Theme.BLUE, water, "时间间隔（分钟）", waterInterval, waterStart, waterEnd,
+                "建议 45-90 分钟；睡眠守护时不会打扰。");
+        addHabitCard("久坐提醒", "▥", Theme.GREEN, sedentary, "久坐间隔（分钟）", sedentaryInterval, sedentaryStart, sedentaryEnd,
+                "适合白天提醒起身活动；夜间自动安静。");
         addPrimaryActionButton("保存健康习惯", Theme.GREEN, () -> {
             int waterMinutes = parseIntInRange(waterInterval.getText().toString(), prefs.hydrationIntervalMinutes(), 30, 180);
             int sitMinutes = parseIntInRange(sedentaryInterval.getText().toString(), prefs.sedentaryIntervalMinutes(), 30, 240);
@@ -7023,23 +7026,27 @@ public class MainActivity extends Activity {
         addSpace(content, 10);
     }
 
-    private void addHealthHabitFormCard(CheckBox water, EditText waterInterval, EditText waterStart, EditText waterEnd,
-                                        CheckBox sedentary, EditText sedentaryInterval, EditText sedentaryStart, EditText sedentaryEnd) {
+    private void addHabitCard(String title, String iconText, int color, CheckBox toggle, String label,
+                              EditText input, EditText start, EditText end, String note) {
         LinearLayout card = cardContainer();
         card.setPadding(Theme.dp(this, 14), Theme.dp(this, 12), Theme.dp(this, 14), Theme.dp(this, 14));
-        addHabitBlock(card, water, "时间间隔（分钟）", waterInterval, waterStart, waterEnd, "建议 45-90 分钟，睡眠守护时不会打扰。");
-        addSpace(card, 10);
-        addHabitBlock(card, sedentary, "久坐间隔（分钟）", sedentaryInterval, sedentaryStart, sedentaryEnd, "适合白天提醒起身活动，夜间自动安静。");
-        content.addView(card, matchWrap());
-        addSpace(content, 10);
-    }
 
-    private void addHabitBlock(LinearLayout card, CheckBox toggle, String label, EditText input,
-                               EditText start, EditText end, String note) {
-        toggle.setTextColor(Theme.TEXT);
-        toggle.setTypeface(Typeface.DEFAULT_BOLD);
-        card.addView(toggle, matchWrap());
-        addSpace(card, 4);
+        LinearLayout titleRow = new LinearLayout(this);
+        titleRow.setOrientation(LinearLayout.HORIZONTAL);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        TextView icon = Theme.text(this, iconText, 26, color, Typeface.BOLD);
+        icon.setGravity(Gravity.CENTER);
+        icon.setBackground(Theme.rounded(Theme.mix(color, Color.WHITE, 0.84f), 16, this));
+        titleRow.addView(icon, new LinearLayout.LayoutParams(Theme.dp(this, 42), Theme.dp(this, 42)));
+        TextView titleView = Theme.text(this, title, 20, Theme.TEXT, Typeface.BOLD);
+        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(0, -2, 1);
+        titleLp.setMargins(Theme.dp(this, 10), 0, Theme.dp(this, 8), 0);
+        titleRow.addView(titleView, titleLp);
+        toggle.setText("");
+        toggle.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        titleRow.addView(toggle, new LinearLayout.LayoutParams(Theme.dp(this, 54), -2));
+        card.addView(titleRow, matchWrap());
+        addSpace(card, 8);
         card.addView(Theme.text(this, label, 15, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(card, 6);
         card.addView(input, matchWrap());
@@ -7057,6 +7064,8 @@ public class MainActivity extends Activity {
         card.addView(timeRow, matchWrap());
         addSpace(card, 4);
         card.addView(Theme.text(this, note, 13, Theme.MUTED, Typeface.NORMAL), matchWrap());
+        content.addView(card, matchWrap());
+        addSpace(content, 10);
     }
 
     private LinearLayout formColumn(String label, EditText input) {
