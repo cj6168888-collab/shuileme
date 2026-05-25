@@ -58,7 +58,7 @@ New-Item -ItemType Directory -Force -Path $workRoot | Out-Null
 Copy-Item -LiteralPath (Join-Path $projectRoot "src") -Destination (Join-Path $workRoot "src") -Recurse
 
 if (-not $ServerBaseUrl) {
-  $ServerBaseUrl = "http://10.0.2.2:8787"
+  $ServerBaseUrl = "https://jilinpc.com/shuileme"
 }
 $ServerBaseUrl = $ServerBaseUrl.Trim()
 while ($ServerBaseUrl.EndsWith("/")) {

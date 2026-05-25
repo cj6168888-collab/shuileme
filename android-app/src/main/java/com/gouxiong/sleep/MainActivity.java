@@ -4838,7 +4838,6 @@ public class MainActivity extends Activity {
         addSimplePageHeader("服务端与能力检查", "", null);
         addSpace(content, 8);
         addServerStatusHero("正在检查", "正在连接 " + compactForCard(prefs.serverBaseUrl(), 28), Theme.ORANGE);
-        addSettingButton("返回设置", this::showSettings);
         new Thread(() -> {
             try {
                 ServerApiClient.ServerHealth status = ServerApiClient.health(prefs.serverBaseUrl());
@@ -4856,21 +4855,22 @@ public class MainActivity extends Activity {
         addServerStatusHero(status.ok ? "服务端连接正常" : "服务端连接异常",
                 "最后检查：" + timeNowShort() + " · " + compactForCard(prefs.serverBaseUrl(), 28),
                 status.ok ? Theme.GREEN : Theme.RED);
-        addServerCapabilityRow("账号状态", prefs.serverRegistered() ? "已登录" : "未登录", prefs.serverRegistered(), this::showServerAccountSettings);
-        addServerCapabilityRow("云端同步", status.ok ? "正常" : "异常", status.ok, null);
-        addServerCapabilityRow("短信服务", status.smsAliyunConfigured && !status.smsDevMode ? "真实阿里短信" : (status.smsDevMode ? "开发模式" : "未配置"), status.smsAliyunConfigured && !status.smsDevMode, null);
-        addServerCapabilityRow("模型服务", status.modelReady() ? "Key已配置" : "未完整证明", status.modelReady(), null);
         boolean realtimePathReady = status.realtimeConfigured && status.modelAudioOutputStreaming && status.apkLowLatencyAudioPlayback;
-        addServerCapabilityRow("实时语音", realtimePathReady ? "链路已配置" : "未完整证明", realtimePathReady, this::showCompanionChat);
-        addServerCapabilityRow("Linly 数字人", status.linlyDigitalHumanConfigured ? status.linlyDigitalHumanAvatarEngine : "2D 兜底", status.linlyDigitalHumanConfigured, this::showLinlyAvatarPreview);
-        addServerCapabilityRow("睡眠守护拾音", prefs.sleepGuardAudioShortState(), prefs.sleepGuardAudioPassed(), () -> showShell("guard"));
-        addServerCapabilityRow("数字人动画", status.local2dAvatarView && status.avatarStateMachine ? (status.live2dSdk ? "Live2D" : "本机2D") : "未完整证明", status.local2dAvatarView && status.avatarStateMachine, null);
-        addServerCapabilityRow("故事/助眠音", status.bedtimeStory && status.musicPlayback ? "可用" : "未完整证明", status.bedtimeStory && status.musicPlayback, null);
-        addServerCapabilityRow("新闻简报", status.newsBriefing ? "已接真实源" : "未接入", status.newsBriefing, this::showNewsCapabilityStatus);
-        addServerCapabilityRow("Key 安全", "只放服务端", true, null);
-        addCard("数字人说明", status.digitalHumanLine(), status.linlyDigitalHumanConfigured ? Theme.GREEN : Theme.ORANGE);
-        addSettingButton("重新检查", this::showServerCapabilityCheck);
-        addSettingButton("返回设置", this::showSettings);
+        boolean avatarReady = status.linlyDigitalHumanConfigured || (status.local2dAvatarView && status.avatarStateMachine);
+        boolean companionReady = realtimePathReady || avatarReady || status.textChat;
+        boolean sleepAnalysisReady = status.modelReady() && status.textChat;
+        boolean guardReady = prefs.sleepGuardAudioPassed();
+        LinearLayout list = cardContainer();
+        list.setOrientation(LinearLayout.VERTICAL);
+        addServerCapabilityRow(list, "账号状态", prefs.serverRegistered() ? "已登录" : "未登录", "人", Theme.GREEN, prefs.serverRegistered(), this::showServerAccountSettings);
+        addServerCapabilityRow(list, "云端同步", status.ok ? "正常" : "异常", "云", Theme.BLUE, status.ok, null);
+        addServerCapabilityRow(list, "睡眠分析服务", sleepAnalysisReady ? "正常" : "未完整证明", "眠", Theme.ORANGE, sleepAnalysisReady, null);
+        addServerCapabilityRow(list, "独居守护服务", guardReady ? "正常" : prefs.sleepGuardAudioShortState(), "护", Theme.GREEN, guardReady, () -> showShell("guard"));
+        addServerCapabilityRow(list, "数字人助手服务", companionStateLabel(status, realtimePathReady, avatarReady), "数", Theme.BLUE, companionReady, this::showCompanionChat);
+        addServerCapabilityRow(list, "敏感噪声服务", guardReady ? "正常" : prefs.sleepGuardAudioShortState(), "声", Theme.RED, guardReady, () -> showShell("guard"));
+        content.addView(list, matchWrap());
+        addSpace(content, 14);
+        addPrimaryActionButton("重新检查", Theme.BLUE, this::showServerCapabilityCheck);
     }
 
     private void showLinlyAvatarPreview() {
@@ -4886,6 +4886,19 @@ public class MainActivity extends Activity {
         addSettingButton("连接服务设置", this::showServerUrlDialog);
         addSettingButton("重新检查", this::showServerCapabilityCheck);
         addSettingButton("返回设置", this::showSettings);
+    }
+
+    private String companionStateLabel(ServerApiClient.ServerHealth status, boolean realtimePathReady, boolean avatarReady) {
+        if (status.linlyDigitalHumanConfigured) {
+            return "Linly";
+        }
+        if (realtimePathReady) {
+            return "实时语音";
+        }
+        if (avatarReady) {
+            return status.live2dSdk ? "Live2D" : "本机2D";
+        }
+        return status.textChat ? "文字可用" : "未完整证明";
     }
 
     private void addServerStatusHero(String title, String body, int color) {
@@ -4908,27 +4921,27 @@ public class MainActivity extends Activity {
         addSpace(content, 10);
     }
 
-    private void addServerCapabilityRow(String title, String state, boolean ok, Runnable action) {
-        LinearLayout row = cardContainer();
+    private void addServerCapabilityRow(LinearLayout list, String title, String state, String iconText, int color, boolean ok, Runnable action) {
+        LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(Theme.dp(this, 12), Theme.dp(this, 9), Theme.dp(this, 12), Theme.dp(this, 9));
-        TextView icon = Theme.text(this, ok ? "✓" : "!", 16, ok ? Theme.GREEN : Theme.ORANGE, Typeface.BOLD);
+        row.setPadding(Theme.dp(this, 12), Theme.dp(this, 11), Theme.dp(this, 12), Theme.dp(this, 11));
+        int iconColor = ok ? color : Theme.ORANGE;
+        TextView icon = Theme.text(this, iconText, 16, iconColor, Typeface.BOLD);
         icon.setGravity(Gravity.CENTER);
-        icon.setBackground(Theme.rounded(Theme.mix(ok ? Theme.GREEN : Theme.ORANGE, Color.WHITE, 0.86f), 14, this));
-        row.addView(icon, new LinearLayout.LayoutParams(Theme.dp(this, 32), Theme.dp(this, 32)));
+        icon.setBackground(Theme.rounded(Theme.mix(iconColor, Color.WHITE, 0.86f), 14, this));
+        row.addView(icon, new LinearLayout.LayoutParams(Theme.dp(this, 34), Theme.dp(this, 34)));
         TextView titleView = Theme.text(this, title, 16, Theme.TEXT, Typeface.BOLD);
         LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(0, -2, 1);
         titleLp.setMargins(Theme.dp(this, 10), 0, Theme.dp(this, 8), 0);
         row.addView(titleView, titleLp);
-        TextView stateView = Theme.text(this, compactForCard(state, 16) + (action == null ? "" : " ›"), 14, ok ? Theme.darken(Theme.GREEN, 0.25f) : Theme.ORANGE, Typeface.BOLD);
+        TextView stateView = Theme.text(this, compactForCard(state, 12) + (action == null ? "" : " ›"), 14, ok ? Theme.darken(Theme.GREEN, 0.25f) : Theme.ORANGE, Typeface.BOLD);
         stateView.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-        row.addView(stateView, new LinearLayout.LayoutParams(Theme.dp(this, 128), -2));
+        row.addView(stateView, new LinearLayout.LayoutParams(Theme.dp(this, 116), -2));
         if (action != null) {
             row.setOnClickListener(v -> action.run());
         }
-        content.addView(row, matchWrap());
-        addSpace(content, 6);
+        list.addView(row, matchWrap());
     }
 
     private String timeNowShort() {
