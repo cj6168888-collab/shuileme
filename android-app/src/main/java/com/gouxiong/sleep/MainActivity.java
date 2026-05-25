@@ -2424,17 +2424,23 @@ public class MainActivity extends Activity {
         addPreSleepHeader();
         addSpace(content, 8);
         addPreSleepNotice(readiness);
-        addPreSleepSelfCheckRow("情绪状态", "mood", Theme.GREEN, new String[]{"平静", "有点焦虑", "心情不好"});
-        addPreSleepSelfCheckRow("身体不适", "body", Theme.GREEN, new String[]{"无", "有点不舒服", "明显不舒服"});
-        addPreSleepSelfCheckRow("咖啡因摄入", "caffeine", Theme.BLUE, new String[]{"未摄入", "下午喝过", "晚上喝过"});
-        addPreSleepSelfCheckRow("晚餐时间", "dinner", Theme.ORANGE, new String[]{"2小时前", "1小时前", "刚吃不久"});
-        addPreSleepSelfCheckRow("运动情况", "exercise", Theme.GREEN, new String[]{"适量", "很少活动", "运动较多"});
-        addPreSleepSelfCheckRow("屏幕使用", "screen", Theme.BLUE, new String[]{"30分钟前", "刚看过", "准备放下"});
-        addPreSleepDesignRow("麦克风授权", readiness.micOk ? "已打开" : "去打开", readiness.micOk, readiness.micOk ? Theme.GREEN : Theme.ORANGE, this::requestSleepGuardPermissions);
-        addPreSleepDesignRow("通知权限", readiness.notificationOk ? "已打开" : "去打开", readiness.notificationOk, readiness.notificationOk ? Theme.GREEN : Theme.ORANGE, this::requestSleepGuardPermissions);
-        addPrimaryActionButton(ready ? "开始今晚守护" : "确认后开始守护", ready ? Theme.GREEN : Theme.ORANGE, ready ? this::startMonitoring : this::showPreSleepCheckIncomplete);
-        addSettingButton("更多检测与测试", this::showPreSleepMoreChecks);
-        addSettingButton("返回首页", () -> showShell("guard"));
+        addPreSleepSelfCheckRow("情绪状态", "mood", "☺", Theme.GREEN, new String[]{"平静", "有点焦虑", "心情不好"});
+        addPreSleepSelfCheckRow("身体不适", "body", "♨", Theme.RED, new String[]{"无", "有点不舒服", "明显不舒服"});
+        addPreSleepSelfCheckRow("咖啡因摄入", "caffeine", "▣", Theme.BLUE, new String[]{"未摄入", "下午喝过", "晚上喝过"});
+        addPreSleepSelfCheckRow("晚餐时间", "dinner", "▣", Theme.ORANGE, new String[]{"2小时前", "1小时前", "刚吃不久"});
+        addPreSleepSelfCheckRow("运动情况", "exercise", "➜", Theme.GREEN, new String[]{"适量", "很少活动", "运动较多"});
+        addPreSleepSelfCheckRow("屏幕使用", "screen", "▤", Theme.BLUE, new String[]{"30分钟前", "刚看过", "准备放下"});
+        addSpace(content, 10);
+        addPrimaryActionButton("完成自检", ready ? Theme.BLUE : Theme.ORANGE, () -> {
+            if (ready) {
+                Toast.makeText(this, "睡前自检已完成，可以开始今晚守护。", Toast.LENGTH_SHORT).show();
+                showShell("guard");
+            } else if (preSleepSubjectiveReady()) {
+                requestSleepGuardPermissions();
+            } else {
+                showPreSleepCheckIncomplete();
+            }
+        });
     }
 
     private boolean preSleepSubjectiveReady() {
@@ -2478,10 +2484,10 @@ public class MainActivity extends Activity {
         b.append(label).append("：").append(value);
     }
 
-    private void addPreSleepSelfCheckRow(String title, String key, int color, String[] choices) {
+    private void addPreSleepSelfCheckRow(String title, String key, String iconText, int color, String[] choices) {
         String value = prefs.preSleepCheckValue(key);
         boolean ok = value.length() > 0;
-        addPreSleepDesignRow(title, ok ? value : "待确认", ok, color, () -> showPreSleepChoiceDialog(title, key, choices));
+        addPreSleepDesignRow(title, ok ? value : "待确认", iconText, ok, color, () -> showPreSleepChoiceDialog(title, key, choices));
     }
 
     private void showPreSleepChoiceDialog(String title, String key, String[] choices) {
@@ -2539,22 +2545,22 @@ public class MainActivity extends Activity {
         addSpace(content, 8);
     }
 
-    private void addPreSleepDesignRow(String title, String state, boolean ok, int color, Runnable action) {
+    private void addPreSleepDesignRow(String title, String state, String iconText, boolean ok, int color, Runnable action) {
         LinearLayout row = cardContainer();
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(Theme.dp(this, 12), Theme.dp(this, 8), Theme.dp(this, 12), Theme.dp(this, 8));
-        TextView icon = Theme.text(this, ok ? "✓" : "!", 18, ok ? Theme.GREEN : Theme.ORANGE, Typeface.BOLD);
+        row.setPadding(Theme.dp(this, 14), Theme.dp(this, 10), Theme.dp(this, 14), Theme.dp(this, 10));
+        TextView icon = Theme.text(this, iconText, 20, color, Typeface.BOLD);
         icon.setGravity(Gravity.CENTER);
         icon.setBackground(Theme.rounded(Theme.mix(color, Color.WHITE, 0.84f), 14, this));
-        row.addView(icon, new LinearLayout.LayoutParams(Theme.dp(this, 34), Theme.dp(this, 34)));
-        TextView left = Theme.text(this, title, 17, Theme.TEXT, Typeface.BOLD);
+        row.addView(icon, new LinearLayout.LayoutParams(Theme.dp(this, 38), Theme.dp(this, 38)));
+        TextView left = Theme.text(this, title, 18, Theme.TEXT, Typeface.BOLD);
         LinearLayout.LayoutParams leftLp = new LinearLayout.LayoutParams(0, -2, 1);
-        leftLp.setMargins(Theme.dp(this, 10), 0, Theme.dp(this, 8), 0);
+        leftLp.setMargins(Theme.dp(this, 12), 0, Theme.dp(this, 8), 0);
         row.addView(left, leftLp);
-        TextView right = Theme.text(this, state + " ›", 15, ok ? Theme.darken(color, 0.25f) : Theme.ORANGE, Typeface.BOLD);
+        TextView right = Theme.text(this, state + " ›", 16, ok ? Theme.darken(color, 0.25f) : Theme.ORANGE, Typeface.BOLD);
         right.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-        row.addView(right, new LinearLayout.LayoutParams(Theme.dp(this, 96), -2));
+        row.addView(right, new LinearLayout.LayoutParams(Theme.dp(this, 116), -2));
         if (action != null) {
             row.setOnClickListener(v -> action.run());
             row.setClickable(true);
