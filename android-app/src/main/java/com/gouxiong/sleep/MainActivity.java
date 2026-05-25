@@ -4054,10 +4054,9 @@ public class MainActivity extends Activity {
         content.removeAllViews();
         content.addView(Theme.text(this, "小助手看看", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(content, 8);
-        addAssistantHero("我陪你看", CompanionAssistant.visionIntro(prefs.companionRole()), false);
-        addVisionPrimaryButton("看我气色", Theme.GREEN, () -> requestCameraForVision("face"));
-        addVisionPrimaryButton("帮我找东西", Theme.ORANGE, this::showFindObjectDialog);
-        addVisionActionGrid();
+        addAssistantHero("您直接说", "比如：帮我看看这个药瓶、看看这朵花叫啥、帮我找手机、帮我读这个小字儿。我会自己判断看哪里、用前摄还是后摄。", false);
+        addVisionVoiceExamples();
+        addVisionPrimaryButton("打开小助手，直接说", Theme.GREEN, this::showCompanionChat);
         String memory = db.objectMemorySummary() + "\n" + prefs.visualMemorySummary();
         if (memory.trim().length() > 0 && !memory.startsWith("还没有")) {
             addCard("我记得", memory.trim(), Theme.GREEN);
@@ -4072,21 +4071,31 @@ public class MainActivity extends Activity {
         addSettingButton("返回首页", () -> showShell("guard"));
     }
 
-    private void addVisionActionGrid() {
-        addSectionTitle("更多看看", null);
-        LinearLayout row1 = new LinearLayout(this);
-        row1.setOrientation(LinearLayout.HORIZONTAL);
-        addSmallTile(row1, "💊\n看药瓶", Theme.ORANGE, () -> requestCameraForVision("medicine_text"));
-        addSmallTile(row1, "字\n读给我听", Theme.BLUE, () -> requestCameraForVision("read"));
-        content.addView(row1, matchWrap());
-        addSpace(content, 10);
+    private void addVisionVoiceExamples() {
+        LinearLayout card = cardContainer();
+        card.setPadding(Theme.dp(this, 16), Theme.dp(this, 14), Theme.dp(this, 16), Theme.dp(this, 14));
+        card.setBackground(Theme.tintedCard(this, Theme.BLUE));
+        card.addView(Theme.text(this, "能听懂这些说法", 20, Theme.TEXT, Typeface.BOLD), matchWrap());
+        addSpace(card, 8);
+        addVisionExampleLine(card, "药瓶小字", "帮我看看这个药瓶");
+        addVisionExampleLine(card, "读字识物", "帮我看看这个小字儿");
+        addVisionExampleLine(card, "花草物品", "你看看这朵花叫啥");
+        addVisionExampleLine(card, "找东西", "帮我看看我手机放哪儿了");
+        addVisionExampleLine(card, "照看自己", "帮我看看我眼角变化明显不明显");
+        content.addView(card, matchWrap());
+        addSpace(content, 12);
+    }
 
-        LinearLayout row2 = new LinearLayout(this);
-        row2.setOrientation(LinearLayout.HORIZONTAL);
-        addSmallTile(row2, "报告\n帮我看", Theme.GREEN, () -> requestCameraForVision("report"));
-        addSmallTile(row2, "钥\n找东西", Theme.ORANGE, () -> requestCameraForVision("find"));
-        content.addView(row2, matchWrap());
-        addSpace(content, 14);
+    private void addVisionExampleLine(LinearLayout card, String title, String body) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        TextView left = Theme.text(this, title, 15, Theme.TEXT, Typeface.BOLD);
+        row.addView(left, new LinearLayout.LayoutParams(Theme.dp(this, 82), -2));
+        TextView right = Theme.text(this, body, 15, Theme.MUTED, Typeface.BOLD);
+        row.addView(right, new LinearLayout.LayoutParams(0, -2, 1));
+        card.addView(row, matchWrap());
+        addSpace(card, 6);
     }
 
     private void addVisionPrimaryButton(String text, int color, Runnable action) {
@@ -4142,10 +4151,12 @@ public class MainActivity extends Activity {
     private String visionTaskTitle(String task) {
         if ("quick_glance".equals(task)) return "快速看一眼";
         if ("face".equals(task)) return "看看气色";
+        if ("face_detail".equals(task)) return "看看脸部细节";
         if ("medicine_text".equals(task)) return "看药瓶小字";
         if ("medication".equals(task)) return "看看吃药";
         if ("report".equals(task)) return "看体检报告";
         if ("finance".equals(task)) return "看投资理财";
+        if ("plant".equals(task)) return "识别花草";
         if ("object".equals(task)) return "识别东西";
         if ("read".equals(task)) return "帮我读字";
         if ("find".equals(task)) return "帮我找东西";
@@ -4154,7 +4165,7 @@ public class MainActivity extends Activity {
     }
 
     private boolean preferFrontForVisionTask(String task) {
-        return "face".equals(task) || "quick_glance".equals(task);
+        return "face".equals(task) || "face_detail".equals(task) || "quick_glance".equals(task);
     }
 
     private String avatarMoodForVisionTask(String task) {
@@ -4169,9 +4180,11 @@ public class MainActivity extends Activity {
 
     private String visionReasonForTask(String task) {
         if ("face".equals(task)) return "我看看您的气色，您别急。";
+        if ("face_detail".equals(task)) return "我看看您说的脸部细节，只做生活观察，不下诊断。";
         if ("medicine_text".equals(task) || "medication".equals(task)) return "我仔细看看药瓶小字，按医嘱的事我不乱说。";
         if ("report".equals(task)) return "我仔细看看报告，先帮您读清楚重点。";
         if ("finance".equals(task)) return "我帮您看看这是不是理财、投资或转账风险。";
+        if ("plant".equals(task)) return "我帮您看看这朵花或这盆植物。";
         if ("read".equals(task)) return "我仔细看看上面的字，读给您听。";
         if ("find".equals(task)) return "您别急，我帮您看看周围。";
         if ("object".equals(task)) return "我仔细看看这个东西。";
@@ -4315,9 +4328,11 @@ public class MainActivity extends Activity {
                 + "\n你的口吻要像懂事、耐心、亲近的孩子或家人，先安抚，再说明你看到了什么，再给下一步建议。"
                 + "\n先判断主人让你看的用意：是想读字、找东西、看身体状态、看药品/保健品、看体检报告，还是想让你判断投资理财风险。"
                 + "\n如果是脸色，只能说“看起来可能有些疲惫/精神不错/光线不够看不清”等生活观察，不能诊断疾病。"
+                + "\n如果是眼角、皱纹、皮肤细节或主人问有没有变深，只能描述当前画面中能看见的光线、纹路、红肿、破损等生活观察；没有历史对比图时必须说“我不能确认比以前加深了没有”。"
                 + "\n如果是药品、保健品、药瓶小字或吃药，请结合主人身体情况和用药习惯做生活提醒，但不能判断药量、换药、停药或替代医嘱；看不清就明确说看不清。"
                 + "\n如果是体检报告，请先读出能看清的项目、数值、上下箭头或异常标记，再用简单话提醒带报告问医生；不能下诊断。"
                 + "\n如果是读信、说明书、合同或纸面文字，请尽量逐句读出可见文字，并解释其中重要提醒。"
+                + "\n如果是花草、植物或不认识的小物件，请先说明你看到的形状、颜色和叶片/花朵特征，再给出可能名称；不确定就说“像是”，不要装作百分百确定。"
                 + "\n如果是找东西或识别物品，请指出明显位置、下一步寻找建议，并安抚主人不要着急。"
                 + "\n如果出现投资、理财、保险、养老项目、转账、贷款、扫码付款、陌生人收益承诺等内容，要判断是否不适合老人或有诈骗风险；请温和但明确劝阻：先别转账、别给验证码、别签字，找家人核实。"
                 + "\n如果看到了钥匙、手机、药盒/药瓶、眼镜、钱包、证件/医保卡、遥控器、拐杖、水杯等常忘物品，请在回答最后另起一行追加：MEMORY_JSON:{\"objects\":[{\"item\":\"钥匙\",\"place\":\"冰箱门上的挂钩\",\"confidence\":\"中\",\"note\":\"可选\"}]}。看不清就 objects 为空。"
@@ -6737,11 +6752,14 @@ public class MainActivity extends Activity {
                 "看看", "瞧瞧", "拍一下", "识别", "读读", "念念", "帮我读", "帮我念", "分析一下");
         boolean findAsk = containsAny(q, "找钥匙", "找手机", "找眼镜", "找钱包", "找药", "找遥控器", "找医保卡",
                 "找证件", "丢哪", "放哪", "不见了", "找不到");
-        if (!explicitLook && !findAsk) {
+        boolean identifyAsk = containsAny(q, "叫啥", "叫什么", "是什么", "啥东西", "啥花", "什么花", "什么植物",
+                "认一下", "识别一下", "看得出来吗", "帮我认");
+        boolean face = containsAny(q, "脸", "脸色", "气色", "眼睛", "眼角", "皱纹", "法令纹", "舌头", "皮肤", "伤口", "表情", "精神", "脸上");
+        boolean plant = containsAny(q, "花", "植物", "盆栽", "叶子", "叶片", "草", "树", "多肉", "兰花", "玫瑰", "菊花", "绿植");
+        if (!explicitLook && !findAsk && !(identifyAsk && plant) && !(face && containsAny(q, "眼角", "皱纹", "加深", "明显", "变化"))) {
             return VisionIntent.none();
         }
 
-        boolean face = containsAny(q, "脸", "脸色", "气色", "眼睛", "舌头", "皮肤", "伤口", "表情", "精神", "脸上");
         boolean report = containsAny(q, "体检", "报告", "化验", "检查单", "检验单", "血常规", "尿常规", "ct", "CT",
                 "B超", "b超", "心电图", "血压单", "血糖", "血脂", "肝功", "肾功");
         boolean medicine = containsAny(q, "药瓶", "药盒", "药品", "药片", "药名", "吃药", "保健品", "说明书",
@@ -6753,7 +6771,7 @@ public class MainActivity extends Activity {
         boolean find = findAsk || containsAny(q, "钥匙", "手机", "眼镜", "钱包", "遥控器", "医保卡", "证件",
                 "拐杖", "水杯", "药盒在哪", "药瓶在哪");
         boolean outside = containsAny(q, "外面", "门口", "窗外", "厨房", "客厅", "床边", "桌上", "地上");
-        boolean faceDetail = face && containsAny(q, "脸上", "伤口", "红", "痣", "肿", "斑", "疼", "疹", "破");
+        boolean faceDetail = face && containsAny(q, "脸上", "眼角", "皱纹", "法令纹", "伤口", "红", "痣", "肿", "斑", "疼", "疹", "破", "加深", "变化", "明显");
 
         String task;
         if (report) task = "report";
@@ -6761,13 +6779,15 @@ public class MainActivity extends Activity {
         else if (medicine) task = "medicine_text";
         else if (read) task = "read";
         else if (find) task = "find";
+        else if (faceDetail) task = "face_detail";
         else if (face) task = "face";
+        else if (plant) task = "plant";
         else if (outside) task = "outside";
         else task = "object";
 
-        boolean preferFront = face;
+        boolean preferFront = "face".equals(task) || "face_detail".equals(task);
         boolean detailed = faceDetail || (!"face".equals(task) && !"quick_glance".equals(task));
-        String reason = "用户刚才说：" + q + "。请先判断主人让你看的真实用意，再用亲近的孩子式口吻帮忙。";
+        String reason = "用户刚才说：" + q + "。请自动判断要看的目标和摄像头方向：脸部/眼角用前摄，药瓶、小字、花草、手机位置和周围物品用后摄。回答要像亲近的孩子，不要机械列清单。";
         return new VisionIntent(true, explicitLook, task, preferFront, detailed, reason);
     }
 
