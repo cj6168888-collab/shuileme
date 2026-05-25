@@ -2612,6 +2612,7 @@ public class MainActivity extends Activity {
         addSimplePageHeader("早安简报", "", null);
         SleepDashboardData data = buildSleepDashboardData();
         addMorningBriefHeroCard();
+        addMorningCareActionCards();
         addMorningSleepReviewCard(data);
         addTodayCareAdviceCard(data);
     }
@@ -2697,6 +2698,49 @@ public class MainActivity extends Activity {
         addCareAdviceLine(card, "活动建议", data.highRiskCount > 0 ? "今天动作慢一点，必要时联系家人" : "散步 30 分钟，睡前少看屏幕", data.highRiskCount > 0 ? Theme.ORANGE : Theme.GREEN);
         content.addView(card, matchWrap());
         addSpace(content, 10);
+    }
+
+    private void addMorningCareActionCards() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        addMorningCareActionCard(row,
+                prefs.hydrationAcknowledgedAt() > 0 ? "已喝水" : "我喝水了",
+                prefs.hydrationReminderEnabled() ? "每 " + prefs.hydrationIntervalMinutes() + " 分钟提醒" : "喝水提醒未开",
+                Theme.GREEN,
+                () -> {
+                    prefs.markHydrationAcknowledgedNow();
+                    Toast.makeText(this, "我记下了，今天慢慢喝水。", Toast.LENGTH_SHORT).show();
+                    showMorningCare();
+                });
+        addMorningCareActionCard(row,
+                prefs.medicationConfirmedToday() ? "今日已吃药" : "已吃药",
+                prefs.medicationEnabled() ? formatMedicationTime() + " " + prefs.medicationName() : "吃药提醒未设置",
+                Theme.ORANGE,
+                () -> {
+                    prefs.confirmMedicationNow();
+                    Toast.makeText(this, "已记录今天吃药", Toast.LENGTH_SHORT).show();
+                    showMorningCare();
+                });
+        content.addView(row, matchWrap());
+        addSpace(content, 10);
+    }
+
+    private void addMorningCareActionCard(LinearLayout row, String title, String body, int color, Runnable action) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.CENTER);
+        card.setPadding(Theme.dp(this, 10), Theme.dp(this, 14), Theme.dp(this, 10), Theme.dp(this, 14));
+        card.setBackground(Theme.tintedCard(this, color));
+        TextView titleView = Theme.text(this, title, 21, Theme.darken(color, 0.26f), Typeface.BOLD);
+        titleView.setGravity(Gravity.CENTER);
+        card.addView(titleView, matchWrap());
+        TextView bodyView = Theme.text(this, compactForCard(body, 14), 13, Theme.MUTED, Typeface.BOLD);
+        bodyView.setGravity(Gravity.CENTER);
+        card.addView(bodyView, matchWrap());
+        card.setOnClickListener(v -> action.run());
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, Theme.dp(this, 86), 1);
+        lp.setMargins(Theme.dp(this, 4), 0, Theme.dp(this, 4), 0);
+        row.addView(card, lp);
     }
 
     private void addCareAdviceLine(LinearLayout card, String title, String body, int color) {
