@@ -6989,19 +6989,42 @@ public class MainActivity extends Activity {
     private void addMedicationFormCard(CheckBox enabled, EditText name, EditText time, EditText repeat) {
         LinearLayout card = cardContainer();
         card.setPadding(Theme.dp(this, 14), Theme.dp(this, 12), Theme.dp(this, 14), Theme.dp(this, 14));
-        card.addView(enabled, matchWrap());
-        addSpace(card, 8);
+
+        LinearLayout titleRow = new LinearLayout(this);
+        titleRow.setOrientation(LinearLayout.HORIZONTAL);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        ImageView icon = designImage("ui_medication_icon_image2", 44, ImageView.ScaleType.FIT_CENTER);
+        titleRow.addView(icon, new LinearLayout.LayoutParams(Theme.dp(this, 48), Theme.dp(this, 48)));
+        LinearLayout titleBox = new LinearLayout(this);
+        titleBox.setOrientation(LinearLayout.VERTICAL);
+        titleBox.addView(Theme.text(this, prefs.medicationEnabled() ? prefs.medicationName() : "药品提醒", 20, Theme.TEXT, Typeface.BOLD), matchWrap());
+        titleBox.addView(Theme.text(this, "每天 " + formatMedicationTime(), 14, Theme.MUTED, Typeface.BOLD), matchWrap());
+        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(0, -2, 1);
+        titleLp.setMargins(Theme.dp(this, 10), 0, Theme.dp(this, 8), 0);
+        titleRow.addView(titleBox, titleLp);
+        enabled.setText("");
+        enabled.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        titleRow.addView(enabled, new LinearLayout.LayoutParams(Theme.dp(this, 54), -2));
+        card.addView(titleRow, matchWrap());
+        addSpace(card, 12);
+
         card.addView(Theme.text(this, "每天吃的药", 16, Theme.TEXT, Typeface.BOLD), matchWrap());
         addSpace(card, 6);
         card.addView(name, matchWrap());
         addSpace(card, 10);
-        card.addView(Theme.text(this, "提醒时间", 16, Theme.TEXT, Typeface.BOLD), matchWrap());
-        addSpace(card, 6);
-        card.addView(time, matchWrap());
-        addSpace(card, 10);
-        card.addView(Theme.text(this, "未确认后再次提醒", 16, Theme.TEXT, Typeface.BOLD), matchWrap());
-        addSpace(card, 6);
-        card.addView(repeat, matchWrap());
+
+        LinearLayout scheduleRow = new LinearLayout(this);
+        scheduleRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout timeBox = formColumn("提醒时间", time);
+        LinearLayout repeatBox = formColumn("再次提醒", repeat);
+        LinearLayout.LayoutParams timeLp = new LinearLayout.LayoutParams(0, -2, 1);
+        timeLp.setMargins(0, 0, Theme.dp(this, 6), 0);
+        scheduleRow.addView(timeBox, timeLp);
+        LinearLayout.LayoutParams repeatLp = new LinearLayout.LayoutParams(0, -2, 1);
+        repeatLp.setMargins(Theme.dp(this, 6), 0, 0, 0);
+        scheduleRow.addView(repeatBox, repeatLp);
+        card.addView(scheduleRow, matchWrap());
+
         addSpace(card, 8);
         card.addView(Theme.text(this, "只提醒你自己设定的事项，不替代医生医嘱。留空保存会关闭提醒。", 13, Theme.MUTED, Typeface.NORMAL), matchWrap());
         content.addView(card, matchWrap());
