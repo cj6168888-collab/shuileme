@@ -1478,7 +1478,7 @@ public class MainActivity extends Activity {
         readLp.setMargins(0, 0, Theme.dp(this, 6), 0);
         row.addView(read, readLp);
 
-        Button ai = Theme.button(this, "AI分析声波", Theme.BLUE);
+        Button ai = Theme.button(this, "帮我听听", Theme.BLUE);
         ai.setTextSize(20);
         ai.setMinHeight(Theme.dp(this, 62));
         ai.setOnClickListener(v -> askAssistantSleepAudioAnalysis(data));
@@ -1493,7 +1493,7 @@ public class MainActivity extends Activity {
     private void askAssistantSleepAudioAnalysis(SleepDashboardData data) {
         if (!prefs.serverRegistered()) {
             showCompanionVoiceReply("先登录一下",
-                    prefs.ownerAddress() + "，声波分析要连到服务端阿里多模态模型。先用手机号登录，模型 Key 不会放进 App。");
+                    prefs.ownerAddress() + "，要让我仔细听昨晚的声波，先绑定手机号。绑定好以后，我就能帮您把昨晚的动静讲得更明白。");
             return;
         }
         showCompanionVoiceWaiting(prefs.ownerAddress() + "，您别急，我正在结合昨晚波形、异常记录和设备摘要想一想。");
@@ -1513,9 +1513,8 @@ public class MainActivity extends Activity {
                 maybeSyncCompanionInsight("睡眠声波分析：\n" + answer, "sleep_audio");
                 runOnUiThread(() -> showCompanionVoiceReply("声波分析", answer));
             } catch (Exception ex) {
-                runOnUiThread(() -> showCompanionVoiceReply("声波分析没连上",
-                        "这次声波分析没成功：" + ex.getMessage()
-                                + "\n\n本机守护、强唤醒和紧急联系人仍会继续工作。"));
+                runOnUiThread(() -> showCompanionVoiceReply("这次没听清",
+                        "昨晚的声波我这次没听明白。您别急，本机守护记录还在，强唤醒和家人电话也都照常守着。"));
             }
         }, "GouXiongSleepAudioAnalysis").start();
     }
@@ -3303,8 +3302,8 @@ public class MainActivity extends Activity {
     }
 
     private String ownerProfileStepExample(int step) {
-        if (step == 0) return "只写你愿意告诉小助手的情况。App 不做诊断，只用来把提醒说得更合适。";
-        if (step == 1) return "这里是生活提醒，不替代医生医嘱。具体药怎么吃，仍按医生或家人交代。";
+        if (step == 0) return "只写你愿意告诉小助手的情况，我会把提醒说得更贴心。";
+        if (step == 1) return "这里是生活提醒。把您平时固定吃的药和时间写上，我会按点轻轻提醒。";
         if (step == 2) return "可以写睡眠习惯和困扰。比如怕吵、常夜醒、午睡多、经常打鼾。";
         if (step == 3) return "这能帮助小助手在高风险无确认时，提醒你按设置联系家人。电话仍以紧急联系人页为准。";
         if (step == 4) return "兴趣会用于白天陪伴和情绪关怀，比如建议听一会儿喜欢的戏曲或慢慢散步。";
@@ -3836,7 +3835,7 @@ public class MainActivity extends Activity {
         }
         if (!prefs.deepSeekKeyConfigured()) {
             showCompanionVoiceReply("我还不能看",
-                    "奶奶，摄像头已经准备好了，但视觉模型服务还没连上。先完成手机号注册或服务端配置，我再帮您看。");
+                    "奶奶，摄像头已经准备好了，但我现在还没学会仔细看图。先去“我的”里把联网陪伴打开，回头您说一句“帮我看看这个”，我就能帮您看。");
             return;
         }
         showCompanionVoiceWaiting("我看一眼，您别急。");
@@ -4019,7 +4018,7 @@ public class MainActivity extends Activity {
                     if (!result.configured) {
                         showCompanionVoiceReply("新闻源还没接入",
                                 "我查过服务端了，新闻源还没接入，所以我不能凭空编今天的新闻。\n\n"
-                                        + "等服务端配置了带来源和发布时间的新闻源，我再给您读简报。");
+                                        + "等新闻来源接好，我再给您读带来源和时间的简报。");
                     } else {
                         showCompanionVoiceReply("新闻简报", result.body);
                     }
@@ -4043,7 +4042,7 @@ public class MainActivity extends Activity {
         if (!hasPermission(Manifest.permission.CAMERA)) {
             b.append("\n需要先允许摄像头。");
         } else if (!prefs.deepSeekKeyConfigured()) {
-            b.append("\n视觉模型服务未配置时，只保留本机手动记忆。");
+            b.append("\n联网陪伴未打开时，我先帮您记文字位置。");
         } else {
             b.append("\n最近物品记忆：\n").append(db.objectMemorySummary());
         }
@@ -4116,7 +4115,7 @@ public class MainActivity extends Activity {
         }
         if (!prefs.deepSeekKeyConfigured()) {
             showCompanionVoiceReply("我还不能细看",
-                    "奶奶，摄像头已经准备好了，但药瓶小字、报告和物品识别要视觉模型服务。先完成手机号注册或服务端配置，我再帮您看。");
+                    "奶奶，摄像头已经准备好了，但我现在还不能把小字和东西看清楚。先去“我的”里打开联网陪伴，回头我就能帮您念药瓶、找手机、认花草。");
             return;
         }
         String reason = visionReasonForTask(pendingVisionTask);
@@ -4142,7 +4141,7 @@ public class MainActivity extends Activity {
         String task = pendingVisionTask == null ? "" : pendingVisionTask;
         if (!prefs.deepSeekKeyConfigured()) {
             showCompanionVoiceReply("我还不能细看",
-                    "奶奶，这张照片需要视觉模型服务才能仔细分析。先完成手机号注册或服务端配置，我再帮您看。");
+                    "奶奶，这张照片我现在还看不清楚。到“我的”里打开联网陪伴后，我就能帮您念字、看药瓶、认花草。");
             return;
         }
         askDeepSeekIntentVision(task, bitmap, true, visionReasonForTask(task));
@@ -5823,11 +5822,11 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> {
                 updateLiveStageStatus("我慢慢说给您听", "speaking");
                 updateAvatarMouthFromPcm(pcmFrame);
-                updateVoiceStatus("模型语音正在播放，您可以随时插话。");
+                updateVoiceStatus("我正在说，您可以随时插话。");
             });
         } catch (Exception ex) {
             prefs.recordLiveModelAudioFrameState(liveModelAudioFrameCount, pcmFrame.length, "play_failed");
-            runOnUiThread(() -> updateVoiceStatus("模型语音帧收到了，但这台设备暂时没放出来。"));
+            runOnUiThread(() -> updateVoiceStatus("我准备好声音了，但这台设备暂时没放出来。"));
         }
     }
 
@@ -6088,9 +6087,9 @@ public class MainActivity extends Activity {
         if (shouldPreferRealtimeModelAudio() || liveModelAudioFrameCount > 0) {
             liveStreamingSpeechBuffer.setLength(0);
             if (liveModelAudioFrameCount > 0) {
-                updateVoiceStatus("正在播放模型语音，您可以随时插话。");
+                updateVoiceStatus("我正在说，您可以随时插话。");
             } else {
-                updateVoiceStatus("实时模型语音还在路上；如果没有声音，再回退系统语音。");
+                updateVoiceStatus("我正在准备声音；如果一会儿没出声，我就用手机声音说给您听。");
                 content.postDelayed(() -> {
                     if (realtimeVoiceEnabled && liveModelAudioFrameCount == 0 && liveStreamingSerial == serial) {
                         speakAssistantText(reply);
@@ -6457,8 +6456,8 @@ public class MainActivity extends Activity {
             prefs.recordLiveVoiceState("heard", "server_stt", clean);
             hideBottomNavForLiveCompanion();
             content.removeAllViews();
-            addLiveCompanionStage("我听懂了", "正在等实时模型回答。", "thinking");
-            updateVoiceStatus("我听懂了，等实时模型接着回答。");
+            addLiveCompanionStage("我听懂了", "我正在想怎么跟您说。", "thinking");
+            updateVoiceStatus("我听懂了，正在想。");
             updateLiveStageStatus("我听懂了，正在回答", "thinking");
             return;
         }
@@ -6490,7 +6489,7 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> {
                     if (serial == voiceConversationSerial) {
                         showCompanionVoiceReply("这次没连上",
-                                "联网回答没成功：" + ex.getMessage() + "\n\n我还在，您可以再说一遍；夜间强唤醒仍由本地兜底。");
+                                "刚才我没接上，话没想完整。您别急，我还在，您可以再说一遍。");
                     }
                 });
             }
@@ -6527,7 +6526,7 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> {
                     if (serial == voiceConversationSerial) {
                         showCompanionVoiceReply("这次没连上",
-                                "联网回答没成功：" + ex.getMessage() + "\n\n我先陪着您；夜间强唤醒仍由本地兜底。");
+                                "刚才我没接上，没能好好回答。您别急，我先陪着您。");
                     }
                 });
             }
@@ -6548,9 +6547,9 @@ public class MainActivity extends Activity {
                     prefs.hobbies())
                     + "\n\n我先按本机记着的情况陪您想一想。";
         }
-        return "我听到了。现在模型服务还没配置好，我先用本机记录陪您。\n\n"
+        return "我听到了。现在我还不能长篇回答，我先按手机里记着的情况陪您说两句。\n\n"
                 + proactiveCareText()
-                + "\n\n需要更自然地实时聊天，可以在“我的小助手”里完成手机号注册和服务端配置。";
+                + "\n\n想让我聊得更自然，可以到“我的”里打开联网陪伴。";
     }
 
     private void showCompanionVoiceWaiting(String line) {
@@ -6702,7 +6701,7 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> showCompanionReply("小助手回答", answer));
             } catch (Exception ex) {
                 runOnUiThread(() -> showCompanionReply("小助手没连上",
-                        "这次联网回答没成功：" + ex.getMessage() + "\n\n强唤醒和紧急联系人仍由本地兜底继续工作。"));
+                        "刚才我没接上，没能好好回答。您别急，可以再问我一遍。"));
             }
         }, "GouXiongDeepSeek").start();
     }
@@ -6814,7 +6813,7 @@ public class MainActivity extends Activity {
         }
         if (!prefs.deepSeekKeyConfigured()) {
             showCompanionVoiceReply("我还不能看",
-                    "奶奶，我听懂了，您是想让我帮您看。摄像头已经准备好了，但视觉模型服务还没连上；先完成手机号注册或服务端配置，我再帮您看。");
+                    "奶奶，我听懂了，您是想让我帮您看。摄像头已经准备好了，但我现在还没学会仔细看图。到“我的”里打开联网陪伴后，您再说“帮我看看这个”，我就能帮您看。");
             return;
         }
         String waiting = intent.detailed ? visionReasonForTask(intent.task) : "我看看您，您别急。";
@@ -6824,10 +6823,10 @@ public class MainActivity extends Activity {
     }
 
     private String deepSeekSystemPrompt() {
-        return "你是睡了么 App 的 AI 小助手，角色是" + prefs.companionRole()
+        return "你是睡了么 App 的小助手，角色是" + prefs.companionRole()
                 + "。" + CompanionAssistant.companionshipPrinciples(prefs.assistantName(), prefs.assistantIdentity(), prefs.ownerAddress())
                 + "。你面向中老年用户，回答要短、清楚、温柔，适合语音朗读。"
-                + "你平时用自然的人类陪伴口吻说话，不要反复强调自己是 AI 或机器人；按主人给你的名字和身份自称。"
+                + "你平时用自然的人类陪伴口吻说话，不要反复强调自己是程序；按主人给你的名字和身份自称。"
                 + "你要智能判断情绪和场景：孤单时共情陪伴，拖延喝水吃药时可以温柔撒娇或着急，睡眠异常时要坚定叫醒，开心时跟着开心，难过时先陪着。"
                 + "你可以有情绪，但不能辱骂、吓唬、羞辱或操控用户；所有情绪都服务于关心和安全。"
                 + "你要像懂事的孩子或亲近家人一样，先理解奶奶、爷爷、爸爸妈妈为什么让你看这个东西，再给贴心建议。"
@@ -7135,7 +7134,7 @@ public class MainActivity extends Activity {
         card.addView(scheduleRow, matchWrap());
 
         addSpace(card, 8);
-        card.addView(Theme.text(this, "只提醒你自己设定的事项，不替代医生医嘱。留空保存会关闭提醒。", 13, Theme.MUTED, Typeface.NORMAL), matchWrap());
+        card.addView(Theme.text(this, "只提醒您自己设定的事项。留空保存会关闭提醒。", 13, Theme.MUTED, Typeface.NORMAL), matchWrap());
         content.addView(card, matchWrap());
         addSpace(content, 10);
     }
@@ -7680,7 +7679,7 @@ public class MainActivity extends Activity {
                 String task = activeVisionTask.length() > 0 ? activeVisionTask : pendingVisionTask;
                 if (!prefs.deepSeekKeyConfigured()) {
                     showCompanionVoiceReply("我还不能看",
-                            "奶奶，摄像头已经允许了，但视觉模型服务还没连上。先完成手机号注册或服务端配置，我再帮您看。");
+                            "奶奶，摄像头已经允许了，但我现在还没学会仔细看图。到“我的”里打开联网陪伴后，我就能帮您看药瓶、读小字、找手机。");
                     return;
                 }
                 boolean detailed = activeVisionDetailed;

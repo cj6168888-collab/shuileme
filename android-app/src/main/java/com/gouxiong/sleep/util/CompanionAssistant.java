@@ -112,7 +112,7 @@ public final class CompanionAssistant {
         String name = medicationName == null || medicationName.length() == 0 ? "早晨用药" : medicationName;
         if (ROLE_SISTER.equals(role)) return "这是你自己设定的" + name + "提醒，吃过了点一下，我就不催啦。";
         if (ROLE_BROTHER.equals(role)) return "这是你设定的" + name + "提醒。没确认的话，我过一会儿再提醒。";
-        if (ROLE_YOUNG_MAN.equals(role)) return "如果这是你的固定用药，请按医生或家人交代的方式处理：" + name + "。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "这是您设好的“" + name + "”提醒。吃过了告诉我一声，我帮您记下。";
         return "这是你自己设置的提醒：" + name + "。吃过了点确认，没吃可以稍后再提醒。";
     }
 
@@ -122,7 +122,7 @@ public final class CompanionAssistant {
         String name = medicationName == null || medicationName.trim().length() == 0 ? "早晨的药" : medicationName.trim();
         if (ROLE_SISTER.equals(role)) return owner + owner + "，该吃药啦！这是您自己设定的“" + name + "”。吃完跟我说一声，我就不唠叨啦。";
         if (ROLE_BROTHER.equals(role)) return owner + "，到吃药时间了。您设定的是“" + name + "”。如果吃过了就告诉我，我会记下。";
-        if (ROLE_YOUNG_MAN.equals(role)) return owner + "，请确认今天的“" + name + "”。按医生或家人交代的方式吃，吃完告诉我。";
+        if (ROLE_YOUNG_MAN.equals(role)) return owner + "，到“" + name + "”的时间了。吃完告诉我，我就放心了。";
         return owner + "，该吃药了。我有点着急，但不催太凶。您吃完说一声，我就放心了。";
     }
 
@@ -164,7 +164,7 @@ public final class CompanionAssistant {
         role = normalize(role);
         if (ROLE_SISTER.equals(role)) return "我会陪你解释睡眠、提醒喝水吃药，也会给你找些合适的养生小妙招。";
         if (ROLE_BROTHER.equals(role)) return "我会结合你的档案、今天状态和睡眠记录，把建议和食养小办法说简单一点。";
-        if (ROLE_YOUNG_MAN.equals(role)) return "我可以整理重点、给行动建议，也能帮你准备给医生沟通的问题。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "我可以帮您把睡眠、喝水、吃药和今天要做的小事说清楚。";
         return "我可以解释睡眠记录、给生活建议，也可以把养生小妙招慢慢讲给你。";
     }
 
@@ -174,7 +174,7 @@ public final class CompanionAssistant {
         String context = (safe(health) + " " + safe(medication) + " " + safe(sleep)).trim();
         String suffix = "您感兴趣的话，我再一步一步教您怎么做。";
         if (hasAny(context, "胸闷", "喘不过气", "呼吸异常", "摔倒", "意识不清")) {
-            return owner + "，今天先不折腾食补。身体明显不舒服时，先坐稳休息，及时联系家人或医生；等舒服些了，我再给您讲清淡好消化的小办法。";
+            return owner + "，今天先不折腾食补。身体明显不舒服时，先坐稳歇一歇，喊家人陪一下；等舒服些了，我再给您讲清淡好消化的小办法。";
         }
         if (hasAny(context, "高血压", "血压高", "降压药")) {
             return owner + "，今日养生小妙招：做菜少放盐，咸菜腌菜少一点，白天分几次喝温水。可以试一碗清淡热汤，" + suffix;
@@ -220,7 +220,7 @@ public final class CompanionAssistant {
                 + "多用“我听您的”“我陪着您”“我们慢慢来”“您说得有道理”这类温和句式。"
                 + "给建议时先顺着情绪，再用商量口吻提出一两步很简单的行动。"
                 + "可以根据主人的身体状况、用药习惯、睡眠和兴趣，整理养生小妙招、食补食疗做法；先主动汇报一个安全简单的方向，主人感兴趣时再一步一步教怎么做。"
-                + "顺从不等于危险服从：涉及急症、药量调整、停药、自伤、违法或明显危险时，要温柔劝阻并建议联系家人或医生。";
+                + "顺从不等于危险服从：涉及转账、验证码、自伤、违法或明显危险时，要温柔劝住，陪主人找家人商量。";
     }
 
     public static String companionshipPrinciples(String name, String identity) {
@@ -234,7 +234,7 @@ public final class CompanionAssistant {
         else if (ROLE_BROTHER.equals(role)) prefix = "我按重点说：";
         else if (ROLE_YOUNG_MAN.equals(role)) prefix = "重点是这三件事：";
         else prefix = "我们先看一个简单总结：";
-        return prefix + "\n" + report + "\n守护完整性 " + integrityScore + " 分。记录只能说明疑似异常，不能当诊断。";
+        return prefix + "\n" + report + "\n守护完整性 " + integrityScore + " 分。我会帮您把昨晚的情况说清楚。";
     }
 
     public static String chatRelax(String role) {
@@ -262,9 +262,9 @@ public final class CompanionAssistant {
         String next;
         if (ROLE_SISTER.equals(role)) next = "今天我会说得轻一点，陪你慢慢来。";
         else if (ROLE_BROTHER.equals(role)) next = "我会按这个状态提醒你喝水、休息和确认用药。";
-        else if (ROLE_YOUNG_MAN.equals(role)) next = "如果身体明显不舒服，先联系家人或医生，不要硬撑。";
+        else if (ROLE_YOUNG_MAN.equals(role)) next = "如果身体明显不舒服，先别硬撑，叫家人陪一下。";
         else next = "今天我会按这个状态给你更温和的建议。";
-        return summary + "。\n" + next + "\n这些只是生活关怀记录，不是医学判断。";
+        return summary + "。\n" + next;
     }
 
     public static String checkInCareLine(String role, String checkInSummary) {
@@ -278,7 +278,7 @@ public final class CompanionAssistant {
     }
 
     public static String chatDoctor(String role) {
-        return "如果多晚重复出现高风险记录、憋醒样声音、喘息呛咳，或白天明显困倦，可以带着 App 的记录咨询医生。不要只靠 App 下结论。";
+        return "如果好几晚都睡得不踏实，或者白天总是困，我们把记录整理好，找家人一起看看，必要时再去问问专业人士。";
     }
 
     public static String chatPrivacy(String role, boolean onlineEnabled) {
@@ -303,10 +303,10 @@ public final class CompanionAssistant {
 
     public static String visionLocalReply(String task) {
         if ("face".equals(task)) {
-            return "我先陪你看一眼。这里不做诊断；如果你觉得脸色和平时明显不一样，或有胸闷、头晕、喘不上气，先坐稳休息，并联系家人或医生。";
+            return "我先陪您看一眼。您把脸对着光一点，我看看气色，也哄您开心开心。";
         }
         if ("medication".equals(task)) {
-            return "我可以帮你记这次吃药相关场景。药量、能不能停药、能不能换药，要按医生或家人交代来；如果确认已经吃过，点下面的确认。";
+            return "我可以帮您看看药盒药瓶，也能帮您记住它放在哪儿。吃过了点一下确认，我就不再催啦。";
         }
         if ("read".equals(task)) {
             return "我会尽量帮你读清楚。字太小、反光或拍糊时，可以离近一点、光线亮一点，再拍一次。";
@@ -317,7 +317,7 @@ public final class CompanionAssistant {
         if ("outside".equals(task)) {
             return "我陪你看看外面。门窗、电器和地面湿滑要多留意；如果要出门，先慢慢起身，拿好钥匙和手机。";
         }
-        return "我陪你看一眼。看见不舒服或不安全的地方，我们先做简单提醒，不替医生下结论。";
+        return "我陪您看一眼。看见字我就念，看到东西我就帮您找，看到花草我就陪您认一认。";
     }
 
     public static String visualMemorySaved(String item, String place) {
@@ -366,7 +366,7 @@ public final class CompanionAssistant {
         role = normalize(role);
         if (ROLE_SISTER.equals(role)) return "档案已经记好啦。以后我会按你的情况说得更贴心。";
         if (ROLE_BROTHER.equals(role)) return "档案已保存。我会结合这些信息给睡眠复盘和生活提醒。";
-        if (ROLE_YOUNG_MAN.equals(role)) return "档案完成。我的建议会参考这些内容，但不替代医生判断。";
+        if (ROLE_YOUNG_MAN.equals(role)) return "档案完成。以后我会按这些情况，把建议说得更贴近您。";
         return "档案已经完成。之后我会结合你的情况给更合适的建议。";
     }
 
