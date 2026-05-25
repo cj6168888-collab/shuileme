@@ -1511,7 +1511,7 @@ public class MainActivity extends Activity {
                         "wav",
                         prefs.deepSeekModel());
                 maybeSyncCompanionInsight("睡眠声波分析：\n" + answer, "sleep_audio");
-                runOnUiThread(() -> showCompanionVoiceReply("声波分析", answer + "\n\n说明：这是生活提醒，不是医学诊断。"));
+                runOnUiThread(() -> showCompanionVoiceReply("声波分析", answer));
             } catch (Exception ex) {
                 runOnUiThread(() -> showCompanionVoiceReply("声波分析没连上",
                         "这次声波分析没成功：" + ex.getMessage()
@@ -4180,8 +4180,8 @@ public class MainActivity extends Activity {
 
     private String visionReasonForTask(String task) {
         if ("face".equals(task)) return "我看看您的气色，您别急。";
-        if ("face_detail".equals(task)) return "我看看您说的脸部细节，只做生活观察，不下诊断。";
-        if ("medicine_text".equals(task) || "medication".equals(task)) return "我仔细看看药瓶小字，按医嘱的事我不乱说。";
+        if ("face_detail".equals(task)) return "我看看您说的脸部细节，顺便哄您开心。";
+        if ("medicine_text".equals(task) || "medication".equals(task)) return "我仔细看看药瓶上的字，慢慢念给您听。";
         if ("report".equals(task)) return "我仔细看看报告，先帮您读清楚重点。";
         if ("finance".equals(task)) return "我帮您看看这是不是理财、投资或转账风险。";
         if ("plant".equals(task)) return "我帮您看看这朵花或这盆植物。";
@@ -4306,7 +4306,7 @@ public class MainActivity extends Activity {
                     if (saved > 0) {
                         clean = clean + "\n\n我也帮您记住了 " + saved + " 个常用东西的位置。";
                     }
-                    showCompanionVoiceReply("我看完了", clean + "\n\n说明：这是生活提醒，不是医学诊断，也不替代医生和家人。");
+                    showCompanionVoiceReply("我看完了", clean);
                 });
             } catch (Exception ex) {
                 runOnUiThread(() -> showCompanionVoiceReply("这次没看清",
@@ -4324,17 +4324,15 @@ public class MainActivity extends Activity {
         return "视觉任务：" + visionTaskTitle(task)
                 + "\n用户让你看的原意/场景：" + (userIntent == null ? "" : userIntent)
                 + "\n清晰度：" + (detailed ? "高清仔细看，适合药瓶小字、文字、报告、物品识别。" : "低清快速看，只做粗略观察，不能细读小字。")
-                + "\n请用适合中老年人听的短句回答。"
-                + "\n你的口吻要像懂事、耐心、亲近的孩子或家人，先安抚，再说明你看到了什么，再给下一步建议。"
-                + "\n先判断主人让你看的用意：是想读字、找东西、看身体状态、看药品/保健品、看体检报告，还是想让你判断投资理财风险。"
-                + "\n如果是脸色，只能说“看起来可能有些疲惫/精神不错/光线不够看不清”等生活观察，不能诊断疾病。"
-                + "\n如果是眼角、皱纹、皮肤细节或主人问有没有变深，只能描述当前画面中能看见的光线、纹路、红肿、破损等生活观察；没有历史对比图时必须说“我不能确认比以前加深了没有”。"
-                + "\n如果是药品、保健品、药瓶小字或吃药，请结合主人身体情况和用药习惯做生活提醒，但不能判断药量、换药、停药或替代医嘱；看不清就明确说看不清。"
-                + "\n如果是体检报告，请先读出能看清的项目、数值、上下箭头或异常标记，再用简单话提醒带报告问医生；不能下诊断。"
-                + "\n如果是读信、说明书、合同或纸面文字，请尽量逐句读出可见文字，并解释其中重要提醒。"
-                + "\n如果是花草、植物或不认识的小物件，请先说明你看到的形状、颜色和叶片/花朵特征，再给出可能名称；不确定就说“像是”，不要装作百分百确定。"
-                + "\n如果是找东西或识别物品，请指出明显位置、下一步寻找建议，并安抚主人不要着急。"
-                + "\n如果出现投资、理财、保险、养老项目、转账、贷款、扫码付款、陌生人收益承诺等内容，要判断是否不适合老人或有诈骗风险；请温和但明确劝阻：先别转账、别给验证码、别签字，找家人核实。"
+                + "\n请用适合中老年人听的短句回答，像亲近的孩子在身边帮忙。"
+                + "\n先听懂主人真正想要什么：念药瓶小字、读纸上的字、找手机钥匙、看看脸色哄开心、认花草、看报告或看一件东西。"
+                + "\n回答时先直接帮忙，不要先讲免责声明，不要摆架子，不要像客服。"
+                + "\n看药瓶、药盒、说明书时，把能看清的药名、字、用法提示、日期慢慢念出来；如果看不清，就温柔地请主人拿近一点、稳一点、换个亮处。"
+                + "\n看脸、眼角、皱纹、气色时，用温柔的话描述你看见的样子，多哄主人开心；没有历史对比就别硬说“加深了”，可以说“这张里看着怎样”。"
+                + "\n看花草植物时，先说它像什么花、叶子和花朵有什么特点，再给一点简单养护建议，比如浇水、晒太阳、通风。"
+                + "\n找手机、钥匙、眼镜等东西时，直接说你在画面里看到的可能位置，再给下一步找法，先安抚主人别急。"
+                + "\n看报告时，先帮主人读出看得清的项目和数字，再用大白话解释，语气放松。"
+                + "\n只有遇到转账、验证码、贷款、陌生投资、夸张收益承诺时，才温和提醒先别急着给钱，找家人核实。"
                 + "\n如果看到了钥匙、手机、药盒/药瓶、眼镜、钱包、证件/医保卡、遥控器、拐杖、水杯等常忘物品，请在回答最后另起一行追加：MEMORY_JSON:{\"objects\":[{\"item\":\"钥匙\",\"place\":\"冰箱门上的挂钩\",\"confidence\":\"中\",\"note\":\"可选\"}]}。看不清就 objects 为空。"
                 + "\n不要把 MEMORY_JSON 解释给用户听。"
                 + "\n\n小助手身份：\n" + prefs.assistantPersonaSummary()
@@ -4542,10 +4540,10 @@ public class MainActivity extends Activity {
                 + "\n请只返回 JSON，不要写解释，不要 Markdown。格式："
                 + "{\"scene_note\":\"一句很短的生活观察\",\"objects\":[{\"item\":\"钥匙\",\"place\":\"冰箱门上的挂钩\",\"confidence\":\"中\",\"note\":\"可选\"}],\"care\":\"可选的一句关心\"}"
                 + "\n重点识别并记录老人常忘的东西：钥匙、手机、药盒/药瓶、眼镜、钱包、证件/医保卡、遥控器、拐杖、水杯。"
-                + "\n如果能看到主人，只做温和生活观察，例如光线不足、看起来有些累、精神还不错；不要诊断疾病。"
+                + "\n如果能看到主人，给一句温柔生活观察，例如光线不足、看起来有些累、精神还不错。"
                 + "\nplace 要尽量具体，例如“冰箱门上挂钩”“床头柜第二层抽屉”“沙发左边扶手旁”。"
                 + "\n如果看不清，不要编造位置，objects 返回空数组。"
-                + "\n脸色只能做生活观察，不做诊断；看到药品只能记录位置，不判断吃没吃、药量、换药或停药。";
+                + "\n看到药盒药瓶时，只记录它在哪里，别编造看不清的字。";
     }
 
     private void handleAutoVisionAnswer(String answer) {
@@ -4801,7 +4799,7 @@ public class MainActivity extends Activity {
                 prefs.sleepSituation(),
                 prefs.hobbies());
         if (!prefs.serverRegistered()) {
-            showCompanionVoiceReply("今日小妙招", fallback + "\n\n这是本机生活建议，不是医学诊断。");
+            showCompanionVoiceReply("今日小妙招", fallback);
             return;
         }
         showCompanionVoiceWaiting(prefs.ownerAddress() + "，我根据您的身体状况找一个今天能试的小妙招，马上说给您听。");
@@ -4823,7 +4821,7 @@ public class MainActivity extends Activity {
                         prefs.deepSeekModel());
                 String answer = result.body == null ? "" : result.body.trim();
                 runOnUiThread(() -> showCompanionVoiceReply("今日小妙招",
-                        (answer.length() > 0 ? answer : fallback) + "\n\n说明：这是生活建议，不是医学诊断，也不替代医嘱。"));
+                        answer.length() > 0 ? answer : fallback));
             } catch (Exception ex) {
                 runOnUiThread(() -> showCompanionVoiceReply("今日小妙招",
                         fallback + "\n\n这次联网搜集没成功，我先按本机档案给您一个稳妥建议。"));
@@ -6081,7 +6079,7 @@ public class MainActivity extends Activity {
             liveStreamingSpeechBuffer.append(finalAnswer);
         }
         String core = liveStreamingReplyBuffer.length() > 0 ? liveStreamingReplyBuffer.toString().trim() : finalAnswer;
-        String reply = core + "\n\n说明：这是生活建议，不是医学诊断。";
+        String reply = core;
         maybeSyncCompanionInsight("实时陪伴回复：" + core, "live_voice_reply");
         prefs.recordLiveVoiceState("reply", "我听懂了", reply);
         updateLiveStageStatus("我慢慢说给您听", "speaking");
@@ -6100,10 +6098,10 @@ public class MainActivity extends Activity {
                 }, 1800L);
             }
         } else if (liveStreamingSpeechBuffer.length() > 0) {
-            liveStreamingSpeechBuffer.append("。说明：这是生活建议，不是医学诊断。");
+            liveStreamingSpeechBuffer.append("。");
             speakLiveStreamingChunk(true);
         } else if (liveStreamingTtsChunkCount > 0) {
-            speakAssistantTextQueued("说明：这是生活建议，不是医学诊断。", prefs.companionRole(),
+            speakAssistantTextQueued("我说完啦，您慢慢来。", prefs.companionRole(),
                     TextToSpeech.QUEUE_ADD, "gouxiong-live-stream-" + serial + "-final");
         } else {
             speakAssistantText(reply);
@@ -6485,7 +6483,7 @@ public class MainActivity extends Activity {
                 maybeSyncCompanionInsight("用户：" + clean + "\n小助手：" + answer, "voice_reply");
                 runOnUiThread(() -> {
                     if (serial == voiceConversationSerial) {
-                        showCompanionVoiceReply("我听懂了", answer + "\n\n说明：这是生活建议，不是医学诊断。");
+                        showCompanionVoiceReply("我听懂了", answer);
                     }
                 });
             } catch (Exception ex) {
@@ -6522,7 +6520,7 @@ public class MainActivity extends Activity {
                         syncSource == null || syncSource.length() == 0 ? "voice_reply" : syncSource);
                 runOnUiThread(() -> {
                     if (serial == voiceConversationSerial) {
-                        showCompanionVoiceReply(topic, answer + "\n\n说明：这是生活陪伴，不是医学诊断。");
+                        showCompanionVoiceReply(topic, answer);
                     }
                 });
             } catch (Exception ex) {
@@ -6548,7 +6546,7 @@ public class MainActivity extends Activity {
                     prefs.medicationHabits(),
                     prefs.sleepSituation(),
                     prefs.hobbies())
-                    + "\n\n这是本机生活建议，不是医学诊断；用药和不舒服的情况按医嘱来。";
+                    + "\n\n我先按本机记着的情况陪您想一想。";
         }
         return "我听到了。现在模型服务还没配置好，我先用本机记录陪您。\n\n"
                 + proactiveCareText()
@@ -6701,7 +6699,7 @@ public class MainActivity extends Activity {
             try {
                 String answer = askAssistantModel(deepSeekUserPrompt(cleanQuestion));
                 maybeSyncCompanionInsight("用户：" + cleanQuestion + "\n小助手：" + answer, "typed_reply");
-                runOnUiThread(() -> showCompanionReply("小助手回答", answer + "\n\n说明：这是生活建议，不是医学诊断。"));
+                runOnUiThread(() -> showCompanionReply("小助手回答", answer));
             } catch (Exception ex) {
                 runOnUiThread(() -> showCompanionReply("小助手没连上",
                         "这次联网回答没成功：" + ex.getMessage() + "\n\n强唤醒和紧急联系人仍由本地兜底继续工作。"));
@@ -6834,9 +6832,8 @@ public class MainActivity extends Activity {
                 + "你可以有情绪，但不能辱骂、吓唬、羞辱或操控用户；所有情绪都服务于关心和安全。"
                 + "你要像懂事的孩子或亲近家人一样，先理解奶奶、爷爷、爸爸妈妈为什么让你看这个东西，再给贴心建议。"
                 + "如果用户直接问到联网、隐私或你是不是程序，要诚实简短说明，不要欺骗。"
-                + "你不是医生，不做诊断，不下医学结论。"
-                + "看图时只能做生活观察、朗读、找物和安全提醒，不判断疾病、药量、换药或停药。"
-                + "遇到药品、保健品要结合主人档案做谨慎提醒；遇到投资、理财、转账、贷款、保险、养老项目等明显不适合老人或疑似诈骗的内容，要温和但坚定地劝主人先不要付款、不要给验证码、先问家人。"
+                + "看图时先帮主人把字念清、把东西找着、把花草认一认、把心情哄好。"
+                + "遇到药品、保健品就先读清楚包装和说明；遇到投资、理财、转账、贷款、保险、养老项目等明显可能吃亏的内容，再温和提醒主人先别急着付款或给验证码，问问家人。"
                 + "你可以结合主人档案、今天状态、睡眠摘要和守护完整性，给睡眠复盘、生活建议、养生小妙招、食补食疗做法、情绪陪伴和医生沟通准备。"
                 + "讲养生和食疗时，只说安全、常见、容易执行的日常食养办法，不承诺疗效；先主动汇报一个方向，主人感兴趣时再一步一步教怎么做。"
                 + "睡眠记录只能称为疑似记录或提醒事件。"
