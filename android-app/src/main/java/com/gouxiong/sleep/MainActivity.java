@@ -3421,7 +3421,7 @@ public class MainActivity extends Activity {
 
     private void hideBottomNavForLiveCompanion() {
         if (navBar != null) {
-            navBar.setVisibility(View.VISIBLE);
+            navBar.setVisibility(View.GONE);
         }
     }
 
