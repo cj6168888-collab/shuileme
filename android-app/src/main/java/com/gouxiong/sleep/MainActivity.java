@@ -679,9 +679,9 @@ public class MainActivity extends Activity {
         nav.setGravity(Gravity.CENTER);
         nav.setPadding(Theme.dp(this, 12), Theme.dp(this, 7), Theme.dp(this, 12), Theme.dp(this, 9));
         nav.setBackground(Theme.navBar(this));
-        addNav(nav, "睡眠守护", () -> showShell("guard"), tab.equals("guard"));
-        addNav(nav, "小助理", () -> showShell("assistant"), tab.equals("assistant") || tab.equals("morning"));
-        addNav(nav, "设置", () -> showShell("settings"), tab.equals("settings"));
+        addNav(nav, "守护", () -> showShell("guard"), tab.equals("guard"));
+        addNav(nav, "早安", () -> showShell("morning"), tab.equals("morning"));
+        addNav(nav, "我的", () -> showShell("settings"), tab.equals("settings") || tab.equals("assistant"));
         root.addView(nav, new LinearLayout.LayoutParams(-1, -2));
 
         setContentView(root);
@@ -8336,10 +8336,10 @@ public class MainActivity extends Activity {
     }
 
     private void addNav(LinearLayout nav, String text, Runnable action, boolean selected) {
-        int color = "睡眠守护".equals(text) ? Theme.BLUE : ("小助理".equals(text) ? CompanionAssistant.roleColor(prefs.companionRole()) : Theme.MUTED);
+        int color = "守护".equals(text) ? Theme.BLUE : ("早安".equals(text) ? Theme.ORANGE : Theme.MUTED);
         Button button = selected ? Theme.button(this, navLabel(text), color) : Theme.softButton(this, navLabel(text), color);
-        button.setTextSize(15);
-        button.setMinHeight(Theme.dp(this, 52));
+        button.setTextSize(20);
+        button.setMinHeight(Theme.dp(this, 64));
         button.setOnClickListener(v -> action.run());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
         lp.setMargins(Theme.dp(this, 4), 0, Theme.dp(this, 4), 0);
@@ -8347,9 +8347,7 @@ public class MainActivity extends Activity {
     }
 
     private String navLabel(String text) {
-        if ("睡眠守护".equals(text)) return "🛡\n睡眠守护";
-        if ("小助理".equals(text)) return "♡\n小助理";
-        return "⚙\n设置";
+        return text;
     }
 
     private static class SleepWaveformView extends View {
