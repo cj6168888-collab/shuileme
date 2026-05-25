@@ -2024,16 +2024,14 @@ public class MainActivity extends Activity {
         AudioOutputStatus.Snapshot audio = AudioOutputStatus.inspect(this);
         LinearLayout list = cardContainer();
         list.setPadding(Theme.dp(this, 8), Theme.dp(this, 6), Theme.dp(this, 8), Theme.dp(this, 6));
-        addSettingsRow(list, "服务端与能力检查", prefs.serverRegistered() ? "账号已登录" : "未登录", prefs.serverRegistered(), this::showServerCapabilityCheck);
-        addSettingsRow(list, "主人档案", prefs.ownerProfileSummary().length() > 8 ? "已填写" : "待完善", prefs.ownerProfileSummary().length() > 8, this::showOwnerProfileSettings);
-        addSettingsRow(list, "提醒与通知", prefs.emergencyEnabled() ? "家人电话已设置" : "设置家人电话", prefs.emergencyEnabled(), this::showEmergencyDialog);
-        addSettingsRow(list, "设备与声音", audio.isBluetooth() ? "蓝牙已连接" : "手机扬声器", audio.isBluetooth(), this::showAudioOutputSettings);
-        addSettingsRow(list, "守护调校", prefs.mode(), guardIntegrityScore() >= 80, this::showGuardianSettings);
-        addSettingsRow(list, "数据与隐私", "本机记录与导出", true, this::showDataSettings);
-        addSettingsRow(list, "小助理设置", prefs.companionRole(), true, this::showCompanionSettings);
+        addSettingsRow(list, "服务端与能力检查", prefs.serverRegistered() ? "账号已登录" : "未登录", "☘", Theme.GREEN, prefs.serverRegistered(), this::showServerCapabilityCheck);
+        addSettingsRow(list, "主人档案", prefs.ownerProfileSummary().length() > 8 ? "已填写" : "待完善", "◆", Theme.ORANGE, prefs.ownerProfileSummary().length() > 8, this::showOwnerProfileSettings);
+        addSettingsRow(list, "提醒与通知", prefs.emergencyEnabled() ? "家人电话已设置" : "待设置", "●", Theme.RED, prefs.emergencyEnabled(), this::showCareSettings);
+        addSettingsRow(list, "设备管理", audio.isBluetooth() ? "蓝牙已连接" : "手机扬声器", "▣", Theme.BLUE, audio.isBluetooth(), this::showAudioOutputSettings);
+        addSettingsRow(list, "数据与隐私", "本机记录与导出", "◈", Theme.BLUE, true, this::showDataSettings);
+        addSettingsRow(list, "关于我们", appVersionLine(), "✿", Theme.GREEN, true, this::showAboutSettings);
         content.addView(list, matchWrap());
         addSpace(content, 12);
-        addCard("紧急联系人", prefs.emergencySummary() + "\n" + prefs.emergencyActionSummary(), prefs.emergencyEnabled() ? Theme.GREEN : Theme.ORANGE);
     }
 
     private void addSettingsProfileCard() {
@@ -2059,14 +2057,14 @@ public class MainActivity extends Activity {
         addSpace(content, 10);
     }
 
-    private void addSettingsRow(LinearLayout list, String title, String state, boolean ok, Runnable action) {
+    private void addSettingsRow(LinearLayout list, String title, String state, String iconText, int color, boolean ok, Runnable action) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(Theme.dp(this, 10), Theme.dp(this, 10), Theme.dp(this, 10), Theme.dp(this, 10));
-        TextView icon = Theme.text(this, ok ? "✓" : "!", 17, ok ? Theme.GREEN : Theme.ORANGE, Typeface.BOLD);
+        TextView icon = Theme.text(this, iconText, 17, color, Typeface.BOLD);
         icon.setGravity(Gravity.CENTER);
-        icon.setBackground(Theme.rounded(Theme.mix(ok ? Theme.GREEN : Theme.ORANGE, Color.WHITE, 0.86f), 14, this));
+        icon.setBackground(Theme.rounded(Theme.mix(color, Color.WHITE, 0.86f), 14, this));
         row.addView(icon, new LinearLayout.LayoutParams(Theme.dp(this, 34), Theme.dp(this, 34)));
         TextView titleView = Theme.text(this, title, 17, Theme.TEXT, Typeface.BOLD);
         LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(0, -2, 1);
@@ -2077,6 +2075,24 @@ public class MainActivity extends Activity {
         row.addView(stateView, new LinearLayout.LayoutParams(Theme.dp(this, 112), -2));
         row.setOnClickListener(v -> action.run());
         list.addView(row, matchWrap());
+    }
+
+    private String appVersionLine() {
+        try {
+            String version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            return "版本 " + (version == null || version.length() == 0 ? "本机" : version);
+        } catch (Exception ignored) {
+            return "本机版本";
+        }
+    }
+
+    private void showAboutSettings() {
+        content.removeAllViews();
+        addSimplePageHeader("关于我们", "", null);
+        addSettingsProfileCard();
+        addCard("睡了么", "面向中老年人的睡眠守护和陪伴工具。所有睡眠记录只作为生活提醒和复盘参考，不做医学诊断。", Theme.BLUE);
+        addCard("当前版本", appVersionLine() + "\n服务器：" + compactForCard(prefs.serverBaseUrl(), 36), Theme.GREEN);
+        addSettingButton("返回设置", this::showSettings);
     }
 
     private void showGuardianSettings() {
@@ -2097,13 +2113,12 @@ public class MainActivity extends Activity {
 
     private void showCareSettings() {
         content.removeAllViews();
-        content.addView(Theme.text(this, "晨间关怀", 32, Theme.TEXT, Typeface.BOLD), matchWrap());
-        addSpace(content, 8);
-        addCard("早安提醒", "起床后优先确认喝水和用药，睡眠汇报只保留重点。", Theme.ORANGE);
-        addSettingButton("早晨吃药提醒", this::showMedicationDialog);
-        addSettingButton("主人档案", this::showOwnerProfileSettings);
-        addSettingButton("记录今天状态", this::showAssistantCheckIn);
-        addSettingButton("打开早安页", this::showMorningCare);
+        addSimplePageHeader("提醒与通知", "", null);
+        addCard("轻提醒", "吃药、喝水和久坐提醒都会按你设置的时间触发；睡眠守护中不会用喝水/久坐打扰。", Theme.GREEN);
+        addSettingButton("家人电话", this::showEmergencyDialog);
+        addSettingButton("吃药提醒", this::showMedicationDialog);
+        addSettingButton("健康习惯", this::showHealthHabitsDialog);
+        addSettingButton("唤醒声音", this::showSoundSettings);
         addSettingButton("返回设置", this::showSettings);
     }
 
